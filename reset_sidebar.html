@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Sidebar - Quick Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.success {
+            background: #28a745;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+        .code {
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Sidebar Reset Tool</h1>
+        
+        <div class="instructions">
+            <h3>Quick Fix for Stuck Sidebar</h3>
+            <p>If your sidebar is stuck collapsed and won't expand, use the buttons below to reset it:</p>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="button success" onclick="expandSidebar()">
+                📖 Expand Sidebar
+            </button>
+            
+            <button class="button danger" onclick="collapseSidebar()">
+                📕 Collapse Sidebar
+            </button>
+            
+            <button class="button warning" onclick="clearStorage()">
+                🗑️ Clear Storage & Reset
+            </button>
+            
+            <button class="button" onclick="checkStatus()">
+                🔍 Check Current Status
+            </button>
+        </div>
+
+        <div id="status"></div>
+
+        <div class="instructions">
+            <h3>Alternative Methods:</h3>
+            <ul>
+                <li><strong>Keyboard Shortcut:</strong> Press <code>Ctrl + B</code> to toggle</li>
+                <li><strong>Double-click:</strong> Double-click on the sidebar to toggle</li>
+                <li><strong>Debug Page:</strong> Visit <a href="/school_ms/debug_sidebar.php" target="_blank">debug_sidebar.php</a></li>
+                <li><strong>Browser Console:</strong> Press F12 and run the commands below</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <h3>Manual Console Commands:</h3>
+            <div class="code">
+                // Expand sidebar
+                localStorage.setItem('sidebarCollapsed', 'false');
+                location.reload();
+            </div>
+            <div class="code">
+                // Collapse sidebar
+                localStorage.setItem('sidebarCollapsed', 'true');
+                location.reload();
+            </div>
+            <div class="code">
+                // Clear all sidebar data
+                localStorage.removeItem('sidebarCollapsed');
+                location.reload();
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/school_ms/dashboard.php" class="button">
+                🏠 Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function expandSidebar() {
+            localStorage.setItem('sidebarCollapsed', 'false');
+            
+            // Try to update Alpine store if available
+            if (window.Alpine && window.Alpine.store && window.Alpine.store('sidebar')) {
+                window.Alpine.store('sidebar').collapsed = false;
+            }
+            
+            showStatus('✅ Sidebar set to EXPANDED. Redirecting to dashboard...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/school_ms/dashboard.php';
+            }, 2000);
+        }
+
+        function collapseSidebar() {
+            localStorage.setItem('sidebarCollapsed', 'true');
+            
+            // Try to update Alpine store if available
+            if (window.Alpine && window.Alpine.store && window.Alpine.store('sidebar')) {
+                window.Alpine.store('sidebar').collapsed = true;
+            }
+            
+            showStatus('✅ Sidebar set to COLLAPSED. Redirecting to dashboard...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/school_ms/dashboard.php';
+            }, 2000);
+        }
+
+        function clearStorage() {
+            localStorage.removeItem('sidebarCollapsed');
+            
+            // Clear other related storage
+            localStorage.removeItem('sidebar-state');
+            localStorage.removeItem('sidebarState');
+            
+            showStatus('✅ All sidebar storage cleared. Sidebar will use default state. Redirecting...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/school_ms/dashboard.php';
+            }, 2000);
+        }
+
+        function checkStatus() {
+            const collapsed = localStorage.getItem('sidebarCollapsed');
+            const hasAlpine = typeof window.Alpine !== 'undefined';
+            const hasStore = hasAlpine && window.Alpine.store && window.Alpine.store('sidebar');
+            
+            let status = '<h4>Current Status:</h4>';
+            status += `<p><strong>LocalStorage:</strong> ${collapsed || 'not set (default: expanded)'}</p>`;
+            status += `<p><strong>Alpine.js:</strong> ${hasAlpine ? '✅ Available' : '❌ Not loaded'}</p>`;
+            status += `<p><strong>Sidebar Store:</strong> ${hasStore ? '✅ Available' : '❌ Not available'}</p>`;
+            
+            if (hasStore) {
+                status += `<p><strong>Store State:</strong> ${window.Alpine.store('sidebar').collapsed ? 'Collapsed' : 'Expanded'}</p>`;
+            }
+            
+            showStatus(status, 'info');
+        }
+
+        // Auto-check status on load
+        setTimeout(checkStatus, 500);
+
+        // Add keyboard shortcut
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                const current = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (current) {
+                    expandSidebar();
+                } else {
+                    collapseSidebar();
+                }
+            }
+        });
+
+        showStatus('🔧 Sidebar Reset Tool loaded. Use the buttons above or press Ctrl+B to toggle.', 'info');
+    </script>
+</body>
+</html>

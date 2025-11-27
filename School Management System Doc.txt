@@ -1,0 +1,313 @@
+School Management System Documentation Template
+
+1. System Overview
+The School Management System (SMS) is a centralized platform designed to streamline and automate the day-to-day academic and administrative tasks of schools. It supports multi-user access with dedicated modules for students, teachers, administrators, and parents.
+
+2. Objectives
+* Centralize academic, administrative, and financial operations
+* Improve communication between stakeholders
+* Enable real-time monitoring of student and staff performance
+* Support data-driven decision making
+
+3. Technology Stack
+Layer
+Technology
+Frontend-HTML5, CSS3 (Tailwind CSS), JavaScript
+Backend-PHP�
+Database-PhpMyAdmin
+Authentication-JWT / OAuth2
+Hosting-AWS / DigitalOcean / Firebase
+Version Control-Git (GitHub / GitLab)
+Mobile App (optional)-React Native / Flutter
+APIs-RESTful APIs
+Notification-Firebase Cloud Messaging / Twilio / Infobip
+
+4. User Roles and Access Levels
+Role
+Access Privileges
+Super Admin-Full access to all modules and user management
+
+School Admin-Manage academic settings, staff, fees, reports
+
+Principal-View reports, approve activities, manage academic calendar
+
+Teacher-Mark attendance, upload grades, create assignments
+
+Student-View grades, timetable, submit assignments
+
+Parent-Monitor student progress, receive announcements, view fee status
+
+Accountant-Manage fee payments, generate financial reports
+
+Librarian-Manage library inventory, issue/return books
+
+Transport Officer-Assign routes, manage bus schedule
+
+Hostel Warden-Allocate rooms, monitor hostel attendance
+
+Canteen Manager-Manage meals, monitor stock, handle meal payments
+
+5. System Modules with Feature Workflows
+1. User Management
+* Create Users: Admin can add users manually or allow self-registration (with approval).
+* Authentication: Users log in with email/username and password.
+* Role Assignment: Assign one or multiple roles per user.
+* User Status: Activate/deactivate accounts.
+
+2. Academic Management
+? Curriculum & Syllabus
+* Add/edit subjects and courses
+* Set prerequisites
+* Upload course materials
+* Link courses to teachers
+
+? Class & Section Management
+* Manage academic sessions/terms
+* Define grade levels, sections, streams
+* Assign class teachers
+* Timetable/schedule management
+
+? Exams & Grading
+* Create exam types (midterm, final, quiz)
+* Custom grading systems (letter, percentage, GPA)
+* Continuous assessment (C.A) tracking
+* Auto-grade computation
+* Report card generation (PDF)
+* Transcripts and academic history
+
+* Class Setup: Define class names, sections, and academic terms.
+* Subject Assignment: Link teachers to subjects and classes.
+* Timetable: Admin configures weekly timetable; teachers can view schedules.
+* Calendar: Principal or admin updates holidays and events.
+
+3. Student Information System (SIS)
+? Admissions & Enrollment
+* Online application portal
+* Document upload and verification
+* Admission approval workflow
+* Auto-generate student ID
+* Class allocation
+
+? Student Profile
+* Personal & academic information
+* Parent/guardian details
+* Health records and emergency contacts
+* Attendance history
+* Fee payment status
+
+* Enrollment: Students register through an online form or are added manually by admin.
+* Profile Management: Admin and students (limited) can update personal data.
+* Promotion/Demotion: Admin promotes students at term end; records retained.
+
+4. Parent Portal
+* View student performance and attendance
+* Receive announcements and circulars
+* Fee invoice and payment history
+* Download report cards
+* Send private messages to teachers
+* Track disciplinary records
+* View Academic Progress: See grades, assignments, and feedback.
+* Receive Notifications: Automatic alerts for fees, attendance, performance.
+* Track Attendance: Check if child is present or absent daily.
+
+5. Teacher Dashboard
+* Assign subjects and classes
+* Track lesson progress
+* Attendance and payroll management
+* Class diary & lesson planning
+* Leave request and approval
+* Performance appraisal tracking
+* Manage Class: View student lists, input attendance, enter grades.
+* Assignments: Create and schedule homework with due dates.
+* Lesson Planning: Add lesson outlines per week or term.
+
+6. Attendance Management
+* Daily student & staff attendance
+* Manual or biometric attendance
+* SMS/email alerts for absenteeism
+* Attendance reports (monthly/yearly)
+* Integration with RFID/NFC systems
+* Mark Attendance: Teachers mark daily attendance for each class.
+* Automated Alerts: Absent notifications sent to parents.
+* Reports: Admin generates attendance reports for all terms.
+
+7. Finance & Fee Management
+* Define fee structures (by class, term, program)
+* Auto-generate invoices
+* Online payment gateway integration (Paystack, Stripe, etc.)
+* Generate receipts
+* Scholarships and financial aid tracking
+* Arrears and dues reporting
+* Accounting reports (Income, Expense, Ledger)
+* Fee Structure: Define fees per class/term including discounts.
+* Invoice Generation: System auto-generates fee invoices.
+* Online Payment: Integration with gateways; receipts auto-issued.
+* Reports: Track paid/unpaid balances; export for accounts.
+
+8. Library Management
+* Book cataloging
+* Barcode scanning support
+* Issue/return system
+* Fines and overdue tracking
+* Member management (students/staff)
+* Digital resource management (eBooks, PDFs)
+* Book Inventory: Add new books with author, title, ISBN.
+* Issue/Return: Librarian scans or selects book for issue/return.
+* Late Return Fines: Automatically calculates fines per day.
+
+9. Hostel Management
+* Hostel blocks & room allocation
+* Attendance in hostel
+* Meal plan management
+* Visitor tracking
+* Report issues (maintenance, health)
+* Room Setup: Add hostel blocks, floors, and room types.
+* Allocation: Warden assigns rooms to students based on availability.
+* Monitoring: View hostel attendance and flag issues.
+
+10. Transport Management
+* Route and stop creation
+* Vehicle management
+* Driver/staff assignment
+* Student transport allocation
+* GPS vehicle tracking (if hardware available)
+* Transport fee management
+* Route Setup: Define routes with pickup/drop points.
+* Student Mapping: Assign students to routes.
+* Driver Records: Add and monitor bus drivers.
+
+11. Communication Module
+* Announcements & notices
+* Email/SMS/Push notification integration
+* In-app messaging between students, staff, and parents
+* Calendar and reminders
+* Emergency broadcast system
+* Notices: Admin or Principal posts notices.
+* Bulk Messaging: SMS/email sent to groups (class, staff, etc.).
+* Private Messages: Students and teachers communicate securely.
+
+12. Reports and Analytics
+* Student performance dashboards
+* Fee collection and financial reports
+* Staff performance analysis
+* Attendance analytics
+* Graphs & charts for decision-making
+* Export to Excel, PDF, CSV
+* Academic Reports: View overall student performance.
+* Financial Reports: Monthly or term-wise income/expenses.
+* Attendance Reports: Absentee trends by class, term.
+
+13. Online Learning Tools
+* Virtual classroom integration (Zoom, Google Meet)
+* Upload assignments and materials
+* Online tests and quizzes
+* Student submission tracking
+* Plagiarism detection tool integration
+* Content Upload: Teachers upload documents, videos, links.
+* Quiz/Test: Create time-based quizzes with scoring.
+* Discussion Boards: Forum-style interactions on lessons.
+
+14. Health and Counseling Module
+* Medical history tracking
+* Health check-up records
+* Immunization status
+* Emergency contact and blood group
+* Issue health reports to parents
+* Health Records: Admin or nurse updates medical records.
+* Counseling Logs: Record and schedule sessions.
+
+15. Inventory Management
+* Manage school assets (computers, furniture, etc.)
+* Track purchases and vendors
+* Consumables (stationery, lab items) inventory
+* Request and issue items to staff/departments
+* Asset Tracking: Manage all school-owned items.
+* Request Handling: Staff request items; approval workflow applied.
+
+16. Document & File Management
+* Upload/download student and staff documents
+* Certificates and ID generation
+* Archive student transcripts
+* Secure file sharing between departments
+
+17. Canteen Management
+a. Student Registration: Students must register for the canteen service (term-based or yearly).
+b. Staff Options: Staff can either register for daily meals or place specific food orders from the menu.
+c. Meal Planning: Canteen manager defines weekly menus and meal schedules.
+d. Payment Tracking: System tracks student subscriptions and staff payments.
+e. Inventory Management: Track stock of food items and ingredients.
+f. Reports: Generate canteen usage, inventory, and transaction reports.
+
+
+6. Workflows
+A. Student Enrollment Workflow
+1. Applicant completes online registration
+2. Admin verifies and approves
+3. Student ID generated automatically
+4. Admission confirmation sent to student & parent
+B. Exam & Grade Workflow
+1. Teacher creates assessment/exam
+2. Students take exam or submit assignments
+3. Teacher enters scores
+4. Admin approves grade entries
+5. Report cards generated automatically
+C. Fee Payment Workflow
+1. Admin sets fee structure
+2. Invoice auto-generated per student
+3. Payment via portal or bank integration
+4. Receipt issued & balance updated
+D. Library Workflow
+1. Librarian catalogs books
+2. Student/teacher requests a book
+3. Book issued with due date
+4. Return tracked; fine auto-applied if overdue
+
+E. Canteen Registration and Usage Workflow
+Students:
+Student submits registration form for term/year
+Admin or canteen manager approves registration
+System logs student as registered
+Meals are served without per-order; reports generated periodically
+
+Staff:
+Staff views weekly menu
+Staff places order for desired meals
+System deducts from account balance or marks for payment
+Canteen staff serves the meal; system logs transaction
+
+7. Database Schema (Simplified)
+* Users (id, name, email, role_id, password)
+* Roles (id, name)
+* Students (id, user_id, class_id, parent_id, admission_date)
+* Teachers (id, user_id, department_id)
+* Classes (id, name, section, teacher_id)
+* Subjects (id, name, class_id, teacher_id)
+* Grades (id, student_id, subject_id, term, score)
+* Attendance (id, date, student_id, status)
+* Fees (id, student_id, term, amount_due, amount_paid, status)
+* Library (id, title, author, isbn, available_copies)
+* Book Issues (id, book_id, student_id, issue_date, return_date)
+* Canteen_Menu (id, date, item_name, price)
+* Canteen_Orders (id, staff_id, menu_id, order_time, quantity, total_price)
+* Canteen_Inventory (id, item_name, quantity, unit_price, last_updated)
+* Canteen_Registrations (id, student_id, term, approved_by, registration_date)
+
+8. Security Measures
+* Role-based access control (RBAC)
+* Encrypted passwords
+* HTTPS/SSL for secure communication
+* Audit logs and user activity tracking
+* Regular backups
+
+9. Deployment & Maintenance
+* CI/CD integration for deployment
+* Database backups scheduled weekly
+* Regular updates with new features
+* Maintenance window notifications
+
+10. Backup, Restore & Settings
+* Manual and automatic backups
+* Restore previous data states
+* Database export and import
+* General settings: Timezone, logo, SMS gateway, title name, page theme, appearance, features enable and disable, security, etc�
+

@@ -1,0 +1,16 @@
+Name,Email,Role,Password
+John Doe,john.doe@school.com,student,password123
+Jane Smith,jane.smith@school.com,teacher,teacher123
+Mike Johnson,mike.johnson@school.com,parent,parent123
+Sarah Wilson,sarah.wilson@school.com,librarian,library123
+David Brown,david.brown@school.com,accountant,account123
+Lisa Davis,lisa.davis@school.com,transport_officer,transport123
+Robert Miller,robert.miller@school.com,hostel_warden,hostel123
+Emily Garcia,emily.garcia@school.com,canteen_manager,canteen123
+Dr. James Wilson,james.wilson@school.com,nurse,nurse123
+Mary Rodriguez,mary.rodriguez@school.com,counselor,counselor123
+Tom Anderson,tom.anderson@school.com,principal,principal123
+Susan Clark,susan.clark@school.com,school_admin,admin123
+Peter Williams,peter.williams@school.com,parent,parent456
+Anna Thompson,anna.thompson@school.com,student,student123
+Mark Davis,mark.davis@school.com,teacher,teacher456
