@@ -17,17 +17,9 @@
  */
 
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'school_ms');         // central directory DB. On cPanel this is
-                                        // the account-prefixed name, e.g. 'myacct_school_ms'.
+define('DB_NAME', 'school_ms');
 define('DB_USER', 'schoolms');          // not 'root'
 define('DB_PASS', 'change-me-strong');  // a strong, unique password
-
-// Prefix for per-school (tenant) databases created via Super Admin > Add School.
-// Must match how your host names databases. On cPanel every DB is forced to start
-// with your account name, so set this to '<cpaneluser>_school_ms_tenant_'. Locally
-// it defaults to 'school_ms_tenant_'. Existing tenant DB names are stored in the
-// central `schools.db_name` column and must line up with this prefix.
-define('DB_TENANT_PREFIX', 'school_ms_tenant_');
 
 // Set to true only in development to display errors on screen.
 define('APP_DEBUG', false);

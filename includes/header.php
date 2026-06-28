@@ -1,7 +1,7 @@
 <?php
 // System Control enforcement (maintenance mode, session timeout, scheduled
 // backups). Runs before any output so it can redirect / show 503 cleanly.
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/system_guard.php';
+require_once dirname(__DIR__) . '/includes/system_guard.php';
 ?><!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -12,12 +12,12 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/system_guard.php';
     <meta http-equiv="Expires" content="0">
     <?php
     // Expose a CSRF token for forms and AJAX (see footer.php auto-attach script).
-    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/csrf.php';
+    require_once dirname(__DIR__) . '/includes/csrf.php';
     ?>
     <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES); ?>">
     <?php
     // Include settings helper
-    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/settings_helper.php';
+    require_once dirname(__DIR__) . '/includes/settings_helper.php';
     $school_name = getSchoolSetting('school_name', 'School Management System');
     ?>
     <title><?php
@@ -262,7 +262,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/system_guard.php';
                 <div class="header-center-section flex items-center space-x-6 text-center">
                     <!-- Academic Context -->
                     <?php
-                    require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
+                    require_once dirname(__DIR__) . '/config/database.php';
                     $database = new Database();
                     $academic_context = $database->getCurrentAcademicContext();
                     ?>

@@ -9,7 +9,7 @@
  *
  * Outputs a <script> defining printTimetable(), which opens a styled print window.
  */
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/settings_helper.php';
+require_once dirname(dirname(__DIR__)) . '/includes/settings_helper.php';
 
 $pt_settings    = function_exists('getSchoolSettings') ? getSchoolSettings() : [];
 $pt_school_name = $pt_settings['school_name'] ?? 'School';

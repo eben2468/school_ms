@@ -2,32 +2,10 @@
 # Security hardening for School Management System
 # --------------------------------------------------------------------------
 
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-
-    # ----------------------------------------------------------------------
-    # Force HTTPS in production. cPanel hosts auto-provision a free Let's
-    # Encrypt certificate; once SSL is active this redirects all plain-HTTP
-    # traffic to https://. If you see a redirect loop (some hosts terminate
-    # SSL at a proxy), comment out the three lines below.
-    # ----------------------------------------------------------------------
-    RewriteCond %{HTTPS} off
-    RewriteCond %{HTTP:X-Forwarded-Proto} !https
-    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-    # Never serve deployment secrets or developer-only directories over HTTP.
-    RewriteRule ^config/secrets\.php$            - [F,L]
-    RewriteRule ^(scratch|maintenance)(/|$)      - [F,L]
-</IfModule>
-
 # Block direct web access to developer / setup / migration / debug scripts.
 # These are maintenance tools and must not be reachable over HTTP in production.
 # (Patterns are chosen to avoid matching legitimate app files such as
 #  create.php or add_item.php.)
-# NOTE: broad prefixes like check_/verify_/list_ are intentionally NOT matched
-# here because legitimate endpoints exist (e.g. documents/verify_certificate.php).
-# Developer-only scripts live in scratch/ and maintenance/, which are blocked
-# wholesale by the RewriteRule above; the patterns below catch loose dev scripts.
 <FilesMatch "^(test[-_].*|.*[-_]test|debug[-_].*|fix_.*|setup_.*|migrate_.*|seed_.*|db_test|quick_setup|run_database_fixes|update_database|update_academic_records|update_user_roles|check_database|check_table_structure|create_academic_tables|create_parent_students_table|create_simple_class|create_test_parent|add_col|add_profile_column|add_sample_data|add_sidebar_transitions)\.php$">
     <IfModule mod_authz_core.c>
         Require all denied
@@ -39,18 +17,7 @@
 </FilesMatch>
 
 # Never serve raw SQL dumps or backups if they end up under the web root.
-<FilesMatch "\.(sql|sql\.gz|bak|log|md|sh|ini|env)$">
-    <IfModule mod_authz_core.c>
-        Require all denied
-    </IfModule>
-    <IfModule !mod_authz_core.c>
-        Order allow,deny
-        Deny from all
-    </IfModule>
-</FilesMatch>
-
-# Block hidden/dotfiles (e.g. .git, .env) from being served.
-<FilesMatch "^\.">
+<FilesMatch "\.(sql|sql\.gz|bak|log|md|sh)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -66,13 +33,7 @@
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set X-XSS-Protection "1; mode=block"
-    # HSTS: tell browsers to use HTTPS only. Enable AFTER confirming SSL works
-    # site-wide (it is sticky for 6 months). Uncomment to activate.
-    # Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains"
 </IfModule>
 
 # Disable directory listings.
 Options -Indexes
-
-# Default document.
-DirectoryIndex index.php index.html

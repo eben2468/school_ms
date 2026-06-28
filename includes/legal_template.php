@@ -21,8 +21,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/settings_helper.php';
+require_once dirname(__DIR__) . '/config/database.php';
+require_once dirname(__DIR__) . '/includes/settings_helper.php';
 
 $school_name    = getSchoolSetting('school_name', 'School Management System');
 $school_email   = getSchoolSetting('school_email', 'info@school.edu');
@@ -41,8 +41,8 @@ $related_pages = [
 ];
 $current_file = basename($_SERVER['PHP_SELF']);
 
-include $_SERVER['DOCUMENT_ROOT'] . '/includes/header.php';
-include $_SERVER['DOCUMENT_ROOT'] . '/includes/sidebar.php';
+include dirname(__DIR__) . '/includes/header.php';
+include dirname(__DIR__) . '/includes/sidebar.php';
 ?>
 
 <style>
@@ -188,7 +188,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/includes/sidebar.php';
 
         <!-- Footer -->
         <div class="lg:ml-0">
-            <?php include $_SERVER['DOCUMENT_ROOT'] . '/includes/footer.php'; ?>
+            <?php include dirname(__DIR__) . '/includes/footer.php'; ?>
         </div>
     </div>
 </div>

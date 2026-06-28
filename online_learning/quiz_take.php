@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
 }
 
 require_once '../config/database.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/settings_helper.php';
+require_once dirname(__DIR__) . '/includes/settings_helper.php';
 $database = new Database();
 $db = $database->getConnection();
 

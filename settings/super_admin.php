@@ -90,12 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $principal_password = $_POST['principal_password'];
         $student_id_prefix_raw = $_POST['student_id_prefix'] ?? ''; // optional manual prefix
 
-        // Tenant database name. The prefix is configurable so the app can run on
-        // hosts that force an account prefix on database names (e.g. cPanel names
-        // every DB "<cpaneluser>_..."). Set DB_TENANT_PREFIX in config/secrets.php
-        // to e.g. 'myacct_school_ms_tenant_' there; defaults to the local value.
-        $tenant_prefix = defined('DB_TENANT_PREFIX') ? DB_TENANT_PREFIX : 'school_ms_tenant_';
-        $db_name = $tenant_prefix . $code;
+        $db_name = "school_ms_tenant_" . $code;
         
         if (empty($name) || empty($code) || empty($contact_name) || empty($contact_email) || empty($principal_password)) {
             $_SESSION['error_message'] = "Please fill in all required fields.";
