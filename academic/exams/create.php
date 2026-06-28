@@ -1,13 +1,18 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher'])) {
     header("Location: ../../auth/login.php");
     exit();
 }
 
 require_once '../../config/database.php';
+require_once 'exam_access.php';
 $database = new Database();
 $db = $database->getConnection();
+
+// Teachers may only schedule exams for classes/subjects they actually teach.
+$is_teacher = $_SESSION['role'] === 'teacher';
+$teacher_id = $_SESSION['user_id'];
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -19,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $start_time = $_POST['start_time'];
     $duration = $_POST['duration'];
     $max_marks = $_POST['max_marks'];
+    $passing_marks = isset($_POST['passing_marks']) && $_POST['passing_marks'] !== '' ? intval($_POST['passing_marks']) : null;
     
     // Validate input
     $errors = [];
@@ -29,6 +35,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($start_time)) $errors[] = "Start time is required.";
     if (empty($duration)) $errors[] = "Duration is required.";
     if (empty($max_marks)) $errors[] = "Maximum marks is required.";
+    if ($passing_marks !== null) {
+        if ($passing_marks < 0) {
+            $errors[] = "Passing marks cannot be negative.";
+        }
+        if ($passing_marks > $max_marks) {
+            $errors[] = "Passing marks cannot be greater than maximum marks.";
+        }
+    }
+
+    // Enforce that teachers can only schedule for classes/subjects they teach
+    if ($is_teacher && !empty($class_id) && !empty($subject_id)
+        && !teacherTeachesClassSubject($db, $teacher_id, $class_id, $subject_id)) {
+        $errors[] = "You can only schedule exams for classes and subjects you teach.";
+    }
 
     if (empty($errors)) {
         // Calculate end time based on start time and duration
@@ -46,9 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $academic_year = $academic_context['year_name'];
 
         $query = "INSERT INTO exams (name, title, class_id, subject_id, exam_type, academic_term, date, exam_date,
-                                   start_time, end_time, duration, total_marks, academic_year)
+                                   start_time, end_time, duration, total_marks, passing_marks, academic_year)
                  VALUES (:name, :title, :class_id, :subject_id, :exam_type, :academic_term, :date, :exam_date,
-                        :start_time, :end_time, :duration, :total_marks, :academic_year)";
+                        :start_time, :end_time, :duration, :total_marks, :passing_marks, :academic_year)";
 
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $exam_name);
@@ -63,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':end_time', $end_time);
         $stmt->bindParam(':duration', $duration);
         $stmt->bindParam(':total_marks', $max_marks);
+        $stmt->bindParam(':passing_marks', $passing_marks, PDO::PARAM_INT);
         $stmt->bindParam(':academic_year', $academic_year);
         
         if ($stmt->execute()) {
@@ -80,12 +101,12 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
         <div class="w-full">
@@ -117,8 +138,19 @@ include '../../includes/sidebar.php';
                                 class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
                                 <option value="">Select Class</option>
                                 <?php
-                                $query = "SELECT id, grade_level, name FROM classes WHERE status = 'active' ORDER BY grade_level, name";
-                                $stmt = $db->query($query);
+                                if ($is_teacher) {
+                                    // Only classes this teacher teaches
+                                    $query = "SELECT DISTINCT c.id, c.grade_level, c.name
+                                              FROM classes c
+                                              JOIN class_teachers ct ON ct.class_id = c.id
+                                              WHERE c.status = 'active' AND ct.teacher_id = :tid
+                                              ORDER BY c.grade_level, c.name";
+                                    $stmt = $db->prepare($query);
+                                    $stmt->execute([':tid' => $teacher_id]);
+                                } else {
+                                    $query = "SELECT id, grade_level, name FROM classes WHERE status = 'active' ORDER BY grade_level, name";
+                                    $stmt = $db->query($query);
+                                }
                                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)):
                                 ?>
                                 <option value="<?php echo $row['id']; ?>" <?php echo isset($_POST['class_id']) && $_POST['class_id'] == $row['id'] ? 'selected' : ''; ?>>
@@ -194,6 +226,15 @@ include '../../includes/sidebar.php';
                             <input type="number" id="max_marks" name="max_marks" required min="1" max="100"
                                 class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                                 value="<?php echo isset($_POST['max_marks']) ? $_POST['max_marks'] : '100'; ?>">
+                        </div>
+
+                        <!-- Passing Marks -->
+                        <div>
+                            <label for="passing_marks" class="block text-sm font-medium text-gray-700 mb-1">Passing Marks (Optional)</label>
+                            <input type="number" id="passing_marks" name="passing_marks" min="0" max="100"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value="<?php echo isset($_POST['passing_marks']) ? $_POST['passing_marks'] : ''; ?>"
+                                placeholder="Leave empty for no pass/fail threshold">
                         </div>
 
 

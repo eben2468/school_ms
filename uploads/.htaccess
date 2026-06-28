@@ -2,10 +2,10 @@
 # Only allow access through PHP scripts that can validate permissions
 
 # Deny all direct access
-Deny from all
-
-# Allow only specific image types through PHP
-<FilesMatch "\.(jpg|jpeg|png|gif)$">
-    # Still deny direct access - files should be served through PHP
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
     Deny from all
-</FilesMatch>
+</IfModule>
+

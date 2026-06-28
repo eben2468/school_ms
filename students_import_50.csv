@@ -1,0 +1,51 @@
+first_name,other_names,last_name,email,class,date_of_birth,gender,student_type,nationality,address,guardian_name,guardian_phone
+Kwame,Serwaa,Owusu,kwame.owusu1@learners.gh,"Grade 1A",2013-01-01,male,boarding,Ghanaian,"10 Agyemang Street, Accra","Afua Owusu",+233202000000
+Abena,Kpakpo,Mensah,abena.mensah2@learners.gh,"Grade 2A",2014-02-02,female,day,Ghanaian,"11 Adjei Street, Kumasi","Kojo Mensah",+233202000053
+Kojo,Peprah,Asante,kojo.asante3@learners.gh,"Grade 3A",2015-03-03,male,day,Ghanaian,"12 Annan Street, Tema","Akosua Asante",+233202000106
+Yaa,Yeboah,Boateng,yaa.boateng4@learners.gh,"Grade 4A",2016-04-04,female,day,Ghanaian,"13 Darko Street, Takoradi","Kwesi Boateng",+233202000159
+Ebenezer,Owusu,Appiah,ebenezer.appiah5@learners.gh,"Grade 5A",2017-05-05,male,boarding,Ghanaian,"14 Frimpong Street, Cape Coast","Esi Appiah",+233202000212
+Grace,Asante,Agyemang,grace.agyemang6@learners.gh,"Grade 1A",2018-06-06,female,day,Ghanaian,"15 Gyamfi Street, Koforidua","Ebenezer Agyemang",+233202000265
+Isaac,Nyarko,Adjei,isaac.adjei7@learners.gh,"Grade 2A",2019-07-07,male,day,Ghanaian,"16 Osei Street, Sunyani","Comfort Adjei",+233202000318
+Patience,Boateng,Annan,patience.annan8@learners.gh,"Grade 3A",2013-08-08,female,day,Ghanaian,"17 Ofori Street, Ho","Daniel Annan",+233202000371
+Francis,Agyei,Darko,francis.darko9@learners.gh,"Grade 4A",2014-09-09,male,boarding,Ghanaian,"18 Sarpong Street, Tamale","Mercy Darko",+233202000424
+Priscilla,Adjei,Frimpong,priscilla.frimpong10@learners.gh,"Grade 5A",2015-10-10,female,day,Ghanaian,"19 Amponsah Street, Dodowa","Isaac Frimpong",+233202000477
+Kwame,Mensimah,Gyamfi,kwame.gyamfi11@learners.gh,"Grade 1A",2016-11-11,male,day,Ghanaian,"20 Bonsu Street, Accra","Cynthia Gyamfi",+233202000530
+Abena,Ofori,Osei,abena.osei12@learners.gh,"Grade 2A",2017-12-12,female,day,Ghanaian,"21 Nkrumah Street, Kumasi","Joseph Osei",+233202000583
+Kojo,Bediako,Ofori,kojo.ofori13@learners.gh,"Grade 3A",2018-01-13,male,boarding,Ghanaian,"22 Quartey Street, Tema","Sandra Ofori",+233202000636
+Yaa,Frimpong,Sarpong,yaa.sarpong14@learners.gh,"Grade 4A",2019-02-14,female,day,Ghanaian,"23 Tetteh Street, Takoradi","Francis Sarpong",+233202000689
+Ebenezer,Acheampong,Amponsah,ebenezer.amponsah15@learners.gh,"Grade 5A",2013-03-15,male,day,Ghanaian,"24 Ankrah Street, Cape Coast","Linda Amponsah",+233202000742
+Grace,Danso,Bonsu,grace.bonsu16@learners.gh,"Grade 1A",2014-04-16,female,day,Ghanaian,"25 Acquah Street, Koforidua","Nana Bonsu",+233202000795
+Isaac,Antwi,Nkrumah,isaac.nkrumah17@learners.gh,"Grade 2A",2015-05-17,male,boarding,Ghanaian,"26 Yeboah Street, Sunyani","Belinda Nkrumah",+233202000848
+Patience,Appiah,Quartey,patience.quartey18@learners.gh,"Grade 3A",2016-06-18,female,day,Ghanaian,"27 Addai Street, Ho","Kwame Quartey",+233202000901
+Francis,Baah,Tetteh,francis.tetteh19@learners.gh,"Grade 4A",2017-07-19,male,day,Ghanaian,"28 Baidoo Street, Tamale","Akua Tetteh",+233202000954
+Priscilla,Tetteh,Ankrah,priscilla.ankrah20@learners.gh,"Grade 5A",2018-08-20,female,day,Ghanaian,"29 Coleman Street, Dodowa","Yaw Ankrah",+233202001007
+Kwame,Serwaa,Acquah,kwame.acquah21@learners.gh,"Grade 1A",2019-09-21,male,boarding,Ghanaian,"30 Owusu Street, Accra","Afua Acquah",+233202001060
+Abena,Kpakpo,Yeboah,abena.yeboah22@learners.gh,"Grade 2A",2013-10-22,female,day,Ghanaian,"31 Mensah Street, Kumasi","Kojo Yeboah",+233202001113
+Kojo,Peprah,Addai,kojo.addai23@learners.gh,"Grade 3A",2014-11-23,male,day,Ghanaian,"32 Asante Street, Tema","Akosua Addai",+233202001166
+Yaa,Yeboah,Baidoo,yaa.baidoo24@learners.gh,"Grade 4A",2015-12-24,female,day,Ghanaian,"33 Boateng Street, Takoradi","Kwesi Baidoo",+233202001219
+Ebenezer,Owusu,Coleman,ebenezer.coleman25@learners.gh,"Grade 5A",2016-01-25,male,boarding,Ghanaian,"34 Appiah Street, Cape Coast","Esi Coleman",+233202001272
+Grace,Asante,Owusu,grace.owusu26@learners.gh,"Grade 1A",2017-02-26,female,day,Ghanaian,"35 Agyemang Street, Koforidua","Ebenezer Owusu",+233202001325
+Isaac,Nyarko,Mensah,isaac.mensah27@learners.gh,"Grade 2A",2018-03-27,male,day,Ghanaian,"36 Adjei Street, Sunyani","Comfort Mensah",+233202001378
+Patience,Boateng,Asante,patience.asante28@learners.gh,"Grade 3A",2019-04-01,female,day,Ghanaian,"37 Annan Street, Ho","Daniel Asante",+233202001431
+Francis,Agyei,Boateng,francis.boateng29@learners.gh,"Grade 4A",2013-05-02,male,boarding,Ghanaian,"38 Darko Street, Tamale","Mercy Boateng",+233202001484
+Priscilla,Adjei,Appiah,priscilla.appiah30@learners.gh,"Grade 5A",2014-06-03,female,day,Ghanaian,"39 Frimpong Street, Dodowa","Isaac Appiah",+233202001537
+Kwame,Mensimah,Agyemang,kwame.agyemang31@learners.gh,"Grade 1A",2015-07-04,male,day,Ghanaian,"40 Gyamfi Street, Accra","Cynthia Agyemang",+233202001590
+Abena,Ofori,Adjei,abena.adjei32@learners.gh,"Grade 2A",2016-08-05,female,day,Ghanaian,"41 Osei Street, Kumasi","Joseph Adjei",+233202001643
+Kojo,Bediako,Annan,kojo.annan33@learners.gh,"Grade 3A",2017-09-06,male,boarding,Ghanaian,"42 Ofori Street, Tema","Sandra Annan",+233202001696
+Yaa,Frimpong,Darko,yaa.darko34@learners.gh,"Grade 4A",2018-10-07,female,day,Ghanaian,"43 Sarpong Street, Takoradi","Francis Darko",+233202001749
+Ebenezer,Acheampong,Frimpong,ebenezer.frimpong35@learners.gh,"Grade 5A",2019-11-08,male,day,Ghanaian,"44 Amponsah Street, Cape Coast","Linda Frimpong",+233202001802
+Grace,Danso,Gyamfi,grace.gyamfi36@learners.gh,"Grade 1A",2013-12-09,female,day,Ghanaian,"45 Bonsu Street, Koforidua","Nana Gyamfi",+233202001855
+Isaac,Antwi,Osei,isaac.osei37@learners.gh,"Grade 2A",2014-01-10,male,boarding,Ghanaian,"46 Nkrumah Street, Sunyani","Belinda Osei",+233202001908
+Patience,Appiah,Ofori,patience.ofori38@learners.gh,"Grade 3A",2015-02-11,female,day,Ghanaian,"47 Quartey Street, Ho","Kwame Ofori",+233202001961
+Francis,Baah,Sarpong,francis.sarpong39@learners.gh,"Grade 4A",2016-03-12,male,day,Ghanaian,"48 Tetteh Street, Tamale","Akua Sarpong",+233202002014
+Priscilla,Tetteh,Amponsah,priscilla.amponsah40@learners.gh,"Grade 5A",2017-04-13,female,day,Ghanaian,"49 Ankrah Street, Dodowa","Yaw Amponsah",+233202002067
+Kwame,Serwaa,Bonsu,kwame.bonsu41@learners.gh,"Grade 1A",2018-05-14,male,boarding,Ghanaian,"50 Acquah Street, Accra","Afua Bonsu",+233202002120
+Abena,Kpakpo,Nkrumah,abena.nkrumah42@learners.gh,"Grade 2A",2019-06-15,female,day,Ghanaian,"51 Yeboah Street, Kumasi","Kojo Nkrumah",+233202002173
+Kojo,Peprah,Quartey,kojo.quartey43@learners.gh,"Grade 3A",2013-07-16,male,day,Ghanaian,"52 Addai Street, Tema","Akosua Quartey",+233202002226
+Yaa,Yeboah,Tetteh,yaa.tetteh44@learners.gh,"Grade 4A",2014-08-17,female,day,Ghanaian,"53 Baidoo Street, Takoradi","Kwesi Tetteh",+233202002279
+Ebenezer,Owusu,Ankrah,ebenezer.ankrah45@learners.gh,"Grade 5A",2015-09-18,male,boarding,Ghanaian,"54 Coleman Street, Cape Coast","Esi Ankrah",+233202002332
+Grace,Asante,Acquah,grace.acquah46@learners.gh,"Grade 1A",2016-10-19,female,day,Ghanaian,"55 Owusu Street, Koforidua","Ebenezer Acquah",+233202002385
+Isaac,Nyarko,Yeboah,isaac.yeboah47@learners.gh,"Grade 2A",2017-11-20,male,day,Ghanaian,"56 Mensah Street, Sunyani","Comfort Yeboah",+233202002438
+Patience,Boateng,Addai,patience.addai48@learners.gh,"Grade 3A",2018-12-21,female,day,Ghanaian,"57 Asante Street, Ho","Daniel Addai",+233202002491
+Francis,Agyei,Baidoo,francis.baidoo49@learners.gh,"Grade 4A",2019-01-22,male,boarding,Ghanaian,"58 Boateng Street, Tamale","Mercy Baidoo",+233202002544
+Priscilla,Adjei,Coleman,priscilla.coleman50@learners.gh,"Grade 5A",2013-02-23,female,day,Ghanaian,"59 Appiah Street, Dodowa","Isaac Coleman",+233202002597

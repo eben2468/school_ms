@@ -12,18 +12,46 @@ $db = $database->getConnection();
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['name'];
 
+// Safe defaults so a query failure can never leave these undefined (which would
+// otherwise fatal on count()/foreach further down the page).
+$student_info       = null;
+$class_subjects     = [];
+$classmates         = [];
+$recent_assignments = [];
+$upcoming_exams     = [];
+$total_subjects     = 0;
+$pending_assignments  = 0;
+$overdue_assignments  = 0;
+
 try {
-    // Get student information
-    $student_query = "SELECT u.name, sp.student_id, c.name as class_name, c.grade_level, c.academic_year
+    // Get student information (including the student's active class id + class teacher)
+    $student_query = "SELECT u.name, sp.student_id, c.id as class_id, c.name as class_name, c.grade_level, c.academic_year,
+                            ct_user.name as class_teacher_name
                      FROM users u
                      LEFT JOIN student_profiles sp ON u.id = sp.user_id
                      LEFT JOIN student_classes sc ON u.id = sc.student_id AND sc.status = 'active'
                      LEFT JOIN classes c ON sc.class_id = c.id
+                     LEFT JOIN users ct_user ON c.main_teacher_id = ct_user.id
                      WHERE u.id = :user_id";
     $student_stmt = $db->prepare($student_query);
     $student_stmt->bindParam(':user_id', $user_id);
     $student_stmt->execute();
     $student_info = $student_stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Get classmates — other active students in the SAME class only. The class_id
+    // comes from the student's own active enrollment, so no other class roster is
+    // ever exposed.
+    $classmates = [];
+    if (!empty($student_info['class_id'])) {
+        $mates_stmt = $db->prepare("SELECT u.name, u.profile_picture
+            FROM student_classes sc
+            JOIN users u ON sc.student_id = u.id
+            WHERE sc.class_id = :class_id AND sc.status = 'active'
+              AND u.role = 'student' AND u.status = 'active' AND u.id != :user_id
+            ORDER BY u.name ASC");
+        $mates_stmt->execute([':class_id' => $student_info['class_id'], ':user_id' => $user_id]);
+        $classmates = $mates_stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     // Get enrolled classes with subjects and teachers
     $classes_query = "SELECT DISTINCT
@@ -145,12 +173,12 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden transition-all duration-300" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -182,6 +210,7 @@ include '../../includes/sidebar.php';
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><?= htmlspecialchars($student_info['name']) ?></h2>
                                 <p class="text-gray-600 dark:text-gray-400">Student ID: <?= htmlspecialchars($student_info['student_id'] ?? 'N/A') ?></p>
                                 <p class="text-gray-600 dark:text-gray-400">Class: <?= htmlspecialchars($student_info['grade_level'] . ' - ' . $student_info['class_name']) ?></p>
+                                <p class="text-gray-600 dark:text-gray-400">Class Teacher: <?= htmlspecialchars($student_info['class_teacher_name'] ?? 'Not assigned') ?></p>
                                 <p class="text-gray-600 dark:text-gray-400">Academic Year: <?= htmlspecialchars($student_info['academic_year'] ?? 'N/A') ?></p>
                             </div>
                         </div>
@@ -279,6 +308,49 @@ include '../../includes/sidebar.php';
                                             <i class="fas fa-user-tie mr-2"></i>
                                             <span><?= htmlspecialchars($subject['teacher_name'] ?? 'No teacher assigned') ?></span>
                                         </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- My Classmates -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+                        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                                <i class="fas fa-users mr-2"></i>
+                                My Classmates
+                            </h2>
+                            <span class="px-3 py-1 text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full">
+                                <?= count($classmates) ?>
+                            </span>
+                        </div>
+
+                        <?php if (empty($classmates)): ?>
+                            <div class="p-8 text-center">
+                                <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-users text-gray-400 text-2xl"></i>
+                                </div>
+                                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Classmates Found</h3>
+                                <p class="text-gray-600 dark:text-gray-400">There are no other students enrolled in your class yet.</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-6">
+                                <?php foreach ($classmates as $mate): ?>
+                                    <div class="flex flex-col items-center text-center p-4 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-700">
+                                        <div class="w-14 h-14 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-2">
+                                            <?php if (!empty($mate['profile_picture'])): ?>
+                                                <img src="/serve_image.php?path=profile_pictures/<?= htmlspecialchars($mate['profile_picture']) ?>"
+                                                     alt="<?= htmlspecialchars($mate['name']) ?>" class="w-full h-full object-cover">
+                                            <?php else: ?>
+                                                <span class="text-blue-600 dark:text-blue-400 font-semibold text-lg">
+                                                    <?= htmlspecialchars(strtoupper(substr($mate['name'], 0, 1))) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate w-full" title="<?= htmlspecialchars($mate['name']) ?>">
+                                            <?= htmlspecialchars($mate['name']) ?>
+                                        </p>
                                     </div>
                                 <?php endforeach; ?>
                             </div>

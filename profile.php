@@ -6,6 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once 'config/database.php';
+require_once 'includes/csrf.php';
+require_once 'includes/password_policy.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -14,8 +16,15 @@ $user_role = $_SESSION['role'];
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
-    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+    csrf_require('profile.php');
+
+    // Fetch existing records for fallback
+    $ex_stmt = $db->prepare("SELECT u.name, u.email FROM users u WHERE u.id = :id");
+    $ex_stmt->execute([':id' => $user_id]);
+    $ex = $ex_stmt->fetch(PDO::FETCH_ASSOC);
+
+    $name = !empty(trim($_POST['name'] ?? '')) ? filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING) : $ex['name'];
+    $email = !empty(trim($_POST['email'] ?? '')) ? filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL) : $ex['email'];
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -105,8 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("New passwords do not match.");
             }
             
-            if (strlen($new_password) < 6) {
-                throw new Exception("New password must be at least 6 characters long.");
+            $pw_check = validatePasswordStrength($new_password);
+            if (!$pw_check['valid']) {
+                throw new Exception($pw_check['message']);
             }
             
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
@@ -164,9 +174,9 @@ if (!isset($user['profile_picture'])) {
 <?php include 'includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -266,20 +276,19 @@ if (!isset($user['profile_picture'])) {
                                 <h4 class="text-md font-medium text-gray-900 mb-4">Profile Picture</h4>
                                 <div class="flex items-center space-x-6">
                                     <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-300">
-                                        <?php if (!empty($user['profile_picture'])): ?>
-                                            <img src="serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>"
-                                                 alt="Current Profile Picture"
-                                                 class="w-full h-full object-cover">
-                                        <?php else: ?>
-                                            <div class="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-                                                <i class="fas fa-user text-white text-lg"></i>
-                                            </div>
-                                        <?php endif; ?>
+                                        <img id="profilePicturePreview"
+                                             src="<?php echo !empty($user['profile_picture']) ? 'serve_image.php?path=profile_pictures/' . htmlspecialchars($user['profile_picture']) : '#'; ?>"
+                                             alt="Current Profile Picture"
+                                             class="w-full h-full object-cover <?php echo empty($user['profile_picture']) ? 'hidden' : ''; ?>">
+                                        <div id="profilePictureIcon" class="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center <?php echo !empty($user['profile_picture']) ? 'hidden' : ''; ?>">
+                                            <i class="fas fa-user text-white text-lg"></i>
+                                        </div>
                                     </div>
                                     <div class="flex-1">
                                         <input type="file" id="profile_picture" name="profile_picture" accept="image/*"
+                                            data-cropper data-crop-preview="#profilePicturePreview" data-crop-icon="#profilePictureIcon"
                                             class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                        <p class="text-xs text-gray-500 mt-2">Upload a new profile picture (JPEG, PNG, GIF - Max 5MB)</p>
+                                        <p class="text-xs text-gray-500 mt-2">Upload a new profile picture (JPEG, PNG, GIF - Max 5MB). You can crop it to frame the face before saving.</p>
                                     </div>
                                 </div>
                             </div>
@@ -287,17 +296,15 @@ if (!isset($user['profile_picture'])) {
                             <!-- Basic Information -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                                    <input type="text" id="name" name="name" required
-                                        value="<?php echo htmlspecialchars($user['name']); ?>"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
+                                    <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($user['name']); ?>"
+                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                                 </div>
                                 
                                 <div>
-                                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                                    <input type="email" id="email" name="email" required
-                                        value="<?php echo htmlspecialchars($user['email']); ?>"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                                    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>"
+                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                                 </div>
                             </div>
 
@@ -307,20 +314,41 @@ if (!isset($user['profile_picture'])) {
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                                        <input type="password" id="current_password" name="current_password"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <div class="relative">
+                                            <input type="password" id="current_password" name="current_password"
+                                                class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <button type="button" onclick="togglePasswordVisibility('current_password', this)"
+                                                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                                                aria-label="Show password">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    
+
                                     <div>
                                         <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                                        <input type="password" id="new_password" name="new_password"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <div class="relative">
+                                            <input type="password" id="new_password" name="new_password"
+                                                class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <button type="button" onclick="togglePasswordVisibility('new_password', this)"
+                                                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                                                aria-label="Show password">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    
+
                                     <div>
                                         <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-                                        <input type="password" id="confirm_password" name="confirm_password"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <div class="relative">
+                                            <input type="password" id="confirm_password" name="confirm_password"
+                                                class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            <button type="button" onclick="togglePasswordVisibility('confirm_password', this)"
+                                                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                                                aria-label="Show password">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <p class="text-sm text-gray-500 mt-2">Leave password fields empty if you don't want to change your password.</p>
@@ -346,3 +374,20 @@ if (!isset($user['profile_picture'])) {
         </div>
     </div>
 </div>
+
+<script>
+function togglePasswordVisibility(fieldId, btn) {
+    const input = document.getElementById(fieldId);
+    if (!input) return;
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) icon.classList.replace('fa-eye', 'fa-eye-slash');
+        btn.setAttribute('aria-label', 'Hide password');
+    } else {
+        input.type = 'password';
+        if (icon) icon.classList.replace('fa-eye-slash', 'fa-eye');
+        btn.setAttribute('aria-label', 'Show password');
+    }
+}
+</script>

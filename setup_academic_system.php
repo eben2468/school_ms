@@ -262,7 +262,7 @@ try {
     <h1>Academic Term/Year Management System Setup</h1>
     <p>This script sets up the database tables and initial data for the academic term and year management system.</p>
     
-    <div style="margin-top: 20px;">
+    <div style="margin-top: 80px;">
         <a href="academic/settings/" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
             Go to Academic Settings
         </a>

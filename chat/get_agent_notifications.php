@@ -9,10 +9,12 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 
 try {
     $database = new Database();
     $db = $database->getConnection();
+    ensureChatTables($db); // heal tenants that predate the chat module
     
     $user_id = $_SESSION['user_id'];
     

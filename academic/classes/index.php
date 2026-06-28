@@ -20,9 +20,47 @@ if (isset($_POST['toggle_status']) && isset($_POST['class_id'])) {
     exit();
 }
 
-// Fetch classes with pagination
+// Handle class delete action
+if (isset($_POST['delete_class']) && isset($_POST['class_id'])) {
+    if (in_array($_SESSION['role'], ['super_admin', 'school_admin'])) {
+        $class_id = filter_input(INPUT_POST, 'class_id', FILTER_SANITIZE_NUMBER_INT);
+        
+        try {
+            $db->beginTransaction();
+            
+            // Delete related class teachers and student classes allocations first
+            $db->prepare("DELETE FROM class_teachers WHERE class_id = :class_id")->execute([':class_id' => $class_id]);
+            $db->prepare("DELETE FROM student_classes WHERE class_id = :class_id")->execute([':class_id' => $class_id]);
+            
+            // Set subject allocations to NULL
+            $db->prepare("UPDATE subjects SET class_id = NULL WHERE class_id = :class_id")->execute([':class_id' => $class_id]);
+            
+            // Delete the class itself
+            $stmt = $db->prepare("DELETE FROM classes WHERE id = :class_id");
+            $stmt->bindParam(':class_id', $class_id);
+            $stmt->execute();
+            
+            $db->commit();
+            header("Location: index.php?success=" . urlencode("Class deleted successfully."));
+            exit();
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            header("Location: index.php?error=" . urlencode("Error deleting class: " . $e->getMessage()));
+            exit();
+        }
+    } else {
+        header("Location: index.php?error=" . urlencode("Unauthorized action."));
+        exit();
+    }
+}
+
+// Fetch classes with pagination.
+// 12 per page keeps the card grid's rows full at every breakpoint (1/2/3/4 columns)
+// instead of leaving a half-empty last row and spilling a single card to the next page.
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$limit = 10;
+$limit = 12;
 $offset = ($page - 1) * $limit;
 
 $search = isset($_GET['search']) ? $_GET['search'] : '';
@@ -33,24 +71,30 @@ $where_conditions = [];
 $params = [];
 
 if ($search) {
-    $where_conditions[] = "name LIKE :search";
+    $where_conditions[] = "c.name LIKE :search";
     $params[':search'] = "%$search%";
 }
 
 if ($grade_filter) {
-    $where_conditions[] = "grade_level = :grade";
+    $where_conditions[] = "c.grade_level = :grade";
     $params[':grade'] = $grade_filter;
 }
 
 if ($year_filter) {
-    $where_conditions[] = "academic_year = :year";
+    $where_conditions[] = "c.academic_year = :year";
     $params[':year'] = $year_filter;
+}
+
+// Teachers only see the classes they are assigned to teach (via the class_teachers junction).
+if ($_SESSION['role'] === 'teacher') {
+    $where_conditions[] = "c.id IN (SELECT class_id FROM class_teachers WHERE teacher_id = :teacher_id)";
+    $params[':teacher_id'] = $_SESSION['user_id'];
 }
 
 $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
 // Count total classes
-$count_query = "SELECT COUNT(*) as total FROM classes $where_clause";
+$count_query = "SELECT COUNT(*) as total FROM classes c $where_clause";
 $count_stmt = $db->prepare($count_query);
 foreach ($params as $key => $value) {
     $count_stmt->bindValue($key, $value);
@@ -81,6 +125,16 @@ foreach ($params as $key => $value) {
 $stmt->execute();
 $classes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch all subjects to group by class
+$subjects_query = "SELECT id, name, code, class_id FROM subjects WHERE class_id IS NOT NULL ORDER BY name";
+$subjects_stmt = $db->query($subjects_query);
+$all_subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$subjects_by_class = [];
+foreach ($all_subjects as $subj) {
+    $subjects_by_class[$subj['class_id']][] = $subj;
+}
+
 // Get unique grade levels and academic years for filters
 $grade_query = "SELECT DISTINCT grade_level FROM classes ORDER BY grade_level";
 $grade_stmt = $db->query($grade_query);
@@ -95,9 +149,9 @@ $years = $year_stmt->fetchAll(PDO::FETCH_COLUMN);
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -148,6 +202,12 @@ $years = $year_stmt->fetchAll(PDO::FETCH_COLUMN);
             <?php if (isset($_GET['success'])): ?>
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
                 <?php echo htmlspecialchars($_GET['success']); ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if (isset($_GET['error'])): ?>
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <?php echo htmlspecialchars($_GET['error']); ?>
             </div>
             <?php endif; ?>
 
@@ -235,6 +295,25 @@ $years = $year_stmt->fetchAll(PDO::FETCH_COLUMN);
                             </div>
                         </div>
 
+                        <!-- Subjects Offered Info -->
+                        <div class="mb-6">
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Subjects Offered</div>
+                            <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                <?php 
+                                $class_subjs = $subjects_by_class[$class['id']] ?? [];
+                                if (empty($class_subjs)): 
+                                ?>
+                                    <span class="text-xs text-gray-400 italic">No subjects assigned</span>
+                                <?php else: ?>
+                                    <?php foreach ($class_subjs as $subj): ?>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50" title="<?php echo htmlspecialchars($subj['name']); ?>">
+                                            <?php echo htmlspecialchars($subj['code']); ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
                         <!-- Action Buttons -->
                         <div class="flex justify-between items-center">
                             <a href="view.php?id=<?php echo $class['id']; ?>"
@@ -243,7 +322,7 @@ $years = $year_stmt->fetchAll(PDO::FETCH_COLUMN);
                                 View Details
                             </a>
                             <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin'])): ?>
-                            <div class="flex space-x-2">
+                            <div class="flex space-x-2 no-stack">
                                 <a href="edit.php?id=<?php echo $class['id']; ?>"
                                     class="inline-flex items-center p-2 border border-transparent rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
                                     title="Edit Class">
@@ -257,6 +336,14 @@ $years = $year_stmt->fetchAll(PDO::FETCH_COLUMN);
                                         <i class="fas fa-<?php echo $class['status'] === 'active' ? 'ban' : 'check'; ?>"></i>
                                     </button>
                                 </form>
+                                <form action="" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this class? All teacher and student allocations will be affected.');">
+                                    <input type="hidden" name="class_id" value="<?php echo $class['id']; ?>">
+                                    <button type="submit" name="delete_class"
+                                        class="inline-flex items-center p-2 border border-transparent rounded-md text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                        title="Delete Class">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </div>
                             <?php endif; ?>
                         </div>
@@ -267,16 +354,18 @@ $years = $year_stmt->fetchAll(PDO::FETCH_COLUMN);
 
             <!-- Pagination -->
             <?php if ($total_pages > 1): ?>
-            <div class="mt-8 flex justify-center">
-                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <a href="?page=<?php echo $i; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $grade_filter ? "&grade=$grade_filter" : ''; ?><?php echo $year_filter ? "&year=$year_filter" : ''; ?>" 
-                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 
-                        <?php echo $i === $page ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : ''; ?>">
-                        <?php echo $i; ?>
-                    </a>
-                    <?php endfor; ?>
-                </nav>
+            <div class="mt-8 flex justify-center w-full">
+                <div class="max-w-full overflow-x-auto pb-3 px-2 flex justify-start scrollbar-thin">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px whitespace-nowrap flex-nowrap min-w-max" aria-label="Pagination">
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <a href="?page=<?php echo $i; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $grade_filter ? "&grade=$grade_filter" : ''; ?><?php echo $year_filter ? "&year=$year_filter" : ''; ?>" 
+                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 
+                            <?php echo $i === $page ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                        <?php endfor; ?>
+                    </nav>
+                </div>
             </div>
             <?php endif; ?>
             </div>

@@ -42,9 +42,16 @@ $parents_query = "SELECT id, name, email FROM users WHERE role = 'parent' AND st
 $parents_stmt = $db->query($parents_query);
 $parents = $parents_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Subscription plan student capacity (for the header indicator).
+require_once '../includes/plan_limits.php';
+$student_cap = checkStudentCapacity($db, $_SESSION['school_id'] ?? 0, 1);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Collect form data
-    $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+    $first_name = filter_input(INPUT_POST, 'first_name', FILTER_SANITIZE_STRING);
+    $other_names = filter_input(INPUT_POST, 'other_names', FILTER_SANITIZE_STRING);
+    $last_name = filter_input(INPUT_POST, 'last_name', FILTER_SANITIZE_STRING);
+    $student_id = filter_input(INPUT_POST, 'student_id', FILTER_SANITIZE_STRING);
     $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'];
     $date_of_birth = filter_input(INPUT_POST, 'date_of_birth', FILTER_SANITIZE_STRING);
@@ -62,15 +69,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $class_id = filter_input(INPUT_POST, 'class_id', FILTER_SANITIZE_NUMBER_INT);
     $admission_date = filter_input(INPUT_POST, 'admission_date', FILTER_SANITIZE_STRING);
     
+    // Concatenate full name for compatibility
+    $name = trim($first_name . ' ' . trim($other_names . ' ' . $last_name));
+
     // Validation
     $errors = [];
-    if (empty($name)) $errors[] = "Student name is required.";
+    // Honour the User Registration system setting before creating an account.
+    require_once '../includes/settings_helper.php';
+    if (!isUserRegistrationAllowed()) {
+        $errors[] = "New user registration is currently disabled in System Settings.";
+    }
+    // Enforce the school's subscription plan student capacity.
+    require_once '../includes/plan_limits.php';
+    $__cap = checkStudentCapacity($db, $_SESSION['school_id'] ?? 0, 1);
+    if (!$__cap['allowed']) {
+        $errors[] = planCapacityMessage('student', $__cap);
+    }
+    if (empty($first_name)) $errors[] = "First name is required.";
+    if (empty($last_name)) $errors[] = "Last name is required.";
+    if (empty($student_id)) $errors[] = "Student ID is required.";
     if (empty($email)) $errors[] = "Email is required.";
     if (empty($password)) $errors[] = "Password is required.";
     if (empty($date_of_birth)) $errors[] = "Date of birth is required.";
     if (empty($class_id)) $errors[] = "Class selection is required.";
     if (empty($admission_date)) $errors[] = "Admission date is required.";
     
+    // Check if Student ID already exists
+    if (!empty($student_id)) {
+        $sid_check = "SELECT user_id FROM student_profiles WHERE student_id = :student_id";
+        $sid_stmt = $db->prepare($sid_check);
+        $sid_stmt->bindParam(':student_id', $student_id);
+        $sid_stmt->execute();
+        if ($sid_stmt->rowCount() > 0) {
+            $errors[] = "Student ID already exists.";
+        }
+    }
+
     // Check if email already exists
     if (!empty($email)) {
         $email_check = "SELECT id FROM users WHERE email = :email";
@@ -112,16 +146,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $db->beginTransaction();
             
-            // Generate student ID using the new format STU20254927
-            $student_id = $database->generateStudentId();
-            
+            // Handle Profile Picture Upload
+            $profile_picture = null;
+            if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+                if (in_array($_FILES['profile_picture']['type'], $allowed_types)) {
+                    $ext = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+                    $filename = uniqid('profile_') . '.' . $ext;
+                    $upload_dir = '../uploads/profile_pictures/';
+                    if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $filename)) {
+                        $profile_picture = $filename;
+                    }
+                }
+            }
+
             // Create user account
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $user_query = "INSERT INTO users (name, email, password, role, status) VALUES (:name, :email, :password, 'student', 'active')";
+            $user_query = "INSERT INTO users (name, first_name, other_names, last_name, email, password, role, status, profile_picture, student_id) VALUES (:name, :first_name, :other_names, :last_name, :email, :password, 'student', 'active', :profile_picture, :student_id)";
             $user_stmt = $db->prepare($user_query);
             $user_stmt->bindParam(':name', $name);
+            $user_stmt->bindParam(':first_name', $first_name);
+            $user_stmt->bindParam(':other_names', $other_names);
+            $user_stmt->bindParam(':last_name', $last_name);
             $user_stmt->bindParam(':email', $email);
             $user_stmt->bindParam(':password', $hashed_password);
+            $user_stmt->bindParam(':profile_picture', $profile_picture);
+            $user_stmt->bindParam(':student_id', $student_id);
             $user_stmt->execute();
             
             $user_id = $db->lastInsertId();
@@ -214,6 +264,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $db->commit();
 
+            // Mirror the new accounts into the central login directory so the
+            // student (and any auto-created guardian) can actually sign in.
+            require_once '../includes/user_directory.php';
+            syncUserToCentralDirectory([
+                'school_id'  => $_SESSION['school_id'] ?? null,
+                'name'       => $name,
+                'email'      => $email,
+                'password'   => $hashed_password,
+                'role'       => 'student',
+                'status'     => 'active',
+                'student_id' => $student_id,
+            ]);
+            if (!empty($created_parent_id) && !empty($guardian_email)) {
+                syncUserToCentralDirectory([
+                    'school_id' => $_SESSION['school_id'] ?? null,
+                    'name'      => $guardian_name,
+                    'email'     => $guardian_email,
+                    'password'  => $parent_password,
+                    'role'      => 'parent',
+                    'status'    => 'active',
+                ]);
+            }
+
             // Prepare success message
             $success_message = "Student enrolled successfully with ID: $student_id";
             if ($created_parent_id && !empty($guardian_email)) {
@@ -261,12 +334,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
-    <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
         <div class="w-full">
@@ -275,6 +348,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="index.php" class="text-blue-600 hover:text-blue-800">
                     <i class="fas fa-arrow-left mr-2"></i>Back to Students
                 </a>
+            </div>
+
+            <?php
+            // Student capacity indicator (driven by the school's subscription plan).
+            $cap_unlimited = $student_cap['unlimited'];
+            $cap_limit     = (int)$student_cap['limit'];
+            $cap_current   = (int)$student_cap['current'];
+            $cap_full      = (!$cap_unlimited && $cap_current >= $cap_limit);
+            $cap_pct       = (!$cap_unlimited && $cap_limit > 0) ? min(100, (int)round($cap_current / $cap_limit * 100)) : 0;
+            $cap_bar       = $cap_pct >= 100 ? 'bg-red-500' : ($cap_pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500');
+            ?>
+            <div class="mb-6 bg-white rounded-lg shadow border border-gray-200 p-4">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div class="flex items-center text-sm font-medium text-gray-700">
+                        <i class="fas fa-user-graduate text-indigo-500 mr-2"></i>
+                        Student Capacity
+                        <?php if (!empty($student_cap['plan'])): ?>
+                        <span class="ml-2 text-xs text-gray-400">(<?php echo htmlspecialchars($student_cap['plan']); ?> plan)</span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($cap_unlimited): ?>
+                    <span class="text-sm font-bold text-emerald-600"><i class="fas fa-infinity mr-1"></i> Unlimited</span>
+                    <?php else: ?>
+                    <span class="text-sm font-bold <?php echo $cap_full ? 'text-red-600' : 'text-gray-800'; ?>">
+                        <?php echo number_format($cap_current); ?> of <?php echo number_format($cap_limit); ?> students used
+                    </span>
+                    <?php endif; ?>
+                </div>
+                <?php if (!$cap_unlimited): ?>
+                <div class="mt-3 w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div class="<?php echo $cap_bar; ?> h-2.5 rounded-full transition-all duration-300" style="width: <?php echo $cap_pct; ?>%"></div>
+                </div>
+                <p class="text-xs mt-2 <?php echo $cap_full ? 'text-red-600 font-medium' : 'text-gray-500'; ?>">
+                    <?php if ($cap_full): ?>
+                    <i class="fas fa-exclamation-circle mr-1"></i> Limit reached — upgrade the subscription plan to enroll more students.
+                    <?php else: ?>
+                    <?php echo number_format($student_cap['remaining']); ?> slot<?php echo $student_cap['remaining'] == 1 ? '' : 's'; ?> remaining on this plan.
+                    <?php endif; ?>
+                </p>
+                <?php endif; ?>
             </div>
 
             <?php if (!empty($errors)): ?>
@@ -288,15 +401,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <div class="bg-white rounded-lg shadow overflow-hidden">
-                <form action="" method="POST" class="p-6 space-y-8">
+                <form action="" method="POST" enctype="multipart/form-data" class="p-6 space-y-8">
                     <!-- Basic Information -->
                     <div>
                         <h2 class="text-xl font-semibold text-gray-800 mb-4">Basic Information</h2>
+                        
+                        <!-- Profile Picture Section -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-camera mr-2 text-indigo-500"></i>Profile Picture (Optional)
+                            </label>
+                            <div class="flex items-center space-x-4">
+                                <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300 shadow-sm" id="imagePreviewContainer">
+                                    <i class="fas fa-user text-3xl text-gray-400" id="defaultIcon"></i>
+                                    <img id="imagePreview" src="#" alt="Preview" class="hidden w-full h-full object-cover">
+                                </div>
+                                <div>
+                                    <input type="file" name="profile_picture" accept="image/jpeg, image/png, image/gif"
+                                      data-cropper data-crop-preview="#imagePreview" data-crop-icon="#defaultIcon"
+                                      class="block w-full text-sm text-gray-500
+                                      file:mr-4 file:py-2 file:px-4
+                                      file:rounded-full file:border-0
+                                      file:text-sm file:font-semibold
+                                      file:bg-blue-50 file:text-blue-700
+                                      hover:file:bg-blue-100
+                                      transition-colors cursor-pointer">
+                                    <p class="mt-1 text-xs text-gray-500">PNG, JPG, GIF up to 2MB. Crop to frame the face before saving.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="name" class="block text-sm font-medium text-gray-700">Full Name *</label>
-                                <input type="text" id="name" name="name" required
-                                    value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>"
+                                <label for="first_name" class="block text-sm font-medium text-gray-700">First Name *</label>
+                                <input type="text" id="first_name" name="first_name" required
+                                    value="<?php echo isset($_POST['first_name']) ? htmlspecialchars($_POST['first_name']) : ''; ?>"
+                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="other_names" class="block text-sm font-medium text-gray-700">Other Name(s)</label>
+                                <input type="text" id="other_names" name="other_names"
+                                    value="<?php echo isset($_POST['other_names']) ? htmlspecialchars($_POST['other_names']) : ''; ?>"
+                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name *</label>
+                                <input type="text" id="last_name" name="last_name" required
+                                    value="<?php echo isset($_POST['last_name']) ? htmlspecialchars($_POST['last_name']) : ''; ?>"
+                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="student_id" class="block text-sm font-medium text-gray-700">Student ID *</label>
+                                <input type="text" id="student_id" name="student_id" required
+                                    value="<?php echo isset($_POST['student_id']) ? htmlspecialchars($_POST['student_id']) : $database->generateStudentId(); ?>"
                                     class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div>
@@ -596,4 +753,17 @@ document.addEventListener('DOMContentLoaded', function() {
         guardianName.addEventListener('blur', handleGuardianEmailInput);
     }
 });
+
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imagePreview').src = e.target.result;
+            document.getElementById('imagePreview').classList.remove('hidden');
+            var defaultIcon = document.getElementById('defaultIcon');
+            if(defaultIcon) defaultIcon.classList.add('hidden');
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
 </script>

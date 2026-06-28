@@ -1,169 +1,30 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('settings');
 
+require_once '../includes/csrf.php';
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
 
+// Ensure digital-signature columns exist before reading/writing settings.
+ensureSignatureColumns($db);
+
 $user_role = $_SESSION['role'];
+// Only super admins may access the System Settings and Permissions tabs.
+$is_super = ($user_role === 'super_admin');
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Basic Information
-    $school_name = filter_input(INPUT_POST, 'school_name', FILTER_SANITIZE_STRING);
-    $school_address = filter_input(INPUT_POST, 'school_address', FILTER_SANITIZE_STRING);
-    $school_phone = filter_input(INPUT_POST, 'school_phone', FILTER_SANITIZE_STRING);
-    $school_email = filter_input(INPUT_POST, 'school_email', FILTER_SANITIZE_EMAIL);
-    $school_website = filter_input(INPUT_POST, 'school_website', FILTER_SANITIZE_URL);
-    $principal_name = filter_input(INPUT_POST, 'principal_name', FILTER_SANITIZE_STRING);
-
-    // Academic Settings
-    $academic_year_start = filter_input(INPUT_POST, 'academic_year_start', FILTER_SANITIZE_STRING);
-    $academic_year_end = filter_input(INPUT_POST, 'academic_year_end', FILTER_SANITIZE_STRING);
-    $currency = filter_input(INPUT_POST, 'currency', FILTER_SANITIZE_STRING);
-    $timezone = filter_input(INPUT_POST, 'timezone', FILTER_SANITIZE_STRING);
-    $terms_per_year = filter_input(INPUT_POST, 'terms_per_year', FILTER_SANITIZE_STRING);
-    $grading_system = filter_input(INPUT_POST, 'grading_system', FILTER_SANITIZE_STRING);
-
-    // System Appearance
-    $theme_color = filter_input(INPUT_POST, 'theme_color', FILTER_SANITIZE_STRING);
-    $default_language = filter_input(INPUT_POST, 'default_language', FILTER_SANITIZE_STRING);
-    $date_format = filter_input(INPUT_POST, 'date_format', FILTER_SANITIZE_STRING);
-
-    // Communication Settings
-    $sms_gateway = filter_input(INPUT_POST, 'sms_gateway', FILTER_SANITIZE_STRING);
-    $email_notifications = filter_input(INPUT_POST, 'email_notifications', FILTER_SANITIZE_STRING);
-    $parent_portal = filter_input(INPUT_POST, 'parent_portal', FILTER_SANITIZE_STRING);
-    $student_portal = filter_input(INPUT_POST, 'student_portal', FILTER_SANITIZE_STRING);
-
-    // Additional Settings
-    $maintenance_mode = filter_input(INPUT_POST, 'maintenance_mode', FILTER_SANITIZE_STRING);
-    $registration_enabled = filter_input(INPUT_POST, 'registration_enabled', FILTER_SANITIZE_STRING);
-    $max_file_upload_size = filter_input(INPUT_POST, 'max_file_upload_size', FILTER_SANITIZE_STRING);
-    $session_timeout = filter_input(INPUT_POST, 'session_timeout', FILTER_SANITIZE_STRING);
-    $backup_frequency = filter_input(INPUT_POST, 'backup_frequency', FILTER_SANITIZE_STRING);
-    $auto_backup = filter_input(INPUT_POST, 'auto_backup', FILTER_SANITIZE_STRING);
-    $time_format = filter_input(INPUT_POST, 'time_format', FILTER_SANITIZE_STRING);
-
-    if ($school_name && $school_address && $school_phone && $school_email) {
-        try {
-            // Check if settings exist
-            $check_query = "SELECT COUNT(*) FROM school_settings";
-            $check_stmt = $db->query($check_query);
-            $settings_exist = $check_stmt->fetchColumn() > 0;
-
-            // Check which columns exist in the table
-            $columns_query = "SHOW COLUMNS FROM school_settings";
-            $columns_stmt = $db->query($columns_query);
-            $existing_columns = [];
-            while ($column = $columns_stmt->fetch(PDO::FETCH_ASSOC)) {
-                $existing_columns[] = $column['Field'];
-            }
-
-            // Build query based on existing columns
-            $basic_fields = [
-                'school_name', 'school_address', 'school_phone', 'school_email',
-                'school_website', 'principal_name', 'academic_year_start',
-                'academic_year_end', 'currency', 'timezone'
-            ];
-
-            $extended_fields = [
-                'terms_per_year', 'grading_system', 'theme_color', 'default_language',
-                'date_format', 'time_format', 'sms_gateway', 'email_notifications', 'parent_portal', 'student_portal',
-                'maintenance_mode', 'registration_enabled', 'max_file_upload_size', 'session_timeout',
-                'backup_frequency', 'auto_backup'
-            ];
-
-            // Only include fields that exist in the database
-            $update_fields = [];
-            $insert_fields = [];
-            $insert_values = [];
-
-            foreach ($basic_fields as $field) {
-                if (in_array($field, $existing_columns)) {
-                    $update_fields[] = "$field = :$field";
-                    $insert_fields[] = $field;
-                    $insert_values[] = ":$field";
-                }
-            }
-
-            foreach ($extended_fields as $field) {
-                if (in_array($field, $existing_columns)) {
-                    $update_fields[] = "$field = :$field";
-                    $insert_fields[] = $field;
-                    $insert_values[] = ":$field";
-                }
-            }
-
-            if ($settings_exist) {
-                // Update existing settings
-                $query = "UPDATE school_settings SET " . implode(', ', $update_fields);
-                if (in_array('updated_at', $existing_columns)) {
-                    $query .= ", updated_at = CURRENT_TIMESTAMP";
-                }
-            } else {
-                // Insert new settings
-                $query = "INSERT INTO school_settings (" . implode(', ', $insert_fields) . ")
-                         VALUES (" . implode(', ', $insert_values) . ")";
-            }
-
-            $stmt = $db->prepare($query);
-
-            // Bind parameters only for existing columns
-            $all_params = [
-                'school_name' => $school_name,
-                'school_address' => $school_address,
-                'school_phone' => $school_phone,
-                'school_email' => $school_email,
-                'school_website' => $school_website,
-                'principal_name' => $principal_name,
-                'academic_year_start' => $academic_year_start,
-                'academic_year_end' => $academic_year_end,
-                'currency' => $currency,
-                'timezone' => $timezone,
-                'terms_per_year' => $terms_per_year,
-                'grading_system' => $grading_system,
-                'theme_color' => $theme_color,
-                'default_language' => $default_language,
-                'date_format' => $date_format,
-                'sms_gateway' => $sms_gateway,
-                'email_notifications' => $email_notifications,
-                'parent_portal' => $parent_portal,
-                'student_portal' => $student_portal,
-                'time_format' => $time_format,
-                'maintenance_mode' => $maintenance_mode,
-                'registration_enabled' => $registration_enabled,
-                'max_file_upload_size' => $max_file_upload_size,
-                'session_timeout' => $session_timeout,
-                'backup_frequency' => $backup_frequency,
-                'auto_backup' => $auto_backup
-            ];
-
-            foreach ($all_params as $param => $value) {
-                if (in_array($param, $existing_columns)) {
-                    $stmt->bindParam(":$param", $all_params[$param]);
-                }
-            }
-
-            if ($stmt->execute()) {
-                // Clear settings cache to ensure changes take effect immediately
-                require_once '../includes/settings_helper.php';
-                clearSettingsCache();
-
-                $success_message = "School settings updated successfully! Changes will take effect immediately.";
-            } else {
-                $error_message = "Error updating school settings.";
-            }
-        } catch (PDOException $e) {
-            $error_message = "Database error: " . $e->getMessage();
-        }
-    } else {
-        $error_message = "Please fill in all required fields.";
-    }
+// Get active tab from URL or default to 'school-info'
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'school-info';
+$allowed_tabs = ['school-info', 'signatures', 'academics', 'attendance', 'payment', 'sms', 'email', 'ai'];
+if ($is_super) {
+    $allowed_tabs[] = 'system';
+    $allowed_tabs[] = 'permissions';
+}
+if (!in_array($active_tab, $allowed_tabs)) {
+    $active_tab = 'school-info';
 }
 
 // Get current settings
@@ -172,28 +33,741 @@ $settings_stmt = $db->query($settings_query);
 $settings = $settings_stmt->fetch(PDO::FETCH_ASSOC);
 
 // Default values if no settings exist
+$default_settings = [
+    'school_name' => 'Greenwood Academy',
+    'school_address' => '',
+    'school_phone' => '',
+    'school_email' => '',
+    'school_website' => '',
+    'school_logo' => '',
+    'principal_name' => '',
+    'academic_year_start' => date('Y') . '-09-01',
+    'academic_year_end' => (date('Y') + 1) . '-06-30',
+    'currency' => 'GHS',
+    'timezone' => 'Africa/Accra',
+    'terms_per_year' => '3',
+    'grading_system' => 'percentage',
+    'theme_color' => 'blue',
+    'default_language' => 'en',
+    'date_format' => 'Y-m-d',
+    'sms_gateway' => 'disabled',
+    'sms_api_key' => '',
+    'sms_api_secret' => '',
+    'sms_sender_id' => '',
+    'sms_country_code' => '233',
+    'sms_absence_alerts' => '0',
+    'sms_payment_reminders' => '0',
+    'sms_exam_results' => '0',
+    'sms_event_announcements' => '0',
+    'sms_emergency_alerts' => '0',
+    'ai_provider' => 'builtin',
+    'ai_api_key' => '',
+    'ai_model' => 'gemini-1.5-flash',
+    'email_notifications' => 'enabled',
+    'smtp_host' => '',
+    'smtp_port' => '587',
+    'smtp_username' => '',
+    'smtp_password' => '',
+    'smtp_encryption' => 'tls',
+    'parent_portal' => 'enabled',
+    'student_portal' => 'enabled',
+    'time_format' => 'H:i',
+    'maintenance_mode' => 'disabled',
+    'registration_enabled' => 'enabled',
+    'max_file_upload_size' => '10MB',
+    'session_timeout' => '30',
+    'login_max_attempts' => '5',
+    'login_lockout_duration' => '15',
+    'backup_frequency' => 'weekly',
+    'auto_backup' => 'enabled',
+    'attendance_grace_period' => '15',
+    'attendance_auto_absent' => 'enabled',
+    'attendance_daily_reports' => 'enabled',
+    'attendance_parent_notifications' => 'enabled',
+    'attendance_weekly_summary' => 'disabled',
+    'payment_gateway' => 'manual',
+    'payment_api_key' => '',
+    'payment_api_secret' => '',
+    'pay_method_cash' => '1',
+    'pay_method_bank' => '1',
+    'pay_method_card' => '1',
+    'pay_method_mobile' => '1',
+    'currency_symbol' => '₵',
+    'footer_tagline' => 'Excellence in Education',
+    'footer_description' => 'Empowering education through innovative technology and efficient management solutions for the digital age.',
+    'office_hours' => 'Mon - Fri: 8:00 AM - 5:00 PM',
+    'social_facebook' => '',
+    'social_twitter' => '',
+    'social_linkedin' => '',
+    'social_instagram' => '',
+    'social_youtube' => '',
+    'social_tiktok' => '',
+    'social_whatsapp' => '',
+    'social_telegram' => ''
+];
+
 if (!$settings) {
-    $settings = [
-        'school_name' => 'Greenwood Academy',
-        'school_address' => '',
-        'school_phone' => '',
-        'school_email' => '',
-        'school_website' => '',
-        'principal_name' => '',
-        'academic_year_start' => date('Y') . '-09-01',
-        'academic_year_end' => (date('Y') + 1) . '-06-30',
-        'currency' => 'GHS',
-        'timezone' => 'Africa/Accra',
-        'terms_per_year' => '3',
-        'grading_system' => 'percentage',
-        'theme_color' => 'blue',
-        'default_language' => 'en',
-        'date_format' => 'Y-m-d',
-        'sms_gateway' => 'disabled',
-        'email_notifications' => 'enabled',
-        'parent_portal' => 'enabled',
-        'student_portal' => 'enabled'
-    ];
+    $settings = $default_settings;
+} else {
+    foreach ($default_settings as $key => $val) {
+        if (!isset($settings[$key])) {
+            $settings[$key] = $val;
+        }
+    }
+}
+
+// Get academic settings
+$academic_settings = [];
+$academic_query = "SELECT setting_key, setting_value FROM academic_settings";
+$academic_stmt = $db->query($academic_query);
+while ($row = $academic_stmt->fetch(PDO::FETCH_ASSOC)) {
+    $academic_settings[$row['setting_key']] = $row['setting_value'];
+}
+
+// Get current academic year and term
+$current_year = null;
+$current_term = null;
+if (isset($academic_settings['current_academic_year_id'])) {
+    $year_stmt = $db->prepare("SELECT * FROM academic_years WHERE id = :id");
+    $year_stmt->execute([':id' => $academic_settings['current_academic_year_id']]);
+    $current_year = $year_stmt->fetch(PDO::FETCH_ASSOC);
+}
+if (isset($academic_settings['current_academic_term_id'])) {
+    $term_stmt = $db->prepare("SELECT * FROM academic_terms WHERE id = :id");
+    $term_stmt->execute([':id' => $academic_settings['current_academic_term_id']]);
+    $current_term = $term_stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+// Get all academic years and terms
+$years = $db->query("SELECT * FROM academic_years ORDER BY year_name DESC")->fetchAll(PDO::FETCH_ASSOC);
+$terms = [];
+if ($current_year) {
+    $terms_stmt = $db->prepare("SELECT * FROM academic_terms WHERE academic_year_id = :year_id ORDER BY term_number");
+    $terms_stmt->execute([':year_id' => $current_year['id']]);
+    $terms = $terms_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Handle form submission
+$success_message = '';
+$error_message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    // Reject forged/expired submissions before processing any settings change.
+    if (!csrf_verify()) {
+        $error_message = 'Security validation failed. Please refresh the page and try again.';
+        $action = '';
+    }
+
+    try {
+        switch ($action) {
+            case 'update_school_info':
+                $school_name = filter_input(INPUT_POST, 'school_name', FILTER_SANITIZE_STRING);
+                $school_address = filter_input(INPUT_POST, 'school_address', FILTER_SANITIZE_STRING);
+                $school_phone = filter_input(INPUT_POST, 'school_phone', FILTER_SANITIZE_STRING);
+                $school_email = filter_input(INPUT_POST, 'school_email', FILTER_SANITIZE_EMAIL);
+                $school_website = filter_input(INPUT_POST, 'school_website', FILTER_SANITIZE_URL);
+                $principal_name = filter_input(INPUT_POST, 'principal_name', FILTER_SANITIZE_STRING);
+                $footer_tagline = trim($_POST['footer_tagline'] ?? '');
+                $footer_description = trim($_POST['footer_description'] ?? '');
+                $office_hours = trim($_POST['office_hours'] ?? '');
+
+                // Social media links
+                $social_keys = ['social_facebook', 'social_twitter', 'social_linkedin', 'social_instagram',
+                                'social_youtube', 'social_tiktok', 'social_whatsapp', 'social_telegram'];
+                $social_values = [];
+                foreach ($social_keys as $sk) {
+                    $val = trim($_POST[$sk] ?? '');
+                    $social_values[$sk] = $val !== '' ? $val : null;
+                }
+                
+                // Handle logo upload
+                $school_logo = $settings['school_logo'];
+                if (isset($_FILES['school_logo']) && $_FILES['school_logo']['error'] === UPLOAD_ERR_OK) {
+                    $file_ext = strtolower(pathinfo($_FILES['school_logo']['name'], PATHINFO_EXTENSION));
+                    $allowed_exts = ['png', 'jpg', 'jpeg', 'gif', 'svg'];
+                    // Logos are capped at the smaller of 2 MB and the configured
+                    // Max File Upload Size, so the system-wide limit is honoured.
+                    require_once '../includes/settings_helper.php';
+                    $logo_max = min(2 * 1024 * 1024, getMaxUploadBytes());
+                    if (in_array($file_ext, $allowed_exts) && $_FILES['school_logo']['size'] <= $logo_max) {
+                        $upload_dir = '../uploads/logos/';
+                        if (!file_exists($upload_dir)) {
+                            mkdir($upload_dir, 0777, true);
+                        }
+                        $new_file_name = 'logo_' . time() . '.' . $file_ext;
+                        if (move_uploaded_file($_FILES['school_logo']['tmp_name'], $upload_dir . $new_file_name)) {
+                            if (!empty($settings['school_logo']) && file_exists($upload_dir . $settings['school_logo'])) {
+                                @unlink($upload_dir . $settings['school_logo']);
+                            }
+                            $school_logo = $new_file_name;
+                        }
+                    }
+                }
+                
+                $update_query = "UPDATE school_settings SET
+                    school_name = :school_name,
+                    school_address = :school_address,
+                    school_phone = :school_phone,
+                    school_email = :school_email,
+                    school_website = :school_website,
+                    principal_name = :principal_name,
+                    school_logo = :school_logo,
+                    footer_tagline = :footer_tagline,
+                    footer_description = :footer_description,
+                    office_hours = :office_hours,
+                    social_facebook = :social_facebook,
+                    social_twitter = :social_twitter,
+                    social_linkedin = :social_linkedin,
+                    social_instagram = :social_instagram,
+                    social_youtube = :social_youtube,
+                    social_tiktok = :social_tiktok,
+                    social_whatsapp = :social_whatsapp,
+                    social_telegram = :social_telegram,
+                    updated_at = CURRENT_TIMESTAMP";
+
+                $stmt = $db->prepare($update_query);
+                $stmt->execute(array_merge([
+                    ':school_name' => $school_name,
+                    ':school_address' => $school_address,
+                    ':school_phone' => $school_phone,
+                    ':school_email' => $school_email,
+                    ':school_website' => $school_website,
+                    ':principal_name' => $principal_name,
+                    ':school_logo' => $school_logo,
+                    ':footer_tagline' => $footer_tagline !== '' ? $footer_tagline : null,
+                    ':footer_description' => $footer_description !== '' ? $footer_description : null,
+                    ':office_hours' => $office_hours !== '' ? $office_hours : null
+                ], [
+                    ':social_facebook'  => $social_values['social_facebook'],
+                    ':social_twitter'   => $social_values['social_twitter'],
+                    ':social_linkedin'  => $social_values['social_linkedin'],
+                    ':social_instagram' => $social_values['social_instagram'],
+                    ':social_youtube'   => $social_values['social_youtube'],
+                    ':social_tiktok'    => $social_values['social_tiktok'],
+                    ':social_whatsapp'  => $social_values['social_whatsapp'],
+                    ':social_telegram'  => $social_values['social_telegram'],
+                ]));
+                
+                $success_message = "School information updated successfully!";
+                $active_tab = 'school-info';
+                break;
+
+            case 'update_signatures':
+                require_once '../includes/settings_helper.php';
+                require_once '../includes/signature_helper.php';
+                $sig_max = min(1 * 1024 * 1024, getMaxUploadBytes()); // 1 MB cap
+                $sig_dir = '../uploads/signatures/';
+                if (!file_exists($sig_dir)) { @mkdir($sig_dir, 0777, true); }
+
+                $signatures_enabled = (isset($_POST['signatures_enabled']) && $_POST['signatures_enabled'] === '1') ? '1' : '0';
+
+                $sig_set = ['signatures_enabled' => $signatures_enabled];
+                foreach (['headmaster', 'accountant', 'hr', 'registrar'] as $slot) {
+                    // Keep the current file unless a new valid one is uploaded or a removal is requested.
+                    $current = $settings['signature_' . $slot] ?? '';
+                    $field = 'signature_' . $slot;
+
+                    if (!empty($_POST['remove_' . $slot]) && $current) {
+                        if (file_exists($sig_dir . $current)) { @unlink($sig_dir . $current); }
+                        $current = '';
+                    }
+
+                    if (isset($_FILES[$field]) && $_FILES[$field]['error'] === UPLOAD_ERR_OK) {
+                        $ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
+                        if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif']) && $_FILES[$field]['size'] <= $sig_max) {
+                            $base = 'sig_' . $slot . '_' . time();
+                            $raw_name = $base . '.' . $ext;
+                            if (move_uploaded_file($_FILES[$field]['tmp_name'], $sig_dir . $raw_name)) {
+                                // Normalize so the signature prints at a consistent size.
+                                $final_name = $base . '.png';
+                                if (normalizeSignatureImage($sig_dir . $raw_name, $sig_dir . $final_name)) {
+                                    if ($raw_name !== $final_name) { @unlink($sig_dir . $raw_name); }
+                                } else {
+                                    $final_name = $raw_name; // keep original if normalization fails
+                                }
+                                if ($current && $current !== $final_name && file_exists($sig_dir . $current)) { @unlink($sig_dir . $current); }
+                                $current = $final_name;
+                            }
+                        } else {
+                            $error_message = "Signature for {$slot} must be a PNG/JPG/GIF under 1 MB.";
+                        }
+                    }
+
+                    $sig_set[$field] = $current !== '' ? $current : null;
+                    $sig_set[$field . '_name']  = trim($_POST[$field . '_name'] ?? '') ?: null;
+                    $sig_set[$field . '_title'] = trim($_POST[$field . '_title'] ?? '') ?: null;
+                }
+
+                // Build the UPDATE dynamically from the prepared set.
+                $cols = [];
+                $vals = [];
+                foreach ($sig_set as $k => $v) {
+                    $cols[] = "`$k` = :$k";
+                    $vals[":$k"] = $v;
+                }
+                $stmt = $db->prepare("UPDATE school_settings SET " . implode(', ', $cols) . ", updated_at = CURRENT_TIMESTAMP");
+                $stmt->execute($vals);
+
+                clearSettingsCache();
+                if ($error_message === '') {
+                    $success_message = "Signature settings saved successfully!";
+                }
+                $active_tab = 'signatures';
+                break;
+
+            case 'update_academics':
+                $academic_year_start = filter_input(INPUT_POST, 'academic_year_start', FILTER_SANITIZE_STRING);
+                $academic_year_end = filter_input(INPUT_POST, 'academic_year_end', FILTER_SANITIZE_STRING);
+                $terms_per_year = filter_input(INPUT_POST, 'terms_per_year', FILTER_SANITIZE_STRING);
+                $grading_system = filter_input(INPUT_POST, 'grading_system', FILTER_SANITIZE_STRING);
+                $school_motto = filter_input(INPUT_POST, 'school_motto', FILTER_SANITIZE_STRING);
+
+                // Validate the grading system against the allowed display styles.
+                // Reject unknown values (keep the existing setting) so only a
+                // recognised style is ever persisted.
+                require_once '../includes/settings_helper.php';
+                if (!isValidGradingSystem($grading_system)) {
+                    $grading_system = getGradingSystem();
+                }
+                // Constrain terms-per-year to the supported options.
+                if (!in_array($terms_per_year, ['2', '3', '4'], true)) {
+                    $terms_per_year = '3';
+                }
+
+                $school_postal = filter_input(INPUT_POST, 'school_postal', FILTER_SANITIZE_STRING);
+                
+                $update_query = "UPDATE school_settings SET 
+                    academic_year_start = :academic_year_start,
+                    academic_year_end = :academic_year_end,
+                    terms_per_year = :terms_per_year,
+                    grading_system = :grading_system,
+                    updated_at = CURRENT_TIMESTAMP";
+                
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':academic_year_start' => $academic_year_start,
+                    ':academic_year_end' => $academic_year_end,
+                    ':terms_per_year' => $terms_per_year,
+                    ':grading_system' => $grading_system
+                ]);
+                
+                // Update academic settings
+                $upsert_sql = "INSERT INTO academic_settings (setting_key, setting_value) 
+                               VALUES (:key, :value) 
+                               ON DUPLICATE KEY UPDATE setting_value = :value";
+                $stmt = $db->prepare($upsert_sql);
+                $stmt->execute([':key' => 'school_motto', ':value' => $school_motto]);
+                $stmt->execute([':key' => 'school_postal', ':value' => $school_postal]);
+                
+                $success_message = "Academic settings updated successfully!";
+                $active_tab = 'academics';
+                break;
+                
+            case 'update_system':
+                if (!$is_super) { throw new Exception('You are not authorized to change system settings.'); }
+                $default_language = filter_input(INPUT_POST, 'default_language', FILTER_SANITIZE_STRING);
+                $date_format = filter_input(INPUT_POST, 'date_format', FILTER_SANITIZE_STRING);
+                $time_format = filter_input(INPUT_POST, 'time_format', FILTER_SANITIZE_STRING);
+                $timezone = filter_input(INPUT_POST, 'timezone', FILTER_SANITIZE_STRING);
+                $maintenance_mode = filter_input(INPUT_POST, 'maintenance_mode', FILTER_SANITIZE_STRING);
+                $registration_enabled = filter_input(INPUT_POST, 'registration_enabled', FILTER_SANITIZE_STRING);
+                $max_file_upload_size = filter_input(INPUT_POST, 'max_file_upload_size', FILTER_SANITIZE_STRING);
+                $session_timeout = filter_input(INPUT_POST, 'session_timeout', FILTER_SANITIZE_NUMBER_INT);
+                $backup_frequency = filter_input(INPUT_POST, 'backup_frequency', FILTER_SANITIZE_STRING);
+                $auto_backup = filter_input(INPUT_POST, 'auto_backup', FILTER_SANITIZE_STRING);
+
+                // Login lockout settings (0 attempts = feature disabled).
+                $login_max_attempts = (int)filter_input(INPUT_POST, 'login_max_attempts', FILTER_SANITIZE_NUMBER_INT);
+                if ($login_max_attempts < 0) { $login_max_attempts = 0; }
+                $login_lockout_duration = (int)filter_input(INPUT_POST, 'login_lockout_duration', FILTER_SANITIZE_NUMBER_INT);
+                if ($login_lockout_duration < 1) { $login_lockout_duration = 1; }
+
+                // Self-heal: add lockout columns the first time they are saved.
+                $check_lockout = $db->query("SHOW COLUMNS FROM school_settings LIKE 'login_max_attempts'");
+                if ($check_lockout->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN login_max_attempts INT DEFAULT 5");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN login_lockout_duration INT DEFAULT 15");
+                }
+
+                $update_query = "UPDATE school_settings SET
+                    default_language = :default_language,
+                    date_format = :date_format,
+                    time_format = :time_format,
+                    timezone = :timezone,
+                    maintenance_mode = :maintenance_mode,
+                    registration_enabled = :registration_enabled,
+                    max_file_upload_size = :max_file_upload_size,
+                    session_timeout = :session_timeout,
+                    login_max_attempts = :login_max_attempts,
+                    login_lockout_duration = :login_lockout_duration,
+                    backup_frequency = :backup_frequency,
+                    auto_backup = :auto_backup,
+                    updated_at = CURRENT_TIMESTAMP";
+
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':default_language' => $default_language,
+                    ':date_format' => $date_format,
+                    ':time_format' => $time_format,
+                    ':timezone' => $timezone,
+                    ':maintenance_mode' => $maintenance_mode,
+                    ':registration_enabled' => $registration_enabled,
+                    ':max_file_upload_size' => $max_file_upload_size,
+                    ':session_timeout' => $session_timeout,
+                    ':login_max_attempts' => $login_max_attempts,
+                    ':login_lockout_duration' => $login_lockout_duration,
+                    ':backup_frequency' => $backup_frequency,
+                    ':auto_backup' => $auto_backup
+                ]);
+                
+                require_once '../includes/settings_helper.php';
+                clearSettingsCache();
+                
+                $success_message = "System settings updated successfully!";
+                $active_tab = 'system';
+                break;
+                
+            case 'update_attendance':
+                $attendance_grace_period = filter_input(INPUT_POST, 'attendance_grace_period', FILTER_SANITIZE_NUMBER_INT);
+                $attendance_auto_absent = filter_input(INPUT_POST, 'attendance_auto_absent', FILTER_SANITIZE_STRING);
+
+                // Checkboxes only post a value when toggled on
+                $attendance_daily_reports = isset($_POST['attendance_daily_reports']) ? 'enabled' : 'disabled';
+                $attendance_parent_notifications = isset($_POST['attendance_parent_notifications']) ? 'enabled' : 'disabled';
+                $attendance_weekly_summary = isset($_POST['attendance_weekly_summary']) ? 'enabled' : 'disabled';
+
+                // Check if columns exist, if not add them
+                $check_columns = $db->query("SHOW COLUMNS FROM school_settings LIKE 'attendance_grace_period'");
+                if ($check_columns->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN attendance_grace_period INT DEFAULT 15");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN attendance_auto_absent ENUM('enabled','disabled') DEFAULT 'enabled'");
+                }
+
+                // Ensure notification toggle columns exist
+                $check_notif = $db->query("SHOW COLUMNS FROM school_settings LIKE 'attendance_daily_reports'");
+                if ($check_notif->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN attendance_daily_reports ENUM('enabled','disabled') DEFAULT 'enabled'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN attendance_parent_notifications ENUM('enabled','disabled') DEFAULT 'enabled'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN attendance_weekly_summary ENUM('enabled','disabled') DEFAULT 'disabled'");
+                }
+
+                $update_query = "UPDATE school_settings SET
+                    attendance_grace_period = :attendance_grace_period,
+                    attendance_auto_absent = :attendance_auto_absent,
+                    attendance_daily_reports = :attendance_daily_reports,
+                    attendance_parent_notifications = :attendance_parent_notifications,
+                    attendance_weekly_summary = :attendance_weekly_summary,
+                    updated_at = CURRENT_TIMESTAMP";
+
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':attendance_grace_period' => $attendance_grace_period,
+                    ':attendance_auto_absent' => $attendance_auto_absent,
+                    ':attendance_daily_reports' => $attendance_daily_reports,
+                    ':attendance_parent_notifications' => $attendance_parent_notifications,
+                    ':attendance_weekly_summary' => $attendance_weekly_summary
+                ]);
+
+                $success_message = "Attendance settings updated successfully!";
+                $active_tab = 'attendance';
+                break;
+                
+            case 'update_payment':
+                $currency = filter_input(INPUT_POST, 'currency', FILTER_SANITIZE_STRING);
+                $payment_gateway = filter_input(INPUT_POST, 'payment_gateway', FILTER_SANITIZE_STRING);
+                $payment_api_key = filter_input(INPUT_POST, 'payment_api_key', FILTER_SANITIZE_STRING);
+                $payment_api_secret = filter_input(INPUT_POST, 'payment_api_secret', FILTER_SANITIZE_STRING);
+                
+                $currency_symbols = [
+                    'GHS' => '₵', 'USD' => '$', 'EUR' => '€', 'GBP' => '£',
+                    'NGN' => '₦', 'KES' => 'KSh', 'ZAR' => 'R'
+                ];
+                $currency_symbol = $currency_symbols[$currency] ?? $currency;
+                
+                // Accepted payment-method toggles (hidden field posts '0' when off)
+                $pay_methods = ['cash', 'bank', 'card', 'mobile'];
+                $pay_method_values = [];
+                foreach ($pay_methods as $pm) {
+                    $raw = $_POST['pay_method_' . $pm] ?? '0';
+                    if (is_array($raw)) {
+                        $raw = end($raw); // last value wins (checkbox overrides hidden '0')
+                    }
+                    $pay_method_values[$pm] = ((string)$raw === '1') ? '1' : '0';
+                }
+
+                // Check if columns exist
+                $check_columns = $db->query("SHOW COLUMNS FROM school_settings LIKE 'payment_gateway'");
+                if ($check_columns->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN payment_gateway VARCHAR(50) DEFAULT 'manual'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN payment_api_key VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN payment_api_secret VARCHAR(255) DEFAULT ''");
+                }
+
+                // Ensure accepted-payment-method columns exist
+                $check_pm = $db->query("SHOW COLUMNS FROM school_settings LIKE 'pay_method_cash'");
+                if ($check_pm->rowCount() == 0) {
+                    foreach ($pay_methods as $pm) {
+                        $db->exec("ALTER TABLE school_settings ADD COLUMN pay_method_$pm ENUM('0','1') DEFAULT '1'");
+                    }
+                }
+
+                $update_query = "UPDATE school_settings SET
+                    currency = :currency,
+                    currency_symbol = :currency_symbol,
+                    payment_gateway = :payment_gateway,
+                    payment_api_key = :payment_api_key,
+                    payment_api_secret = :payment_api_secret,
+                    pay_method_cash = :pay_method_cash,
+                    pay_method_bank = :pay_method_bank,
+                    pay_method_card = :pay_method_card,
+                    pay_method_mobile = :pay_method_mobile,
+                    updated_at = CURRENT_TIMESTAMP";
+
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':currency' => $currency,
+                    ':currency_symbol' => $currency_symbol,
+                    ':payment_gateway' => $payment_gateway,
+                    ':payment_api_key' => $payment_api_key,
+                    ':payment_api_secret' => $payment_api_secret,
+                    ':pay_method_cash' => $pay_method_values['cash'],
+                    ':pay_method_bank' => $pay_method_values['bank'],
+                    ':pay_method_card' => $pay_method_values['card'],
+                    ':pay_method_mobile' => $pay_method_values['mobile']
+                ]);
+
+                require_once '../includes/settings_helper.php';
+                clearSettingsCache();
+
+                $success_message = "Payment settings updated successfully!";
+                $active_tab = 'payment';
+                break;
+                
+            case 'update_sms':
+                $sms_gateway = filter_input(INPUT_POST, 'sms_gateway', FILTER_SANITIZE_STRING);
+                // Whitelist the gateway so only a recognised provider key is stored.
+                $valid_gateways = ['disabled', 'twilio', 'nexmo', 'termii', 'hubtel',
+                                   'notifysms', 'onlinegh', 'wigal', 'nalopay', 'local'];
+                if (!in_array($sms_gateway, $valid_gateways, true)) {
+                    $sms_gateway = 'disabled';
+                }
+                $sms_api_key = filter_input(INPUT_POST, 'sms_api_key', FILTER_SANITIZE_STRING);
+                $sms_api_secret = filter_input(INPUT_POST, 'sms_api_secret', FILTER_SANITIZE_STRING);
+                $sms_sender_id = filter_input(INPUT_POST, 'sms_sender_id', FILTER_SANITIZE_STRING);
+                // Default country dialling code used to normalize local phone numbers.
+                $sms_country_code = preg_replace('/\D+/', '', $_POST['sms_country_code'] ?? '233');
+                if ($sms_country_code === '') { $sms_country_code = '233'; }
+
+                // SMS notification triggers (checkboxes) - get last value from array if multiple values exist
+                $sms_absence_alerts = is_array($_POST['sms_absence_alerts']) ? end($_POST['sms_absence_alerts']) : ($_POST['sms_absence_alerts'] ?? '0');
+                $sms_payment_reminders = is_array($_POST['sms_payment_reminders']) ? end($_POST['sms_payment_reminders']) : ($_POST['sms_payment_reminders'] ?? '0');
+                $sms_exam_results = is_array($_POST['sms_exam_results']) ? end($_POST['sms_exam_results']) : ($_POST['sms_exam_results'] ?? '0');
+                $sms_event_announcements = is_array($_POST['sms_event_announcements']) ? end($_POST['sms_event_announcements']) : ($_POST['sms_event_announcements'] ?? '0');
+                $sms_emergency_alerts = is_array($_POST['sms_emergency_alerts']) ? end($_POST['sms_emergency_alerts']) : ($_POST['sms_emergency_alerts'] ?? '0');
+                
+                // Check if columns exist
+                $check_columns = $db->query("SHOW COLUMNS FROM school_settings LIKE 'sms_api_key'");
+                if ($check_columns->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_api_key VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_api_secret VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_sender_id VARCHAR(50) DEFAULT ''");
+                }
+
+                // Self-heal: add the country-code column the first time it is saved.
+                $check_cc = $db->query("SHOW COLUMNS FROM school_settings LIKE 'sms_country_code'");
+                if ($check_cc->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_country_code VARCHAR(5) DEFAULT '233'");
+                }
+
+                // Older schemas declared sms_gateway as a restrictive ENUM that only
+                // listed a few providers, so picking e.g. Hubtel/Wigal silently saved
+                // '' and the dropdown reverted to "Disabled". Widen it to a VARCHAR so
+                // every supported gateway key persists correctly.
+                $gateway_col = $db->query("SHOW COLUMNS FROM school_settings LIKE 'sms_gateway'")->fetch(PDO::FETCH_ASSOC);
+                if ($gateway_col && stripos($gateway_col['Type'], 'enum') !== false) {
+                    $db->exec("ALTER TABLE school_settings MODIFY COLUMN sms_gateway VARCHAR(50) NOT NULL DEFAULT 'disabled'");
+                }
+
+                // Check if notification trigger columns exist
+                $check_triggers = $db->query("SHOW COLUMNS FROM school_settings LIKE 'sms_absence_alerts'");
+                if ($check_triggers->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_absence_alerts ENUM('0','1') DEFAULT '0'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_payment_reminders ENUM('0','1') DEFAULT '0'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_exam_results ENUM('0','1') DEFAULT '0'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_event_announcements ENUM('0','1') DEFAULT '0'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN sms_emergency_alerts ENUM('0','1') DEFAULT '0'");
+                }
+                
+                $update_query = "UPDATE school_settings SET
+                    sms_gateway = :sms_gateway,
+                    sms_api_key = :sms_api_key,
+                    sms_api_secret = :sms_api_secret,
+                    sms_sender_id = :sms_sender_id,
+                    sms_country_code = :sms_country_code,
+                    sms_absence_alerts = :sms_absence_alerts,
+                    sms_payment_reminders = :sms_payment_reminders,
+                    sms_exam_results = :sms_exam_results,
+                    sms_event_announcements = :sms_event_announcements,
+                    sms_emergency_alerts = :sms_emergency_alerts,
+                    updated_at = CURRENT_TIMESTAMP";
+
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':sms_gateway' => $sms_gateway,
+                    ':sms_api_key' => $sms_api_key,
+                    ':sms_api_secret' => $sms_api_secret,
+                    ':sms_sender_id' => $sms_sender_id,
+                    ':sms_country_code' => $sms_country_code,
+                    ':sms_absence_alerts' => $sms_absence_alerts,
+                    ':sms_payment_reminders' => $sms_payment_reminders,
+                    ':sms_exam_results' => $sms_exam_results,
+                    ':sms_event_announcements' => $sms_event_announcements,
+                    ':sms_emergency_alerts' => $sms_emergency_alerts
+                ]);
+
+                require_once '../includes/settings_helper.php';
+                clearSettingsCache();
+
+                $success_message = "SMS integration settings updated successfully!";
+                $active_tab = 'sms';
+                break;
+                
+            case 'update_ai':
+                $ai_provider = filter_input(INPUT_POST, 'ai_provider', FILTER_SANITIZE_STRING);
+                $ai_api_key = filter_input(INPUT_POST, 'ai_api_key', FILTER_SANITIZE_STRING);
+                $ai_model = filter_input(INPUT_POST, 'ai_model', FILTER_SANITIZE_STRING);
+
+                // Self-heal: add Draft AI columns if this is the first time.
+                $check_ai = $db->query("SHOW COLUMNS FROM school_settings LIKE 'ai_provider'");
+                if ($check_ai->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN ai_provider VARCHAR(50) DEFAULT 'builtin'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN ai_api_key VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN ai_model VARCHAR(100) DEFAULT 'gemini-1.5-flash'");
+                }
+
+                $update_query = "UPDATE school_settings SET
+                    ai_provider = :ai_provider,
+                    ai_api_key = :ai_api_key,
+                    ai_model = :ai_model,
+                    updated_at = CURRENT_TIMESTAMP";
+
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':ai_provider' => $ai_provider ?: 'builtin',
+                    ':ai_api_key' => $ai_api_key ?? '',
+                    ':ai_model' => $ai_model ?: 'gemini-1.5-flash'
+                ]);
+
+                $success_message = "Draft AI settings updated successfully!";
+                $active_tab = 'ai';
+                break;
+
+            case 'update_email':
+                $email_notifications = filter_input(INPUT_POST, 'email_notifications', FILTER_SANITIZE_STRING);
+                $smtp_host = filter_input(INPUT_POST, 'smtp_host', FILTER_SANITIZE_STRING);
+                $smtp_port = filter_input(INPUT_POST, 'smtp_port', FILTER_SANITIZE_NUMBER_INT);
+                $smtp_username = filter_input(INPUT_POST, 'smtp_username', FILTER_SANITIZE_STRING);
+                $smtp_password = filter_input(INPUT_POST, 'smtp_password', FILTER_SANITIZE_STRING);
+                $smtp_encryption = filter_input(INPUT_POST, 'smtp_encryption', FILTER_SANITIZE_STRING);
+                
+                // Check if columns exist
+                $check_columns = $db->query("SHOW COLUMNS FROM school_settings LIKE 'smtp_host'");
+                if ($check_columns->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN smtp_host VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN smtp_port INT DEFAULT 587");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN smtp_username VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN smtp_password VARCHAR(255) DEFAULT ''");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN smtp_encryption VARCHAR(10) DEFAULT 'tls'");
+                }
+                
+                $update_query = "UPDATE school_settings SET 
+                    email_notifications = :email_notifications,
+                    smtp_host = :smtp_host,
+                    smtp_port = :smtp_port,
+                    smtp_username = :smtp_username,
+                    smtp_password = :smtp_password,
+                    smtp_encryption = :smtp_encryption,
+                    updated_at = CURRENT_TIMESTAMP";
+                
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':email_notifications' => $email_notifications,
+                    ':smtp_host' => $smtp_host,
+                    ':smtp_port' => $smtp_port,
+                    ':smtp_username' => $smtp_username,
+                    ':smtp_password' => $smtp_password,
+                    ':smtp_encryption' => $smtp_encryption
+                ]);
+                
+                $success_message = "Email integration settings updated successfully!";
+                $active_tab = 'email';
+                break;
+                
+            case 'update_school_theme':
+                // Super admin sets the theme colour for the Main System or for an
+                // individual school's isolated database.
+                if (!$is_super) { throw new Exception('You are not authorized to change theme colours.'); }
+                $target = $_POST['target_school'] ?? 'central';
+                $theme  = filter_input(INPUT_POST, 'theme_color', FILTER_SANITIZE_STRING) ?: 'blue';
+
+                if ($target === 'central') {
+                    $stmt = $db->prepare("UPDATE school_settings SET theme_color = :t, updated_at = CURRENT_TIMESTAMP");
+                    $stmt->execute([':t' => $theme]);
+                    $success_message = "Theme colour updated for the Main System.";
+                } else {
+                    $sid = (int)$target;
+                    $sch = $db->prepare("SELECT name, db_name FROM schools WHERE id = :id");
+                    $sch->execute([':id' => $sid]);
+                    $school = $sch->fetch(PDO::FETCH_ASSOC);
+                    if (!$school || empty($school['db_name'])) {
+                        throw new Exception('Selected school could not be found.');
+                    }
+                    $tenant = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $school['db_name'], DB_USER, DB_PASS);
+                    $tenant->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    $tenant->prepare("UPDATE school_settings SET theme_color = :t, updated_at = CURRENT_TIMESTAMP")
+                           ->execute([':t' => $theme]);
+                    $success_message = "Theme colour updated for {$school['name']}.";
+                }
+
+                require_once '../includes/settings_helper.php';
+                clearSettingsCache();
+                $active_tab = 'system';
+                break;
+
+            case 'update_permissions':
+                if (!$is_super) { throw new Exception('You are not authorized to change permission settings.'); }
+                $parent_portal = filter_input(INPUT_POST, 'parent_portal', FILTER_SANITIZE_STRING);
+                $student_portal = filter_input(INPUT_POST, 'student_portal', FILTER_SANITIZE_STRING);
+                
+                $update_query = "UPDATE school_settings SET 
+                    parent_portal = :parent_portal,
+                    student_portal = :student_portal,
+                    updated_at = CURRENT_TIMESTAMP";
+                
+                $stmt = $db->prepare($update_query);
+                $stmt->execute([
+                    ':parent_portal' => $parent_portal,
+                    ':student_portal' => $student_portal
+                ]);
+                
+                $success_message = "Permission settings updated successfully!";
+                $active_tab = 'permissions';
+                break;
+        }
+        
+        // Refresh settings after update
+        $settings_stmt = $db->query($settings_query);
+        $settings = $settings_stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$settings) {
+            $settings = $default_settings;
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Settings update failed: " . $e->getMessage());
+        $error_message = "Could not update settings. Please try again.";
+    }
 }
 
 $title = "School Settings";
@@ -202,9 +776,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -217,11 +791,11 @@ include '../includes/sidebar.php';
                         <div class="flex items-center justify-between">
                             <div>
                                 <h1 class="text-3xl font-bold mb-2">School Settings</h1>
-                                <p class="text-blue-100 text-lg">Configure your school's basic information and preferences</p>
+                                <p class="text-blue-100 text-lg">Manage your school's profile, configuration, and system preferences</p>
                             </div>
                             <div class="hidden md:block">
                                 <div class="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-                                    <i class="fas fa-school text-6xl text-white/80"></i>
+                                    <i class="fas fa-cog text-6xl text-white/80"></i>
                                 </div>
                             </div>
                         </div>
@@ -229,1029 +803,112 @@ include '../includes/sidebar.php';
                 </div>
 
                 <!-- Success/Error Messages -->
-                <?php if (isset($success_message)): ?>
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6">
-                    <div class="flex items-center">
-                        <i class="fas fa-check-circle mr-2"></i>
-                        <?php echo htmlspecialchars($success_message); ?>
-                    </div>
+                <?php if ($success_message): ?>
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <?php echo htmlspecialchars($success_message); ?>
                 </div>
                 <?php endif; ?>
 
-                <?php if (isset($error_message)): ?>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
-                    <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-2"></i>
-                        <?php echo htmlspecialchars($error_message); ?>
-                    </div>
+                <?php if ($error_message): ?>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <?php echo htmlspecialchars($error_message); ?>
                 </div>
                 <?php endif; ?>
 
-                <!-- Settings Form -->
+                <!-- Tabbed Interface -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-                    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">School Information</h2>
-                        <p class="text-gray-600 dark:text-gray-400 mt-1">Update your school's basic information and settings</p>
+                    <!-- Tab Navigation -->
+                    <div class="border-b border-gray-200 dark:border-gray-700">
+                        <nav class="flex flex-wrap -mb-px overflow-x-auto">
+                            <a href="?tab=school-info" class="tab-link <?php echo $active_tab === 'school-info' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-school mr-2"></i>
+                                School Profile
+                            </a>
+                            <a href="?tab=signatures" class="tab-link <?php echo $active_tab === 'signatures' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-signature mr-2"></i>
+                                Signatures
+                            </a>
+                            <a href="?tab=academics" class="tab-link <?php echo $active_tab === 'academics' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-graduation-cap mr-2"></i>
+                                Academics
+                            </a>
+                            <?php if ($is_super): ?>
+                            <a href="?tab=system" class="tab-link <?php echo $active_tab === 'system' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-cogs mr-2"></i>
+                                System Settings
+                            </a>
+                            <?php endif; ?>
+                            <a href="?tab=attendance" class="tab-link <?php echo $active_tab === 'attendance' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-clipboard-check mr-2"></i>
+                                Attendance
+                            </a>
+                            <?php if ($is_super): ?>
+                            <a href="?tab=permissions" class="tab-link <?php echo $active_tab === 'permissions' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-user-shield mr-2"></i>
+                                Permissions
+                            </a>
+                            <?php endif; ?>
+                            <a href="?tab=payment" class="tab-link <?php echo $active_tab === 'payment' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-credit-card mr-2"></i>
+                                Payment
+                            </a>
+                            <a href="?tab=sms" class="tab-link <?php echo $active_tab === 'sms' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-sms mr-2"></i>
+                                SMS Integration
+                            </a>
+                            <a href="?tab=email" class="tab-link <?php echo $active_tab === 'email' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-envelope mr-2"></i>
+                                Email Integration
+                            </a>
+                            <a href="?tab=ai" class="tab-link <?php echo $active_tab === 'ai' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
+                                <i class="fas fa-wand-magic-sparkles mr-2"></i>
+                                Draft AI
+                            </a>
+                        </nav>
                     </div>
 
-                    <form method="POST" class="p-6 space-y-8">
-                        <!-- Basic Information -->
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Basic Information</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- School Name -->
-                                <div class="md:col-span-2">
-                                    <label for="school_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        School Name <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="text" id="school_name" name="school_name" required
-                                        value="<?php echo htmlspecialchars($settings['school_name']); ?>"
-                                        placeholder="Enter school name"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-
-                                <!-- School Phone -->
-                                <div>
-                                    <label for="school_phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Phone Number <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="tel" id="school_phone" name="school_phone" required
-                                        value="<?php echo htmlspecialchars($settings['school_phone']); ?>"
-                                        placeholder="Enter phone number"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-
-                                <!-- School Email -->
-                                <div>
-                                    <label for="school_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Email Address <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="email" id="school_email" name="school_email" required
-                                        value="<?php echo htmlspecialchars($settings['school_email']); ?>"
-                                        placeholder="school@example.com"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-
-                                <!-- School Website -->
-                                <div>
-                                    <label for="school_website" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Website URL
-                                    </label>
-                                    <input type="url" id="school_website" name="school_website"
-                                        value="<?php echo htmlspecialchars($settings['school_website']); ?>"
-                                        placeholder="https://www.school.com"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-
-                                <!-- Principal Name -->
-                                <div>
-                                    <label for="principal_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Principal Name
-                                    </label>
-                                    <input type="text" id="principal_name" name="principal_name"
-                                        value="<?php echo htmlspecialchars($settings['principal_name']); ?>"
-                                        placeholder="Enter principal's name"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-                            </div>
-
-                            <!-- School Address -->
-                            <div class="mt-6">
-                                <label for="school_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    School Address <span class="text-red-500">*</span>
-                                </label>
-                                <textarea id="school_address" name="school_address" rows="3" required
-                                    placeholder="Enter complete school address"
-                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"><?php echo htmlspecialchars($settings['school_address']); ?></textarea>
-                            </div>
-                        </div>
-
-                        <!-- Academic Settings -->
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Academic Settings</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Academic Year Start -->
-                                <div>
-                                    <label for="academic_year_start" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Academic Year Start
-                                    </label>
-                                    <input type="date" id="academic_year_start" name="academic_year_start"
-                                        value="<?php echo htmlspecialchars($settings['academic_year_start']); ?>"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-
-                                <!-- Academic Year End -->
-                                <div>
-                                    <label for="academic_year_end" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Academic Year End
-                                    </label>
-                                    <input type="date" id="academic_year_end" name="academic_year_end"
-                                        value="<?php echo htmlspecialchars($settings['academic_year_end']); ?>"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                </div>
-
-                                <!-- Currency -->
-                                <div>
-                                    <label for="currency" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Currency
-                                    </label>
-                                    <select id="currency" name="currency"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="GHS" <?php echo $settings['currency'] === 'GHS' ? 'selected' : ''; ?>>Ghana Cedi (₵)</option>
-                                        <option value="USD" <?php echo $settings['currency'] === 'USD' ? 'selected' : ''; ?>>US Dollar ($)</option>
-                                        <option value="EUR" <?php echo $settings['currency'] === 'EUR' ? 'selected' : ''; ?>>Euro (€)</option>
-                                        <option value="GBP" <?php echo $settings['currency'] === 'GBP' ? 'selected' : ''; ?>>British Pound (£)</option>
-                                    </select>
-                                </div>
-
-                                <!-- Timezone -->
-                                <div>
-                                    <label for="timezone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Timezone
-                                    </label>
-                                    <select id="timezone" name="timezone"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="Africa/Accra" <?php echo $settings['timezone'] === 'Africa/Accra' ? 'selected' : ''; ?>>Africa/Accra (GMT)</option>
-                                        <option value="America/New_York" <?php echo $settings['timezone'] === 'America/New_York' ? 'selected' : ''; ?>>America/New_York (EST)</option>
-                                        <option value="Europe/London" <?php echo $settings['timezone'] === 'Europe/London' ? 'selected' : ''; ?>>Europe/London (GMT)</option>
-                                        <option value="Asia/Dubai" <?php echo $settings['timezone'] === 'Asia/Dubai' ? 'selected' : ''; ?>>Asia/Dubai (GST)</option>
-                                    </select>
-                                </div>
-
-                                <!-- Terms per Academic Year -->
-                                <div>
-                                    <label for="terms_per_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Terms per Academic Year
-                                    </label>
-                                    <select id="terms_per_year" name="terms_per_year"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="2" <?php echo ($settings['terms_per_year'] ?? '3') === '2' ? 'selected' : ''; ?>>2 Terms (Semester System)</option>
-                                        <option value="3" <?php echo ($settings['terms_per_year'] ?? '3') === '3' ? 'selected' : ''; ?>>3 Terms (Trimester System)</option>
-                                        <option value="4" <?php echo ($settings['terms_per_year'] ?? '3') === '4' ? 'selected' : ''; ?>>4 Terms (Quarter System)</option>
-                                    </select>
-                                </div>
-
-                                <!-- Grading System -->
-                                <div>
-                                    <label for="grading_system" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Grading System
-                                    </label>
-                                    <select id="grading_system" name="grading_system"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="percentage" <?php echo ($settings['grading_system'] ?? 'percentage') === 'percentage' ? 'selected' : ''; ?>>Percentage (0-100%)</option>
-                                        <option value="letter" <?php echo ($settings['grading_system'] ?? 'percentage') === 'letter' ? 'selected' : ''; ?>>Letter Grades (A-F)</option>
-                                        <option value="gpa" <?php echo ($settings['grading_system'] ?? 'percentage') === 'gpa' ? 'selected' : ''; ?>>GPA (4.0 Scale)</option>
-                                        <option value="points" <?php echo ($settings['grading_system'] ?? 'percentage') === 'points' ? 'selected' : ''; ?>>Points (1-10)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- System Appearance Settings -->
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Appearance</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- School Logo -->
-                                <div>
-                                    <label for="school_logo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        School Logo
-                                    </label>
-                                    <input type="file" id="school_logo" name="school_logo" accept="image/*"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                    <p class="text-xs text-gray-500 mt-1">Upload PNG, JPG, or SVG. Max size: 2MB</p>
-                                </div>
-
-                                <!-- Theme Color -->
-                                <div>
-                                    <label for="theme_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Primary Theme Color
-                                    </label>
-                                    <div class="space-y-3">
-                                        <select id="theme_color" name="theme_color"
-                                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                            <!-- Blue Family -->
-                                            <optgroup label="🌊 Blue Family">
-                                                <option value="blue" <?php echo ($settings['theme_color'] ?? 'blue') === 'blue' ? 'selected' : ''; ?>>Ocean Blue (Default)</option>
-                                                <option value="dodgerblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'dodgerblue' ? 'selected' : ''; ?>>Dodger Blue</option>
-                                                <option value="royalblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'royalblue' ? 'selected' : ''; ?>>Royal Blue</option>
-                                                <option value="navyblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'navyblue' ? 'selected' : ''; ?>>Navy Blue</option>
-                                                <option value="steelblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'steelblue' ? 'selected' : ''; ?>>Steel Blue</option>
-                                                <option value="cornflowerblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'cornflowerblue' ? 'selected' : ''; ?>>Cornflower Blue</option>
-                                                <option value="sky" <?php echo ($settings['theme_color'] ?? 'blue') === 'sky' ? 'selected' : ''; ?>>Sky Blue</option>
-                                                <option value="lightblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'lightblue' ? 'selected' : ''; ?>>Light Blue</option>
-                                                <option value="deepblue" <?php echo ($settings['theme_color'] ?? 'blue') === 'deepblue' ? 'selected' : ''; ?>>Deep Blue</option>
-                                            </optgroup>
-
-                                            <!-- Purple & Violet Family -->
-                                            <optgroup label="🔮 Purple & Violet Family">
-                                                <option value="indigo" <?php echo ($settings['theme_color'] ?? 'blue') === 'indigo' ? 'selected' : ''; ?>>Royal Indigo</option>
-                                                <option value="purple" <?php echo ($settings['theme_color'] ?? 'blue') === 'purple' ? 'selected' : ''; ?>>Mystic Purple</option>
-                                                <option value="violet" <?php echo ($settings['theme_color'] ?? 'blue') === 'violet' ? 'selected' : ''; ?>>Deep Violet</option>
-                                                <option value="lavender" <?php echo ($settings['theme_color'] ?? 'blue') === 'lavender' ? 'selected' : ''; ?>>Lavender Dreams</option>
-                                                <option value="plum" <?php echo ($settings['theme_color'] ?? 'blue') === 'plum' ? 'selected' : ''; ?>>Rich Plum</option>
-                                                <option value="orchid" <?php echo ($settings['theme_color'] ?? 'blue') === 'orchid' ? 'selected' : ''; ?>>Elegant Orchid</option>
-                                            </optgroup>
-
-                                            <!-- Pink & Rose Family -->
-                                            <optgroup label="🌸 Pink & Rose Family">
-                                                <option value="fuchsia" <?php echo ($settings['theme_color'] ?? 'blue') === 'fuchsia' ? 'selected' : ''; ?>>Electric Fuchsia</option>
-                                                <option value="pink" <?php echo ($settings['theme_color'] ?? 'blue') === 'pink' ? 'selected' : ''; ?>>Soft Pink</option>
-                                                <option value="rose" <?php echo ($settings['theme_color'] ?? 'blue') === 'rose' ? 'selected' : ''; ?>>Rose Garden</option>
-                                                <option value="hotpink" <?php echo ($settings['theme_color'] ?? 'blue') === 'hotpink' ? 'selected' : ''; ?>>Hot Pink</option>
-                                                <option value="magenta" <?php echo ($settings['theme_color'] ?? 'blue') === 'magenta' ? 'selected' : ''; ?>>Vibrant Magenta</option>
-                                                <option value="cherry" <?php echo ($settings['theme_color'] ?? 'blue') === 'cherry' ? 'selected' : ''; ?>>Cherry Blossom</option>
-                                            </optgroup>
-
-                                            <!-- Red & Orange Family -->
-                                            <optgroup label="🔥 Red & Orange Family">
-                                                <option value="red" <?php echo ($settings['theme_color'] ?? 'blue') === 'red' ? 'selected' : ''; ?>>Crimson Fire</option>
-                                                <option value="scarlet" <?php echo ($settings['theme_color'] ?? 'blue') === 'scarlet' ? 'selected' : ''; ?>>Scarlet Red</option>
-                                                <option value="burgundy" <?php echo ($settings['theme_color'] ?? 'blue') === 'burgundy' ? 'selected' : ''; ?>>Burgundy Wine</option>
-                                                <option value="orange" <?php echo ($settings['theme_color'] ?? 'blue') === 'orange' ? 'selected' : ''; ?>>Sunset Orange</option>
-                                                <option value="coral" <?php echo ($settings['theme_color'] ?? 'blue') === 'coral' ? 'selected' : ''; ?>>Coral Reef</option>
-                                                <option value="tangerine" <?php echo ($settings['theme_color'] ?? 'blue') === 'tangerine' ? 'selected' : ''; ?>>Tangerine Dream</option>
-                                            </optgroup>
-
-                                            <!-- Yellow & Gold Family -->
-                                            <optgroup label="☀️ Yellow & Gold Family">
-                                                <option value="amber" <?php echo ($settings['theme_color'] ?? 'blue') === 'amber' ? 'selected' : ''; ?>>Golden Amber</option>
-                                                <option value="yellow" <?php echo ($settings['theme_color'] ?? 'blue') === 'yellow' ? 'selected' : ''; ?>>Sunshine Yellow</option>
-                                                <option value="gold" <?php echo ($settings['theme_color'] ?? 'blue') === 'gold' ? 'selected' : ''; ?>>Pure Gold</option>
-                                                <option value="honey" <?php echo ($settings['theme_color'] ?? 'blue') === 'honey' ? 'selected' : ''; ?>>Honey Gold</option>
-                                                <option value="mustard" <?php echo ($settings['theme_color'] ?? 'blue') === 'mustard' ? 'selected' : ''; ?>>Mustard Yellow</option>
-                                            </optgroup>
-
-                                            <!-- Green Family -->
-                                            <optgroup label="🌿 Green Family">
-                                                <option value="lime" <?php echo ($settings['theme_color'] ?? 'blue') === 'lime' ? 'selected' : ''; ?>>Electric Lime</option>
-                                                <option value="green" <?php echo ($settings['theme_color'] ?? 'blue') === 'green' ? 'selected' : ''; ?>>Forest Green</option>
-                                                <option value="emerald" <?php echo ($settings['theme_color'] ?? 'blue') === 'emerald' ? 'selected' : ''; ?>>Emerald Mint</option>
-                                                <option value="jade" <?php echo ($settings['theme_color'] ?? 'blue') === 'jade' ? 'selected' : ''; ?>>Jade Green</option>
-                                                <option value="mint" <?php echo ($settings['theme_color'] ?? 'blue') === 'mint' ? 'selected' : ''; ?>>Fresh Mint</option>
-                                                <option value="olive" <?php echo ($settings['theme_color'] ?? 'blue') === 'olive' ? 'selected' : ''; ?>>Olive Branch</option>
-                                            </optgroup>
-
-                                            <!-- Cyan & Teal Family -->
-                                            <optgroup label="🌊 Cyan & Teal Family">
-                                                <option value="teal" <?php echo ($settings['theme_color'] ?? 'blue') === 'teal' ? 'selected' : ''; ?>>Teal Ocean</option>
-                                                <option value="cyan" <?php echo ($settings['theme_color'] ?? 'blue') === 'cyan' ? 'selected' : ''; ?>>Cyan Sky</option>
-                                                <option value="turquoise" <?php echo ($settings['theme_color'] ?? 'blue') === 'turquoise' ? 'selected' : ''; ?>>Turquoise Waters</option>
-                                                <option value="aqua" <?php echo ($settings['theme_color'] ?? 'blue') === 'aqua' ? 'selected' : ''; ?>>Aqua Marine</option>
-                                                <option value="seafoam" <?php echo ($settings['theme_color'] ?? 'blue') === 'seafoam' ? 'selected' : ''; ?>>Seafoam Green</option>
-                                            </optgroup>
-
-                                            <!-- Neutral & Earth Tones -->
-                                            <optgroup label="🏔️ Neutral & Earth Tones">
-                                                <option value="slate" <?php echo ($settings['theme_color'] ?? 'blue') === 'slate' ? 'selected' : ''; ?>>Modern Slate</option>
-                                                <option value="gray" <?php echo ($settings['theme_color'] ?? 'blue') === 'gray' ? 'selected' : ''; ?>>Professional Gray</option>
-                                                <option value="zinc" <?php echo ($settings['theme_color'] ?? 'blue') === 'zinc' ? 'selected' : ''; ?>>Metallic Zinc</option>
-                                                <option value="stone" <?php echo ($settings['theme_color'] ?? 'blue') === 'stone' ? 'selected' : ''; ?>>Natural Stone</option>
-                                                <option value="neutral" <?php echo ($settings['theme_color'] ?? 'blue') === 'neutral' ? 'selected' : ''; ?>>Warm Neutral</option>
-                                                <option value="charcoal" <?php echo ($settings['theme_color'] ?? 'blue') === 'charcoal' ? 'selected' : ''; ?>>Charcoal Gray</option>
-                                                <option value="bronze" <?php echo ($settings['theme_color'] ?? 'blue') === 'bronze' ? 'selected' : ''; ?>>Bronze Metal</option>
-                                                <option value="copper" <?php echo ($settings['theme_color'] ?? 'blue') === 'copper' ? 'selected' : ''; ?>>Copper Shine</option>
-                                            </optgroup>
-                                        </select>
-
-                                        <!-- Color Preview -->
-                                        <div id="color-preview" class="w-full h-16 rounded-lg shadow-lg transition-all duration-300" class="page-header-gradient" style=";"></div>
-
-                                        <!-- Color Description -->
-                                        <div id="color-description" class="text-sm text-gray-600 dark:text-gray-400">
-                                            <span class="font-medium">Ocean Blue:</span> A calming and professional gradient that inspires trust and reliability.
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Default Language -->
-                                <div>
-                                    <label for="default_language" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Default Language
-                                    </label>
-                                    <select id="default_language" name="default_language"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="en" <?php echo ($settings['default_language'] ?? 'en') === 'en' ? 'selected' : ''; ?>>English</option>
-                                        <option value="fr" <?php echo ($settings['default_language'] ?? 'en') === 'fr' ? 'selected' : ''; ?>>French</option>
-                                        <option value="es" <?php echo ($settings['default_language'] ?? 'en') === 'es' ? 'selected' : ''; ?>>Spanish</option>
-                                        <option value="ar" <?php echo ($settings['default_language'] ?? 'en') === 'ar' ? 'selected' : ''; ?>>Arabic</option>
-                                    </select>
-                                </div>
-
-                                <!-- Date Format -->
-                                <div>
-                                    <label for="date_format" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Date Format
-                                    </label>
-                                    <select id="date_format" name="date_format"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="Y-m-d" <?php echo ($settings['date_format'] ?? 'Y-m-d') === 'Y-m-d' ? 'selected' : ''; ?>>YYYY-MM-DD (2024-01-15)</option>
-                                        <option value="d/m/Y" <?php echo ($settings['date_format'] ?? 'Y-m-d') === 'd/m/Y' ? 'selected' : ''; ?>>DD/MM/YYYY (15/01/2024)</option>
-                                        <option value="m/d/Y" <?php echo ($settings['date_format'] ?? 'Y-m-d') === 'm/d/Y' ? 'selected' : ''; ?>>MM/DD/YYYY (01/15/2024)</option>
-                                        <option value="d-M-Y" <?php echo ($settings['date_format'] ?? 'Y-m-d') === 'd-M-Y' ? 'selected' : ''; ?>>DD-MMM-YYYY (15-Jan-2024)</option>
-                                    </select>
-                                </div>
-
-                                <!-- Time Format -->
-                                <div>
-                                    <label for="time_format" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Time Format
-                                    </label>
-                                    <select id="time_format" name="time_format"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="H:i" <?php echo ($settings['time_format'] ?? 'H:i') === 'H:i' ? 'selected' : ''; ?>>24-hour (14:30)</option>
-                                        <option value="h:i A" <?php echo ($settings['time_format'] ?? 'H:i') === 'h:i A' ? 'selected' : ''; ?>>12-hour (2:30 PM)</option>
-                                        <option value="h:i a" <?php echo ($settings['time_format'] ?? 'H:i') === 'h:i a' ? 'selected' : ''; ?>>12-hour lowercase (2:30 pm)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Communication Settings -->
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Communication Settings</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- SMS Gateway -->
-                                <div>
-                                    <label for="sms_gateway" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        SMS Gateway
-                                    </label>
-                                    <select id="sms_gateway" name="sms_gateway"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="disabled" <?php echo ($settings['sms_gateway'] ?? 'disabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                        <option value="twilio" <?php echo ($settings['sms_gateway'] ?? 'disabled') === 'twilio' ? 'selected' : ''; ?>>Twilio</option>
-                                        <option value="nexmo" <?php echo ($settings['sms_gateway'] ?? 'disabled') === 'nexmo' ? 'selected' : ''; ?>>Vonage (Nexmo)</option>
-                                        <option value="local" <?php echo ($settings['sms_gateway'] ?? 'disabled') === 'local' ? 'selected' : ''; ?>>Local Provider</option>
-                                    </select>
-                                </div>
-
-                                <!-- Email Notifications -->
-                                <div>
-                                    <label for="email_notifications" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Email Notifications
-                                    </label>
-                                    <select id="email_notifications" name="email_notifications"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="enabled" <?php echo ($settings['email_notifications'] ?? 'enabled') === 'enabled' ? 'selected' : ''; ?>>Enabled</option>
-                                        <option value="disabled" <?php echo ($settings['email_notifications'] ?? 'enabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                        <option value="admin_only" <?php echo ($settings['email_notifications'] ?? 'enabled') === 'admin_only' ? 'selected' : ''; ?>>Admin Only</option>
-                                    </select>
-                                </div>
-
-                                <!-- Parent Portal Access -->
-                                <div>
-                                    <label for="parent_portal" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Parent Portal Access
-                                    </label>
-                                    <select id="parent_portal" name="parent_portal"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="enabled" <?php echo ($settings['parent_portal'] ?? 'enabled') === 'enabled' ? 'selected' : ''; ?>>Enabled</option>
-                                        <option value="disabled" <?php echo ($settings['parent_portal'] ?? 'enabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                        <option value="restricted" <?php echo ($settings['parent_portal'] ?? 'enabled') === 'restricted' ? 'selected' : ''; ?>>Restricted Access</option>
-                                    </select>
-                                </div>
-
-                                <!-- Student Portal Access -->
-                                <div>
-                                    <label for="student_portal" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Student Portal Access
-                                    </label>
-                                    <select id="student_portal" name="student_portal"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="enabled" <?php echo ($settings['student_portal'] ?? 'enabled') === 'enabled' ? 'selected' : ''; ?>>Enabled</option>
-                                        <option value="disabled" <?php echo ($settings['student_portal'] ?? 'enabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                        <option value="restricted" <?php echo ($settings['student_portal'] ?? 'enabled') === 'restricted' ? 'selected' : ''; ?>>Restricted Access</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- System Management Settings -->
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">System Management</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Maintenance Mode -->
-                                <div>
-                                    <label for="maintenance_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Maintenance Mode
-                                    </label>
-                                    <select id="maintenance_mode" name="maintenance_mode"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="disabled" <?php echo ($settings['maintenance_mode'] ?? 'disabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                        <option value="enabled" <?php echo ($settings['maintenance_mode'] ?? 'disabled') === 'enabled' ? 'selected' : ''; ?>>Enabled</option>
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1">When enabled, only admins can access the system</p>
-                                </div>
-
-                                <!-- Registration Enabled -->
-                                <div>
-                                    <label for="registration_enabled" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        New User Registration
-                                    </label>
-                                    <select id="registration_enabled" name="registration_enabled"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="enabled" <?php echo ($settings['registration_enabled'] ?? 'enabled') === 'enabled' ? 'selected' : ''; ?>>Enabled</option>
-                                        <option value="disabled" <?php echo ($settings['registration_enabled'] ?? 'enabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                        <option value="admin_only" <?php echo ($settings['registration_enabled'] ?? 'enabled') === 'admin_only' ? 'selected' : ''; ?>>Admin Only</option>
-                                    </select>
-                                </div>
-
-                                <!-- Max File Upload Size -->
-                                <div>
-                                    <label for="max_file_upload_size" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Max File Upload Size
-                                    </label>
-                                    <select id="max_file_upload_size" name="max_file_upload_size"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="2MB" <?php echo ($settings['max_file_upload_size'] ?? '10MB') === '2MB' ? 'selected' : ''; ?>>2 MB</option>
-                                        <option value="5MB" <?php echo ($settings['max_file_upload_size'] ?? '10MB') === '5MB' ? 'selected' : ''; ?>>5 MB</option>
-                                        <option value="10MB" <?php echo ($settings['max_file_upload_size'] ?? '10MB') === '10MB' ? 'selected' : ''; ?>>10 MB</option>
-                                        <option value="20MB" <?php echo ($settings['max_file_upload_size'] ?? '10MB') === '20MB' ? 'selected' : ''; ?>>20 MB</option>
-                                        <option value="50MB" <?php echo ($settings['max_file_upload_size'] ?? '10MB') === '50MB' ? 'selected' : ''; ?>>50 MB</option>
-                                    </select>
-                                </div>
-
-                                <!-- Session Timeout -->
-                                <div>
-                                    <label for="session_timeout" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Session Timeout (minutes)
-                                    </label>
-                                    <select id="session_timeout" name="session_timeout"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="15" <?php echo ($settings['session_timeout'] ?? '30') === '15' ? 'selected' : ''; ?>>15 minutes</option>
-                                        <option value="30" <?php echo ($settings['session_timeout'] ?? '30') === '30' ? 'selected' : ''; ?>>30 minutes</option>
-                                        <option value="60" <?php echo ($settings['session_timeout'] ?? '30') === '60' ? 'selected' : ''; ?>>1 hour</option>
-                                        <option value="120" <?php echo ($settings['session_timeout'] ?? '30') === '120' ? 'selected' : ''; ?>>2 hours</option>
-                                        <option value="480" <?php echo ($settings['session_timeout'] ?? '30') === '480' ? 'selected' : ''; ?>>8 hours</option>
-                                    </select>
-                                </div>
-
-                                <!-- Backup Frequency -->
-                                <div>
-                                    <label for="backup_frequency" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Automatic Backup Frequency
-                                    </label>
-                                    <select id="backup_frequency" name="backup_frequency"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="daily" <?php echo ($settings['backup_frequency'] ?? 'weekly') === 'daily' ? 'selected' : ''; ?>>Daily</option>
-                                        <option value="weekly" <?php echo ($settings['backup_frequency'] ?? 'weekly') === 'weekly' ? 'selected' : ''; ?>>Weekly</option>
-                                        <option value="monthly" <?php echo ($settings['backup_frequency'] ?? 'weekly') === 'monthly' ? 'selected' : ''; ?>>Monthly</option>
-                                        <option value="manual" <?php echo ($settings['backup_frequency'] ?? 'weekly') === 'manual' ? 'selected' : ''; ?>>Manual Only</option>
-                                    </select>
-                                </div>
-
-                                <!-- Auto Backup -->
-                                <div>
-                                    <label for="auto_backup" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Automatic Backup
-                                    </label>
-                                    <select id="auto_backup" name="auto_backup"
-                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="enabled" <?php echo ($settings['auto_backup'] ?? 'enabled') === 'enabled' ? 'selected' : ''; ?>>Enabled</option>
-                                        <option value="disabled" <?php echo ($settings['auto_backup'] ?? 'enabled') === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Form Actions -->
-                        <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Changes will be applied system-wide
-                            </div>
-                            <button type="submit"
-                                class="inline-flex items-center px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl">
-                                <i class="fas fa-save mr-2"></i>
-                                Save Settings
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Additional Settings Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                    <!-- System Information -->
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Information</h3>
-                        <div class="space-y-3 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600 dark:text-gray-400">System Version:</span>
-                                <span class="font-medium text-gray-900 dark:text-white">v1.0.0</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600 dark:text-gray-400">Last Updated:</span>
-                                <span class="font-medium text-gray-900 dark:text-white"><?php echo date('M j, Y'); ?></span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600 dark:text-gray-400">Database:</span>
-                                <span class="font-medium text-green-600 dark:text-green-400">Connected</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-                        <div class="space-y-3">
-                            <a href="../backup.php" class="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-                                <i class="fas fa-download mr-2"></i>
-                                Backup Database
-                            </a>
-                            <a href="../maintenance.php" class="flex items-center text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300">
-                                <i class="fas fa-tools mr-2"></i>
-                                Maintenance Mode
-                            </a>
-                            <a href="../logs.php" class="flex items-center text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">
-                                <i class="fas fa-file-alt mr-2"></i>
-                                View System Logs
-                            </a>
-                        </div>
+                    <!-- Tab Content -->
+                    <div class="p-6">
+                        <?php include 'tabs/' . $active_tab . '.php'; ?>
                     </div>
                 </div>
             </div>
         </main>
-
+        
         <!-- Footer -->
-        <div class="lg:ml-0">
-            <?php include '../includes/footer.php'; ?>
-        </div>
+        <?php include '../includes/footer.php'; ?>
     </div>
 </div>
 
-<script>
-// Auto-focus on first input
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('school_name').focus();
-});
-
-// Real-time school name update in header/sidebar
-document.getElementById('school_name').addEventListener('input', function(e) {
-    const newName = e.target.value;
-    // Update school name in header if it exists
-    const headerSchoolName = document.querySelector('.header-school-name');
-    if (headerSchoolName) {
-        headerSchoolName.textContent = newName || 'School Management System';
-    }
-
-    // Update school name in sidebar if it exists
-    const sidebarSchoolName = document.querySelector('.sidebar-school-name');
-    if (sidebarSchoolName) {
-        sidebarSchoolName.textContent = newName || 'SMS';
-    }
-
-    // Update any other school name references
-    const allSchoolNames = document.querySelectorAll('[data-school-name]');
-    allSchoolNames.forEach(element => {
-        element.textContent = newName || 'School Management System';
-    });
-});
-
-// Enhanced theme color preview
-document.getElementById('theme_color').addEventListener('change', function(e) {
-    const color = e.target.value;
-    const preview = document.getElementById('color-preview');
-    const description = document.getElementById('color-description');
-
-    // Define color gradients and descriptions
-    const colorThemes = {
-        // Blue Family
-        'blue': {
-            gradient: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%)',
-            description: '<span class="font-medium">Ocean Blue:</span> A calming and professional gradient that inspires trust and reliability.'
-        },
-        'dodgerblue': {
-            gradient: 'linear-gradient(135deg, #1e90ff 0%, #4169e1 50%, #0000cd 100%)',
-            description: '<span class="font-medium">Dodger Blue:</span> A vibrant and energetic blue that captures attention and promotes clarity.'
-        },
-        'royalblue': {
-            gradient: 'linear-gradient(135deg, #4169e1 0%, #6a5acd 50%, #483d8b 100%)',
-            description: '<span class="font-medium">Royal Blue:</span> A majestic and authoritative blue perfect for prestigious institutions.'
-        },
-        'navyblue': {
-            gradient: 'linear-gradient(135deg, #000080 0%, #191970 50%, #0f0f23 100%)',
-            description: '<span class="font-medium">Navy Blue:</span> A deep and sophisticated blue that conveys professionalism and stability.'
-        },
-        'steelblue': {
-            gradient: 'linear-gradient(135deg, #4682b4 0%, #5f9ea0 50%, #708090 100%)',
-            description: '<span class="font-medium">Steel Blue:</span> A strong and reliable blue-gray that represents durability and trust.'
-        },
-        'cornflowerblue': {
-            gradient: 'linear-gradient(135deg, #6495ed 0%, #7b68ee 50%, #9370db 100%)',
-            description: '<span class="font-medium">Cornflower Blue:</span> A gentle and approachable blue that creates a welcoming atmosphere.'
-        },
-        'lightblue': {
-            gradient: 'linear-gradient(135deg, #87ceeb 0%, #87cefa 50%, #b0e0e6 100%)',
-            description: '<span class="font-medium">Light Blue:</span> A soft and peaceful blue that promotes calm and focused learning.'
-        },
-        'deepblue': {
-            gradient: 'linear-gradient(135deg, #00008b 0%, #0000cd 50%, #4169e1 100%)',
-            description: '<span class="font-medium">Deep Blue:</span> An intense and powerful blue that commands respect and attention.'
-        },
-
-        // Purple & Violet Family
-        'indigo': {
-            gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
-            description: '<span class="font-medium">Royal Indigo:</span> A sophisticated blend of deep blues and purples, perfect for academic excellence.'
-        },
-        'purple': {
-            gradient: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%)',
-            description: '<span class="font-medium">Mystic Purple:</span> A creative and inspiring gradient that encourages innovation and learning.'
-        },
-        'violet': {
-            gradient: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%)',
-            description: '<span class="font-medium">Deep Violet:</span> A rich and mysterious gradient that encourages deep thinking and creativity.'
-        },
-        'lavender': {
-            gradient: 'linear-gradient(135deg, #e6e6fa 0%, #dda0dd 50%, #da70d6 100%)',
-            description: '<span class="font-medium">Lavender Dreams:</span> A soft and soothing purple that creates a peaceful learning environment.'
-        },
-        'plum': {
-            gradient: 'linear-gradient(135deg, #dda0dd 0%, #ba55d3 50%, #9932cc 100%)',
-            description: '<span class="font-medium">Rich Plum:</span> A deep and luxurious purple that adds elegance and sophistication.'
-        },
-        'orchid': {
-            gradient: 'linear-gradient(135deg, #da70d6 0%, #ba55d3 50%, #9370db 100%)',
-            description: '<span class="font-medium">Elegant Orchid:</span> A refined and graceful purple that inspires creativity and beauty.'
-        },
-
-        // Pink & Rose Family
-        'fuchsia': {
-            gradient: 'linear-gradient(135deg, #d946ef 0%, #c026d3 50%, #a21caf 100%)',
-            description: '<span class="font-medium">Electric Fuchsia:</span> A vibrant and energetic gradient that sparks creativity and innovation.'
-        },
-        'pink': {
-            gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 50%, #be185d 100%)',
-            description: '<span class="font-medium">Soft Pink:</span> A gentle and nurturing gradient that creates a supportive learning environment.'
-        },
-        'rose': {
-            gradient: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #be123c 100%)',
-            description: '<span class="font-medium">Rose Garden:</span> A warm and welcoming gradient that creates a friendly atmosphere.'
-        },
-        'hotpink': {
-            gradient: 'linear-gradient(135deg, #ff69b4 0%, #ff1493 50%, #dc143c 100%)',
-            description: '<span class="font-medium">Hot Pink:</span> A bold and confident pink that energizes and motivates students.'
-        },
-        'magenta': {
-            gradient: 'linear-gradient(135deg, #ff00ff 0%, #da70d6 50%, #ba55d3 100%)',
-            description: '<span class="font-medium">Vibrant Magenta:</span> A striking and dynamic color that captures attention and inspires action.'
-        },
-        'cherry': {
-            gradient: 'linear-gradient(135deg, #de3163 0%, #dc143c 50%, #b22222 100%)',
-            description: '<span class="font-medium">Cherry Blossom:</span> A sweet and delicate pink-red that brings warmth and joy.'
-        },
-
-        // Red & Orange Family
-        'red': {
-            gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)',
-            description: '<span class="font-medium">Crimson Fire:</span> A bold and powerful gradient that commands attention and respect.'
-        },
-        'scarlet': {
-            gradient: 'linear-gradient(135deg, #ff2400 0%, #dc143c 50%, #b22222 100%)',
-            description: '<span class="font-medium">Scarlet Red:</span> A passionate and intense red that motivates and energizes.'
-        },
-        'burgundy': {
-            gradient: 'linear-gradient(135deg, #800020 0%, #722f37 50%, #654321 100%)',
-            description: '<span class="font-medium">Burgundy Wine:</span> A rich and sophisticated red that conveys luxury and tradition.'
-        },
-        'orange': {
-            gradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%)',
-            description: '<span class="font-medium">Sunset Orange:</span> An energetic and optimistic gradient that radiates warmth and enthusiasm.'
-        },
-        'coral': {
-            gradient: 'linear-gradient(135deg, #ff7f50 0%, #ff6347 50%, #ff4500 100%)',
-            description: '<span class="font-medium">Coral Reef:</span> A vibrant and lively orange-pink that brings energy and positivity.'
-        },
-        'tangerine': {
-            gradient: 'linear-gradient(135deg, #ff8c00 0%, #ff7f00 50%, #ff6600 100%)',
-            description: '<span class="font-medium">Tangerine Dream:</span> A fresh and zesty orange that stimulates creativity and enthusiasm.'
-        },
-
-        // Yellow & Gold Family
-        'amber': {
-            gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
-            description: '<span class="font-medium">Golden Amber:</span> A rich and luxurious gradient that represents wisdom and achievement.'
-        },
-        'yellow': {
-            gradient: 'linear-gradient(135deg, #eab308 0%, #ca8a04 50%, #a16207 100%)',
-            description: '<span class="font-medium">Sunshine Yellow:</span> A bright and cheerful gradient that promotes positivity and learning.'
-        },
-        'gold': {
-            gradient: 'linear-gradient(135deg, #ffd700 0%, #ffb347 50%, #daa520 100%)',
-            description: '<span class="font-medium">Pure Gold:</span> A prestigious and valuable color that represents excellence and achievement.'
-        },
-        'honey': {
-            gradient: 'linear-gradient(135deg, #ffb347 0%, #ffa500 50%, #ff8c00 100%)',
-            description: '<span class="font-medium">Honey Gold:</span> A warm and sweet golden color that creates a welcoming atmosphere.'
-        },
-        'mustard': {
-            gradient: 'linear-gradient(135deg, #ffdb58 0%, #daa520 50%, #b8860b 100%)',
-            description: '<span class="font-medium">Mustard Yellow:</span> A bold and distinctive yellow that adds character and warmth.'
-        },
-
-        // Green Family
-        'lime': {
-            gradient: 'linear-gradient(135deg, #84cc16 0%, #65a30d 50%, #4d7c0f 100%)',
-            description: '<span class="font-medium">Electric Lime:</span> A fresh and energizing gradient that promotes growth and vitality.'
-        },
-        'green': {
-            gradient: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
-            description: '<span class="font-medium">Forest Green:</span> A natural and growth-oriented theme representing progress and sustainability.'
-        },
-        'emerald': {
-            gradient: 'linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%)',
-            description: '<span class="font-medium">Emerald Mint:</span> A fresh and vibrant gradient that symbolizes new beginnings and vitality.'
-        },
-        'jade': {
-            gradient: 'linear-gradient(135deg, #00a86b 0%, #29ab87 50%, #50c878 100%)',
-            description: '<span class="font-medium">Jade Green:</span> A precious and balanced green that promotes harmony and wisdom.'
-        },
-        'mint': {
-            gradient: 'linear-gradient(135deg, #98fb98 0%, #90ee90 50%, #00ff7f 100%)',
-            description: '<span class="font-medium">Fresh Mint:</span> A cool and refreshing green that energizes and revitalizes.'
-        },
-        'olive': {
-            gradient: 'linear-gradient(135deg, #808000 0%, #9acd32 50%, #6b8e23 100%)',
-            description: '<span class="font-medium">Olive Branch:</span> An earthy and peaceful green that represents growth and stability.'
-        },
-
-        // Cyan & Teal Family
-        'teal': {
-            gradient: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 50%, #0f766e 100%)',
-            description: '<span class="font-medium">Teal Ocean:</span> A balanced blend of blue and green, representing harmony and tranquility.'
-        },
-        'cyan': {
-            gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
-            description: '<span class="font-medium">Cyan Sky:</span> A bright and energetic gradient that evokes clarity and openness.'
-        },
-        'sky': {
-            gradient: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%)',
-            description: '<span class="font-medium">Sky Blue:</span> A serene and uplifting gradient that inspires limitless possibilities.'
-        },
-        'turquoise': {
-            gradient: 'linear-gradient(135deg, #40e0d0 0%, #48d1cc 50%, #00ced1 100%)',
-            description: '<span class="font-medium">Turquoise Waters:</span> A tropical and refreshing blue-green that promotes calm and clarity.'
-        },
-        'aqua': {
-            gradient: 'linear-gradient(135deg, #00ffff 0%, #00e5ff 50%, #00bcd4 100%)',
-            description: '<span class="font-medium">Aqua Marine:</span> A pure and clean blue that represents freshness and innovation.'
-        },
-        'seafoam': {
-            gradient: 'linear-gradient(135deg, #9fe2bf 0%, #7fffd4 50%, #66cdaa 100%)',
-            description: '<span class="font-medium">Seafoam Green:</span> A gentle and soothing blue-green that creates a peaceful environment.'
-        },
-
-        // Neutral & Earth Tones
-        'slate': {
-            gradient: 'linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%)',
-            description: '<span class="font-medium">Modern Slate:</span> A sleek and contemporary gradient perfect for modern educational environments.'
-        },
-        'gray': {
-            gradient: 'linear-gradient(135deg, #6b7280 0%, #4b5563 50%, #374151 100%)',
-            description: '<span class="font-medium">Professional Gray:</span> A neutral and sophisticated gradient that emphasizes content and functionality.'
-        },
-        'zinc': {
-            gradient: 'linear-gradient(135deg, #71717a 0%, #52525b 50%, #3f3f46 100%)',
-            description: '<span class="font-medium">Metallic Zinc:</span> A modern industrial gradient that conveys strength and reliability.'
-        },
-        'stone': {
-            gradient: 'linear-gradient(135deg, #78716c 0%, #57534e 50%, #44403c 100%)',
-            description: '<span class="font-medium">Natural Stone:</span> An earthy and grounded gradient that promotes stability and focus.'
-        },
-        'neutral': {
-            gradient: 'linear-gradient(135deg, #737373 0%, #525252 50%, #404040 100%)',
-            description: '<span class="font-medium">Warm Neutral:</span> A balanced and versatile gradient that complements any content beautifully.'
-        },
-        'charcoal': {
-            gradient: 'linear-gradient(135deg, #36454f 0%, #2f4f4f 50%, #1c1c1c 100%)',
-            description: '<span class="font-medium">Charcoal Gray:</span> A deep and sophisticated gray that provides excellent contrast and readability.'
-        },
-        'bronze': {
-            gradient: 'linear-gradient(135deg, #cd7f32 0%, #b87333 50%, #a0522d 100%)',
-            description: '<span class="font-medium">Bronze Metal:</span> A warm and rich metallic color that adds elegance and distinction.'
-        },
-        'copper': {
-            gradient: 'linear-gradient(135deg, #b87333 0%, #d2691e 50%, #cd853f 100%)',
-            description: '<span class="font-medium">Copper Shine:</span> A lustrous and warm metallic that brings sophistication and warmth.'
-        }
-    };
-
-    // Update preview
-    if (colorThemes[color]) {
-        preview.style.background = colorThemes[color].gradient;
-        description.innerHTML = colorThemes[color].description;
-    }
-
-    // Show notification
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 px-6 py-3 text-white rounded-lg shadow-lg z-50 transform transition-all duration-300';
-    notification.style.background = colorThemes[color]?.gradient || 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%)';
-    notification.innerHTML = `<i class="fas fa-palette mr-2"></i>Theme preview: ${color.charAt(0).toUpperCase() + color.slice(1)}`;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.style.transform = 'translateX(100%)';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-
-    // Apply theme immediately to current page
-    applyThemeToCurrentPage(color);
-});
-
-// Function to apply theme changes immediately
-function applyThemeToCurrentPage(color) {
-    const colorThemes = {
-        // Blue Family
-        'blue': 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%)',
-        'dodgerblue': 'linear-gradient(135deg, #1e90ff 0%, #4169e1 50%, #0000cd 100%)',
-        'royalblue': 'linear-gradient(135deg, #4169e1 0%, #6a5acd 50%, #483d8b 100%)',
-        'navyblue': 'linear-gradient(135deg, #000080 0%, #191970 50%, #0f0f23 100%)',
-        'steelblue': 'linear-gradient(135deg, #4682b4 0%, #5f9ea0 50%, #708090 100%)',
-        'cornflowerblue': 'linear-gradient(135deg, #6495ed 0%, #7b68ee 50%, #9370db 100%)',
-        'lightblue': 'linear-gradient(135deg, #87ceeb 0%, #87cefa 50%, #b0e0e6 100%)',
-        'deepblue': 'linear-gradient(135deg, #00008b 0%, #0000cd 50%, #4169e1 100%)',
-        'sky': 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%)',
-
-        // Purple & Violet Family
-        'indigo': 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
-        'purple': 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%)',
-        'violet': 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%)',
-        'lavender': 'linear-gradient(135deg, #e6e6fa 0%, #dda0dd 50%, #da70d6 100%)',
-        'plum': 'linear-gradient(135deg, #dda0dd 0%, #ba55d3 50%, #9932cc 100%)',
-        'orchid': 'linear-gradient(135deg, #da70d6 0%, #ba55d3 50%, #9370db 100%)',
-
-        // Pink & Rose Family
-        'fuchsia': 'linear-gradient(135deg, #d946ef 0%, #c026d3 50%, #a21caf 100%)',
-        'pink': 'linear-gradient(135deg, #ec4899 0%, #db2777 50%, #be185d 100%)',
-        'rose': 'linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #be123c 100%)',
-        'hotpink': 'linear-gradient(135deg, #ff69b4 0%, #ff1493 50%, #dc143c 100%)',
-        'magenta': 'linear-gradient(135deg, #ff00ff 0%, #da70d6 50%, #ba55d3 100%)',
-        'cherry': 'linear-gradient(135deg, #de3163 0%, #dc143c 50%, #b22222 100%)',
-
-        // Red & Orange Family
-        'red': 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)',
-        'scarlet': 'linear-gradient(135deg, #ff2400 0%, #dc143c 50%, #b22222 100%)',
-        'burgundy': 'linear-gradient(135deg, #800020 0%, #722f37 50%, #654321 100%)',
-        'orange': 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%)',
-        'coral': 'linear-gradient(135deg, #ff7f50 0%, #ff6347 50%, #ff4500 100%)',
-        'tangerine': 'linear-gradient(135deg, #ff8c00 0%, #ff7f00 50%, #ff6600 100%)',
-
-        // Yellow & Gold Family
-        'amber': 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
-        'yellow': 'linear-gradient(135deg, #eab308 0%, #ca8a04 50%, #a16207 100%)',
-        'gold': 'linear-gradient(135deg, #ffd700 0%, #ffb347 50%, #daa520 100%)',
-        'honey': 'linear-gradient(135deg, #ffb347 0%, #ffa500 50%, #ff8c00 100%)',
-        'mustard': 'linear-gradient(135deg, #ffdb58 0%, #daa520 50%, #b8860b 100%)',
-
-        // Green Family
-        'lime': 'linear-gradient(135deg, #84cc16 0%, #65a30d 50%, #4d7c0f 100%)',
-        'green': 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
-        'emerald': 'linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%)',
-        'jade': 'linear-gradient(135deg, #00a86b 0%, #29ab87 50%, #50c878 100%)',
-        'mint': 'linear-gradient(135deg, #98fb98 0%, #90ee90 50%, #00ff7f 100%)',
-        'olive': 'linear-gradient(135deg, #808000 0%, #9acd32 50%, #6b8e23 100%)',
-
-        // Cyan & Teal Family
-        'teal': 'linear-gradient(135deg, #14b8a6 0%, #0d9488 50%, #0f766e 100%)',
-        'cyan': 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
-        'turquoise': 'linear-gradient(135deg, #40e0d0 0%, #48d1cc 50%, #00ced1 100%)',
-        'aqua': 'linear-gradient(135deg, #00ffff 0%, #00e5ff 50%, #00bcd4 100%)',
-        'seafoam': 'linear-gradient(135deg, #9fe2bf 0%, #7fffd4 50%, #66cdaa 100%)',
-
-        // Neutral & Earth Tones
-        'slate': 'linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%)',
-        'gray': 'linear-gradient(135deg, #6b7280 0%, #4b5563 50%, #374151 100%)',
-        'zinc': 'linear-gradient(135deg, #71717a 0%, #52525b 50%, #3f3f46 100%)',
-        'stone': 'linear-gradient(135deg, #78716c 0%, #57534e 50%, #44403c 100%)',
-        'neutral': 'linear-gradient(135deg, #737373 0%, #525252 50%, #404040 100%)',
-        'charcoal': 'linear-gradient(135deg, #36454f 0%, #2f4f4f 50%, #1c1c1c 100%)',
-        'bronze': 'linear-gradient(135deg, #cd7f32 0%, #b87333 50%, #a0522d 100%)',
-        'copper': 'linear-gradient(135deg, #b87333 0%, #d2691e 50%, #cd853f 100%)'
-    };
-
-    const gradient = colorThemes[color] || colorThemes['blue'];
-
-    // Update CSS variables
-    document.documentElement.style.setProperty('--primary-gradient', gradient);
-    document.documentElement.style.setProperty('--sidebar-gradient', gradient);
-    document.documentElement.style.setProperty('--footer-gradient', gradient);
-    document.documentElement.style.setProperty('--header-gradient', gradient);
-
-    // Update header
-    const header = document.querySelector('header');
-    if (header) {
-        header.style.background = gradient;
-    }
-
-    // Update sidebar
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        sidebar.style.background = gradient;
-    }
-
-    // Update footer
-    const footer = document.querySelector('footer');
-    if (footer) {
-        footer.style.background = gradient;
-    }
-
-    // Update any gradient backgrounds
-    const gradientElements = document.querySelectorAll('.gradient-bg, .theme-button, .dashboard-card-gradient, .page-header-gradient, .page-header');
-    gradientElements.forEach(element => {
-        element.style.background = gradient;
-    });
-
-    // Update page headers specifically
-    const pageHeaders = document.querySelectorAll('.page-header, .page-header-gradient, [class*="bg-gradient-to-r"]');
-    pageHeaders.forEach(element => {
-        element.style.background = gradient;
-        element.style.backgroundImage = gradient;
-    });
+<style>
+.tab-link {
+    color: #6b7280;
+    border-bottom-color: transparent;
 }
 
-// Form validation with enhanced checks
-document.querySelector('form').addEventListener('submit', function(e) {
-    const requiredFields = ['school_name', 'school_address', 'school_phone', 'school_email'];
-    let isValid = true;
-    let errorMessages = [];
+.tab-link:hover {
+    color: #3b82f6;
+    border-bottom-color: #e5e7eb;
+}
 
-    requiredFields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (!field.value.trim()) {
-            isValid = false;
-            field.classList.add('border-red-500');
-            errorMessages.push(`${field.previousElementSibling.textContent.replace('*', '').trim()} is required`);
-        } else {
-            field.classList.remove('border-red-500');
-        }
-    });
+.tab-link.active {
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+}
 
-    // Email validation
-    const emailField = document.getElementById('school_email');
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (emailField.value && !emailRegex.test(emailField.value)) {
-        isValid = false;
-        emailField.classList.add('border-red-500');
-        errorMessages.push('Please enter a valid email address');
-    }
+.dark .tab-link {
+    color: #9ca3af;
+}
 
-    // Phone validation (basic)
-    const phoneField = document.getElementById('school_phone');
-    if (phoneField.value && phoneField.value.length < 10) {
-        isValid = false;
-        phoneField.classList.add('border-red-500');
-        errorMessages.push('Please enter a valid phone number');
-    }
+.dark .tab-link:hover {
+    color: #60a5fa;
+    border-bottom-color: #374151;
+}
 
-    // Academic year validation
-    const startDate = new Date(document.getElementById('academic_year_start').value);
-    const endDate = new Date(document.getElementById('academic_year_end').value);
-    if (startDate && endDate && startDate >= endDate) {
-        isValid = false;
-        document.getElementById('academic_year_end').classList.add('border-red-500');
-        errorMessages.push('Academic year end date must be after start date');
-    }
-
-    if (!isValid) {
-        e.preventDefault();
-        alert('Please fix the following errors:\n\n' + errorMessages.join('\n'));
-    } else {
-        // Show loading state
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
-        submitBtn.disabled = true;
-
-        // Re-enable after a delay (in case of errors)
-        setTimeout(() => {
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        }, 5000);
-    }
-});
-
-// File upload preview for logo
-document.getElementById('school_logo').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        if (file.size > 2 * 1024 * 1024) { // 2MB limit
-            alert('File size must be less than 2MB');
-            e.target.value = '';
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            // Create preview if it doesn't exist
-            let preview = document.getElementById('logo-preview');
-            if (!preview) {
-                preview = document.createElement('img');
-                preview.id = 'logo-preview';
-                preview.className = 'mt-2 w-20 h-20 object-cover rounded-lg border';
-                e.target.parentNode.appendChild(preview);
-            }
-            preview.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-});
-</script>
+.dark .tab-link.active {
+    color: #60a5fa;
+    border-bottom-color: #60a5fa;
+}
+</style>

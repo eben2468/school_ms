@@ -1,9 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher'])) {
-    header("Location: /school_ms/auth/login.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('academic');
 
 require_once '../config/database.php';
 $database = new Database();
@@ -16,12 +14,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <!-- Header Section -->

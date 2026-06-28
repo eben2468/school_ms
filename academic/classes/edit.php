@@ -32,9 +32,16 @@ $query = "SELECT id, name FROM users WHERE role = 'teacher' AND status = 'active
 $stmt = $db->query($query);
 $teachers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch subjects
-$query = "SELECT id, name, code FROM subjects ORDER BY name ASC";
+// Fetch academic years
+$query = "SELECT id, year_name, status FROM academic_years ORDER BY year_name DESC";
 $stmt = $db->query($query);
+$academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch subjects under this class
+$query = "SELECT id, name, code FROM subjects WHERE class_id = :class_id ORDER BY name ASC";
+$stmt = $db->prepare($query);
+$stmt->bindParam(':class_id', $class_id, PDO::PARAM_INT);
+$stmt->execute();
 $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch current teacher assignments
@@ -122,12 +129,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden transition-all duration-300" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -162,11 +169,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div>
                             <label for="academic_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Academic Year</label>
-                            <input type="text" id="academic_year" name="academic_year" required
-                                placeholder="e.g., 2025-2026"
-                                pattern="\d{4}-\d{4}"
-                                value="<?php echo htmlspecialchars($class['academic_year']); ?>"
+                            <select id="academic_year" name="academic_year" required
                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                <option value="">Select Academic Year</option>
+                                <?php foreach ($academic_years as $year): ?>
+                                <option value="<?php echo htmlspecialchars($year['year_name']); ?>"
+                                    <?php echo ($class['academic_year'] === $year['year_name']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($year['year_name']); ?> (<?php echo ucfirst($year['status']); ?>)
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div>

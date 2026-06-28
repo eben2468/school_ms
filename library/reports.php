@@ -9,7 +9,7 @@ require_once '../config/database.php';
 $database = new Database();
 $db = $database->getConnection();
 
-$report_type = filter_input(INPUT_GET, 'type', FILTER_SANITIZE_STRING) ?: 'overview';
+$report_type = filter_input(INPUT_GET, 'type', FILTER_DEFAULT) ?: 'overview';
 
 // Get library statistics
 $stats = [];
@@ -73,16 +73,18 @@ $overdue_details = $overdue_details_stmt->fetchAll(PDO::FETCH_ASSOC);
 <?php include '../includes/header.php'; ?>
 <?php include '../includes/sidebar.php'; ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="w-full">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Library Reports</h1>
-                <a href="index.php" class="text-blue-600 hover:text-blue-800">
+                <a href="books/index.php" class="text-blue-600 hover:text-blue-800">
                     <i class="fas fa-arrow-left mr-2"></i>Back to Library
                 </a>
             </div>
@@ -379,8 +381,13 @@ $overdue_details = $overdue_details_stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
             <?php endif; ?>
+                </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../includes/footer.php'; ?>
         </div>
     </div>
 </div>
 
-<?php include '../includes/footer.php'; ?>

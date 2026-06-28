@@ -19,9 +19,11 @@ if (!isset($_SESSION['user_id'])) {
 // Capture any potential output from database connection
 ob_start();
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 ob_end_clean(); // Discard any output from database.php
 $database = new Database();
 $db = $database->getConnection();
+ensureChatTables($db); // heal tenants that predate the chat module
 
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
@@ -128,7 +130,7 @@ try {
         default:
             throw new Exception('Invalid action: ' . $action);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     // Ensure proper JSON response
     header('Content-Type: application/json');
     http_response_code(500);
@@ -415,13 +417,13 @@ function handleFileUpload($db, $user_id) {
     ";
 
     $stmt = $db->prepare($query);
-    $stmt->bindParam(':room_id', $room_id);
-    $stmt->bindParam(':sender_id', $user_id);
-    $stmt->bindParam(':message', $message);
-    $stmt->bindParam(':message_type', $message_type);
-    $stmt->bindParam(':file_path', 'chat_files/' . $filename);
-    $stmt->bindParam(':file_name', $file['name']);
-    $stmt->bindParam(':file_size', $file['size']);
+    $stmt->bindValue(':room_id', $room_id);
+    $stmt->bindValue(':sender_id', $user_id);
+    $stmt->bindValue(':message', $message);
+    $stmt->bindValue(':message_type', $message_type);
+    $stmt->bindValue(':file_path', 'chat_files/' . $filename);
+    $stmt->bindValue(':file_name', $file['name']);
+    $stmt->bindValue(':file_size', $file['size']);
     $stmt->execute();
 
     // Update room activity

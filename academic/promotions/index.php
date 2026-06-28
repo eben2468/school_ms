@@ -154,7 +154,7 @@ include '../../includes/sidebar.php';
     <div class="flex-1 flex flex-col">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">

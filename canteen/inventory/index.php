@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../../config/database.php';
+require_once '../../includes/settings_helper.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -81,25 +82,32 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-3xl font-semibold text-gray-800">Inventory Management</h1>
-                <div class="flex space-x-3">
-                    <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                <h1 class="text-3xl font-semibold text-gray-800 dark:text-white">Inventory Management</h1>
+                <div class="flex flex-wrap items-center gap-3 no-stack">
+                    <a href="../index.php" class="inline-flex items-center whitespace-nowrap bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Canteen
                     </a>
-                    <a href="add_item.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <a href="add_item.php" class="inline-flex items-center whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                         <i class="fas fa-plus mr-2"></i>Add Item
                     </a>
                 </div>
+            </div>
+
+            <!-- Navigation breadcrumb -->
+            <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
+                <a href="../index.php" class="hover:text-blue-600 dark:hover:text-blue-400">Canteen</a>
+                <i class="fas fa-chevron-right text-xs"></i>
+                <span class="text-gray-900 dark:text-white font-medium">Inventory Management</span>
             </div>
 
             <?php if (isset($success_message)): ?>

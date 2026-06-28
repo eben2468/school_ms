@@ -3,7 +3,7 @@
 session_start();
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin'])) {
-    header('Location: /school_ms/login.php');
+    header('Location: /login.php');
     exit();
 }
 
@@ -125,7 +125,7 @@ try {
             'type' => 'academic',
             'priority' => 'medium',
             'icon' => 'fas fa-user-plus',
-            'action_url_template' => '/school_ms/students/view.php?id={student_id}',
+            'action_url_template' => '/students/view.php?id={student_id}',
             'action_text' => 'View Student'
         ],
         [
@@ -135,7 +135,7 @@ try {
             'type' => 'finance',
             'priority' => 'medium',
             'icon' => 'fas fa-money-bill-wave',
-            'action_url_template' => '/school_ms/finance/view_payment.php?id={payment_id}',
+            'action_url_template' => '/finance/view_payment.php?id={payment_id}',
             'action_text' => 'View Payment'
         ],
         [
@@ -145,7 +145,7 @@ try {
             'type' => 'finance',
             'priority' => 'high',
             'icon' => 'fas fa-exclamation-triangle',
-            'action_url_template' => '/school_ms/finance/overdue.php?student_id={student_id}',
+            'action_url_template' => '/finance/overdue.php?student_id={student_id}',
             'action_text' => 'View Details'
         ],
         [
@@ -155,7 +155,7 @@ try {
             'type' => 'academic',
             'priority' => 'medium',
             'icon' => 'fas fa-file-alt',
-            'action_url_template' => '/school_ms/academics/assignments/view.php?id={assignment_id}',
+            'action_url_template' => '/academics/assignments/view.php?id={assignment_id}',
             'action_text' => 'View Submissions'
         ],
         [
@@ -165,7 +165,7 @@ try {
             'type' => 'attendance',
             'priority' => 'high',
             'icon' => 'fas fa-calendar-times',
-            'action_url_template' => '/school_ms/attendance/student.php?id={student_id}',
+            'action_url_template' => '/attendance/student.php?id={student_id}',
             'action_text' => 'View Attendance'
         ],
         [
@@ -175,7 +175,7 @@ try {
             'type' => 'grades',
             'priority' => 'medium',
             'icon' => 'fas fa-graduation-cap',
-            'action_url_template' => '/school_ms/academics/grades/view.php?exam_id={exam_id}',
+            'action_url_template' => '/academics/grades/view.php?exam_id={exam_id}',
             'action_text' => 'View Grades'
         ],
         [
@@ -185,7 +185,7 @@ try {
             'type' => 'events',
             'priority' => 'medium',
             'icon' => 'fas fa-calendar-alt',
-            'action_url_template' => '/school_ms/events/view.php?id={event_id}',
+            'action_url_template' => '/events/view.php?id={event_id}',
             'action_text' => 'View Event'
         ],
         [
@@ -195,7 +195,7 @@ try {
             'type' => 'library',
             'priority' => 'medium',
             'icon' => 'fas fa-book',
-            'action_url_template' => '/school_ms/library/my_books.php',
+            'action_url_template' => '/library/my_books.php',
             'action_text' => 'View Books'
         ],
         [
@@ -215,7 +215,7 @@ try {
             'type' => 'announcement',
             'priority' => 'medium',
             'icon' => 'fas fa-bullhorn',
-            'action_url_template' => '/school_ms/announcements/view.php?id={announcement_id}',
+            'action_url_template' => '/announcements/view.php?id={announcement_id}',
             'action_text' => 'Read More'
         ]
     ];
@@ -259,7 +259,7 @@ try {
             'type' => 'general',
             'priority' => 'low',
             'icon' => 'fas fa-user-edit',
-            'action_url' => '/school_ms/settings.php',
+            'action_url' => '/settings/school.php',
             'action_text' => 'Update Profile'
         ]
     ];

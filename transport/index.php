@@ -1,11 +1,11 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'transport_officer'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('transport');
 
 require_once '../config/database.php';
+require_once '../includes/module_access.php';
+requireModule('transport'); // block access if disabled for this school
 $database = new Database();
 $db = $database->getConnection();
 
@@ -69,9 +69,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -111,12 +111,12 @@ include '../includes/sidebar.php';
 
                 <!-- Action Buttons -->
                 <div class="flex justify-between items-center mb-6">
-                    <div class="flex space-x-3">
+                    <div class="flex flex-wrap items-center gap-3 no-stack">
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])): ?>
-                        <a href="routes/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
+                        <a href="routes/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 inline-flex items-center whitespace-nowrap">
                             <i class="fas fa-plus mr-2"></i>Add Route
                         </a>
-                        <a href="vehicles/create.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
+                        <a href="vehicles/create.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 inline-flex items-center whitespace-nowrap">
                             <i class="fas fa-bus mr-2"></i>Add Vehicle
                         </a>
                         <?php endif; ?>
@@ -253,7 +253,7 @@ include '../includes/sidebar.php';
                                     <i class="fas fa-user-graduate text-purple-600 dark:text-purple-400 text-xl"></i>
                                 </div>
                                 <?php if (in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])): ?>
-                                <a href="assignments/create.php" class="text-purple-500 hover:text-purple-600 dark:text-purple-400 dark:hover:text-purple-300 p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/50 transition-colors duration-200">
+                                <a href="assignments/index.php" class="text-purple-500 hover:text-purple-600 dark:text-purple-400 dark:hover:text-purple-300 p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/50 transition-colors duration-200" title="Manage Student Assignments">
                                     <i class="fas fa-plus"></i>
                                 </a>
                                 <?php endif; ?>
@@ -296,7 +296,7 @@ include '../includes/sidebar.php';
                                 <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800 transition-colors duration-200">
                                     <i class="fas fa-chart-bar text-indigo-600 dark:text-indigo-400 text-xl"></i>
                                 </div>
-                                <a href="reports/generate.php" class="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors duration-200">
+                                <a href="reports/index.php" class="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors duration-200" title="View Transport Reports">
                                     <i class="fas fa-external-link-alt"></i>
                                 </a>
                             </div>
@@ -317,7 +317,7 @@ include '../includes/sidebar.php';
                                     <i class="fas fa-tools text-red-600 dark:text-red-400 text-xl"></i>
                                 </div>
                                 <?php if (in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])): ?>
-                                <a href="maintenance/create.php" class="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors duration-200">
+                                <a href="maintenance/index.php" class="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors duration-200" title="Manage Maintenance">
                                     <i class="fas fa-plus"></i>
                                 </a>
                                 <?php endif; ?>

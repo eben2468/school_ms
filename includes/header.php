@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+<?php
+// System Control enforcement (maintenance mode, session timeout, scheduled
+// backups). Runs before any output so it can redirect / show 503 cleanly.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/system_guard.php';
+?><!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
@@ -7,43 +11,74 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <?php
+    // Expose a CSRF token for forms and AJAX (see footer.php auto-attach script).
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/csrf.php';
+    ?>
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES); ?>">
+    <?php
     // Include settings helper
-    require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/settings_helper.php';
     $school_name = getSchoolSetting('school_name', 'School Management System');
     ?>
     <title><?php
-    // Hardcoded fix for specific pages that have title issues
     $current_page = basename($_SERVER['PHP_SELF']);
     $current_dir = basename(dirname($_SERVER['PHP_SELF']));
 
-    if ($current_dir === 'online_learning' && $current_page === 'index.php') {
-        echo 'Online Learning Tools - ' . htmlspecialchars($school_name);
-    } else {
-        // Check multiple sources for title
-        $page_title = '';
-        if (isset($title) && !empty($title)) {
-            $page_title = $title;
-        } elseif (isset($GLOBALS['title']) && !empty($GLOBALS['title'])) {
-            $page_title = $GLOBALS['title'];
-        } elseif (isset($_SESSION['page_title']) && !empty($_SESSION['page_title'])) {
-            $page_title = $_SESSION['page_title'];
-        } elseif (defined('PAGE_TITLE')) {
-            $page_title = PAGE_TITLE;
-        }
-
-        echo !empty($page_title) ? htmlspecialchars($page_title) . ' - ' : '';
-        echo htmlspecialchars($school_name);
+    // Check multiple sources for title
+    $page_title = '';
+    if (isset($title) && $title !== '' && $title !== 0 && $title !== '0' && $title !== false && $title !== null) {
+        $page_title = $title;
+    } elseif (isset($GLOBALS['title']) && $GLOBALS['title'] !== '' && $GLOBALS['title'] !== 0 && $GLOBALS['title'] !== '0' && $GLOBALS['title'] !== false && $GLOBALS['title'] !== null) {
+        $page_title = $GLOBALS['title'];
+    } elseif (isset($_SESSION['page_title']) && $_SESSION['page_title'] !== '' && $_SESSION['page_title'] !== 0 && $_SESSION['page_title'] !== '0' && $_SESSION['page_title'] !== false && $_SESSION['page_title'] !== null) {
+        $page_title = $_SESSION['page_title'];
+    } elseif (defined('PAGE_TITLE') && PAGE_TITLE !== '' && PAGE_TITLE !== 0 && PAGE_TITLE !== '0' && PAGE_TITLE !== false && PAGE_TITLE !== null) {
+        $page_title = PAGE_TITLE;
     }
+
+    // Dynamic self-healing fallback for online learning module
+    if (empty($page_title) && $current_dir === 'online_learning') {
+        switch ($current_page) {
+            case 'index.php':
+                $page_title = 'Online Learning Tools';
+                break;
+            case 'virtual_classroom.php':
+                $page_title = 'Virtual Classroom';
+                break;
+            case 'materials.php':
+                $page_title = 'Learning Materials';
+                break;
+            case 'quizzes.php':
+                $page_title = 'Quizzes & Tests';
+                break;
+            case 'submissions.php':
+                $page_title = 'Assignment Submissions';
+                break;
+            case 'discussions.php':
+                $page_title = 'Online Discussions';
+                break;
+            case 'discussion_view.php':
+                $page_title = 'Online Discussions';
+                break;
+        }
+    }
+
+    echo ($page_title !== '' && $page_title !== '0' && $page_title !== 0 && $page_title !== null) ? htmlspecialchars($page_title) . ' - ' : '';
+    echo htmlspecialchars($school_name);
     ?></title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="/school_ms/assets/css/app.css" rel="stylesheet">
-    <link href="/school_ms/assets/css/dynamic-theme.php" rel="stylesheet">
+    <link href="/assets/css/app.css" rel="stylesheet">
+    <link href="/assets/css/dynamic-theme.php" rel="stylesheet">
+    <link href="/assets/css/responsive.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
+    <script src="/assets/js/image-cropper.js" defer></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="/school_ms/assets/js/app.js" defer></script>
-    <script src="/school_ms/assets/js/export-utils.js"></script>
+    <script src="/assets/js/app.js" defer></script>
+    <script src="/assets/js/export-utils.js"></script>
     <style>
         <?php echo getThemeCSSVariables(); ?>
 
@@ -96,13 +131,36 @@
         }
 
         /* Ensure no spacing issues in dark mode */
+        :root {
+            --root-font-size: 12px; /* Scale down entire system (text, padding, margins, sizes) by 25% */
+        }
+
         html {
             margin: 0;
             padding: 0;
+            font-size: var(--root-font-size) !important;
         }
 
         html.dark {
             background-color: #0f172a;
+        }
+
+        /* Global layout overrides for 56px header height */
+        header.gradient-bg {
+            height: 56px !important;
+        }
+        
+        #sidebar, .sidebar {
+            top: 56px !important;
+            height: calc(100vh - 56px) !important;
+            min-height: calc(100vh - 56px) !important;
+        }
+        
+        [style*="margin-top: 80px"],
+        [style*="margin-top:80px"],
+        [style*="margin-top: 80px;"],
+        [style*="margin-top:80px;"] {
+            margin-top: 56px !important;
         }
 
         /* Smooth transitions for theme changes */
@@ -169,8 +227,8 @@
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300" x-data="{ darkMode: $store.theme.dark }" :class="{ 'dark': $store.theme.dark }">
     <!-- Modern Header -->
-    <header class="gradient-bg text-white header-shadow fixed top-0 left-0 right-0 z-50" x-data="headerData()" style="height: 80px;">
-        <div class="px-2 py-3 h-full w-full">
+    <header class="gradient-bg text-white header-shadow fixed top-0 left-0 right-0 z-50" x-data="headerData()" style="height: 56px;">
+        <div class="px-3 sm:px-4 h-full w-full">
             <div class="flex justify-between items-center h-full w-full">
                 <!-- Left Section - Extreme Left -->
                 <div class="flex items-center space-x-3 pl-2">
@@ -180,10 +238,17 @@
                     </button>
 
                     <!-- Logo and Brand -->
-                    <a href="/school_ms/dashboard.php" class="flex items-center space-x-3 group">
+                    <a href="<?php echo (($_SESSION['role'] ?? '') === 'parent') ? '/parent/dashboard.php' : '/dashboard.php'; ?>" class="flex items-center space-x-3 group">
                         <div class="relative">
-                            <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors duration-200">
-                                <i class="fas fa-graduation-cap text-xl"></i>
+                            <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors duration-200 overflow-hidden">
+                                <?php 
+                                $logo_url = getSchoolLogo();
+                                if ($logo_url): 
+                                ?>
+                                    <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Logo" class="w-full h-full object-contain p-1">
+                                <?php else: ?>
+                                    <i class="fas fa-graduation-cap text-xl"></i>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="hidden sm:block">
@@ -194,10 +259,10 @@
                 </div>
 
                 <!-- Center Section - Academic Context, Date and Time -->
-                <div class="flex items-center space-x-6 text-center">
+                <div class="header-center-section flex items-center space-x-6 text-center">
                     <!-- Academic Context -->
                     <?php
-                    require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/database.php';
+                    require_once $_SERVER['DOCUMENT_ROOT'] . '/config/database.php';
                     $database = new Database();
                     $academic_context = $database->getCurrentAcademicContext();
                     ?>
@@ -229,7 +294,7 @@
                 </div>
 
                 <!-- Right Section - Extreme Right -->
-                <div class="flex items-center space-x-3 pr-2">
+                <div class="header-right-section flex items-center space-x-3 pr-2">
                     <!-- Quick Actions -->
                     <div class="hidden lg:flex items-center space-x-2">
                         <!-- Search Button -->
@@ -244,27 +309,18 @@
                                 <i class="fas fa-plus text-lg"></i>
                             </button>
                             <div class="dropdown-content bg-white dark:bg-gray-800 shadow-xl rounded-xl mt-2 py-2 text-gray-800 dark:text-gray-200 w-56">
-                                <a href="/school_ms/students/enroll.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                <a href="/students/enroll.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <i class="fas fa-user-plus mr-3 w-4 text-blue-500"></i> Add Student
                                 </a>
-                                <a href="/school_ms/users/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
-                                    <i class="fas fa-user-tie mr-3 w-4 text-green-500"></i> Add Teacher
-                                </a>
-                                <a href="/school_ms/academic/classes/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                <a href="/academic/classes/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <i class="fas fa-chalkboard mr-3 w-4 text-purple-500"></i> Create Class
                                 </a>
-                                <a href="/school_ms/academic/assignments/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                <a href="/academic/assignments/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <i class="fas fa-tasks mr-3 w-4 text-orange-500"></i> Create Assignment
                                 </a>
                             </div>
                         </div>
                         <?php endif; ?>
-
-                        <!-- Theme Toggle -->
-                        <button @click="$store.theme.toggle()" class="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200" title="Toggle Theme">
-                            <i class="fas fa-moon text-lg" x-show="!$store.theme.dark"></i>
-                            <i class="fas fa-sun text-lg" x-show="$store.theme.dark"></i>
-                        </button>
                     </div>
 
                     <!-- Chat Support Notifications (for support agents only) -->
@@ -287,7 +343,7 @@
                                 </div>
                             </div>
                             <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
-                                <a href="/school_ms/chat/admin_dashboard.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View Chat Dashboard</a>
+                                <a href="/chat/admin_dashboard.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View Chat Dashboard</a>
                             </div>
                         </div>
                     </div>
@@ -317,7 +373,7 @@
                                 </div>
                             </div>
                             <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                                <a href="/school_ms/notifications.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View all notifications</a>
+                                <a href="/notifications.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View all notifications</a>
                                 <div class="flex space-x-2">
                                     <button id="refreshNotifications" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Refresh">
                                         <i class="fas fa-sync-alt"></i>
@@ -332,7 +388,7 @@
                         <button class="flex items-center space-x-3 p-2 rounded-lg hover:bg-white/10 transition-colors duration-200">
                             <div class="w-8 h-8 rounded-full overflow-hidden border-2 border-white/30">
                                 <?php if (isset($_SESSION['profile_picture']) && !empty($_SESSION['profile_picture'])): ?>
-                                    <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>"
+                                    <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>"
                                          alt="Profile Picture"
                                          class="w-full h-full object-cover">
                                 <?php else: ?>
@@ -341,28 +397,30 @@
                                     </div>
                                 <?php endif; ?>
                             </div>
-                            <div class="hidden md:block text-left">
+                            <div class="hidden lg:block text-left">
                                 <p class="text-sm font-medium"><?php echo isset($_SESSION['user_name']) ? htmlspecialchars($_SESSION['user_name']) : 'Guest'; ?></p>
-                                <p class="text-xs opacity-75"><?php echo isset($_SESSION['role']) ? ucfirst(str_replace('_', ' ', $_SESSION['role'])) : 'Guest'; ?></p>
+                                <p class="text-xs opacity-75"><?php echo isset($_SESSION['role']) ? htmlspecialchars(formatRoleName($_SESSION['role'])) : 'Guest'; ?></p>
                             </div>
-                            <i class="fas fa-chevron-down text-xs hidden md:block"></i>
+                            <i class="fas fa-chevron-down text-xs hidden lg:block"></i>
                         </button>
                         <div class="dropdown-content bg-white dark:bg-gray-800 shadow-xl rounded-xl mt-2 py-2 text-gray-800 dark:text-gray-200 w-56">
                             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                                 <p class="font-medium"><?php echo isset($_SESSION['user_name']) ? htmlspecialchars($_SESSION['user_name']) : 'Guest'; ?></p>
                                 <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo isset($_SESSION['email']) ? htmlspecialchars($_SESSION['email']) : ''; ?></p>
                             </div>
-                            <a href="/school_ms/profile.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <a href="/profile.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                 <i class="fas fa-user-circle mr-3 w-4"></i> My Profile
                             </a>
-                            <a href="/school_ms/settings.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <?php if (isset($_SESSION['role']) && in_array($_SESSION['role'], ['super_admin', 'school_admin'], true)): ?>
+                            <a href="/settings/school.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                 <i class="fas fa-cog mr-3 w-4"></i> Settings
                             </a>
-                            <a href="/school_ms/help.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <?php endif; ?>
+                            <a href="/help.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                 <i class="fas fa-question-circle mr-3 w-4"></i> Help & Support
                             </a>
                             <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                            <a href="/school_ms/auth/logout.php" class="flex items-center px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors duration-200">
+                            <a href="/auth/logout.php" class="flex items-center px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors duration-200">
                                 <i class="fas fa-sign-out-alt mr-3 w-4"></i> Sign Out
                             </a>
                         </div>
@@ -373,6 +431,31 @@
 
 
     </header>
+
+    <?php if (!empty($_SESSION['impersonator'])): ?>
+    <!-- Super Admin Impersonation Banner -->
+    <div class="fixed bottom-0 left-0 right-0 bg-amber-500 text-amber-950 shadow-2xl border-t-2 border-amber-600" style="z-index: 60;">
+        <div class="px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-2 text-sm font-semibold">
+                <i class="fas fa-user-secret text-base"></i>
+                <span>
+                    Viewing <strong><?php echo htmlspecialchars($_SESSION['school_name'] ?? 'school'); ?></strong>
+                    as super admin
+                    <span class="hidden sm:inline opacity-80">— acting as <?php echo htmlspecialchars($_SESSION['user_name'] ?? ''); ?></span>
+                </span>
+            </div>
+            <form method="POST" action="/settings/exit_impersonation.php" class="inline">
+                <button type="submit"
+                        class="bg-amber-950 text-amber-50 hover:bg-black hover:text-white font-bold px-4 py-1.5 rounded-lg text-xs transition-colors duration-150 flex items-center">
+                    <i class="fas fa-arrow-left-from-bracket mr-1.5"></i> Exit to Super Admin
+                </button>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
     <!-- Search Modal -->
     <div x-show="$store.search.open" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-50 search-overlay" @click="$store.search.close()" style="display: none;">
@@ -415,15 +498,15 @@
                     <!-- Default Quick Actions -->
                     <div x-show="!$store.search.loading && $store.search.query.length < 2" class="space-y-2">
                         <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Quick Actions</div>
-                        <a href="/school_ms/students/enroll.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
+                        <a href="/students/enroll.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
                             <i class="fas fa-user-plus text-blue-500 mr-3"></i>
                             <span class="text-gray-900 dark:text-gray-100">Add New Student</span>
                         </a>
-                        <a href="/school_ms/academic/classes/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
+                        <a href="/academic/classes/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
                             <i class="fas fa-plus-circle text-green-500 mr-3"></i>
                             <span class="text-gray-900 dark:text-gray-100">Create New Class</span>
                         </a>
-                        <a href="/school_ms/academic/assignments/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
+                        <a href="/academic/assignments/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
                             <i class="fas fa-tasks text-purple-500 mr-3"></i>
                             <span class="text-gray-900 dark:text-gray-100">Create Assignment</span>
                         </a>
@@ -539,7 +622,7 @@
 
                     this.loading = true;
                     try {
-                        const response = await fetch('/school_ms/api/search.php', {
+                        const response = await fetch('/api/search.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -583,9 +666,13 @@
             });
 
             Alpine.store('sidebar', {
-                collapsed: localStorage.getItem('sidebarCollapsed') === 'true',
+                collapsed: window.innerWidth < 1024 ? false : localStorage.getItem('sidebarCollapsed') === 'true',
 
                 toggle() {
+                    if (window.innerWidth < 1024) {
+                        this.collapsed = false;
+                        return;
+                    }
                     console.log('Alpine sidebar toggle called, current state:', this.collapsed);
                     this.collapsed = !this.collapsed;
                     localStorage.setItem('sidebarCollapsed', this.collapsed);
@@ -598,7 +685,9 @@
                 },
 
                 init() {
-                    // Initialize sidebar state
+                    if (window.innerWidth < 1024) {
+                        this.collapsed = false;
+                    }
                 }
             });
         });
@@ -618,49 +707,15 @@
             }
         });
 
-        // Enhanced sidebar toggle functionality with dynamic layout
-        document.getElementById('sidebar-toggle')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            console.log('Sidebar toggle clicked');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.querySelector('main');
-
-            if (window.Alpine && window.Alpine.store('sidebar')) {
-                console.log('Current sidebar state:', window.Alpine.store('sidebar').collapsed);
-
-                // Toggle sidebar state in Alpine store
-                window.Alpine.store('sidebar').toggle();
-
-                console.log('New sidebar state:', window.Alpine.store('sidebar').collapsed);
-
-                // Handle mobile sidebar visibility
-                if (window.innerWidth < 1024) {
-                    if (sidebar) {
-                        sidebar.classList.toggle('-translate-x-full');
-                    }
-                } else {
-                    // Desktop: Adjust main content layout based on sidebar state
-                    setTimeout(() => {
-                        updateMainContentLayout();
-                    }, 50);
-                }
-            } else {
-                console.error('Alpine store not available');
-                // Fallback: direct toggle
-                if (sidebar) {
-                    sidebar.classList.toggle('w-16');
-                    sidebar.classList.toggle('w-72');
-                }
-            }
-        });
+        // Sidebar toggle functionality is handled by the unified handler in fix_sidebar_toggle.js
 
         // Function to update main content layout based on sidebar state
         function updateMainContentLayout() {
             const mainContent = document.querySelector('main');
             const sidebar = document.getElementById('sidebar');
-            const sidebarSpace = document.getElementById('sidebar-space') || document.querySelector('.transition-all.duration-300.lg\\:block.hidden, .w-72.flex-shrink-0, .w-16.flex-shrink-0, .w-0.transition-all');
+            const sidebarSpace = document.getElementById('sidebar-space') || 
+                                 document.querySelector('.sidebar-spacer') || 
+                                 document.querySelector('.transition-all.duration-300.lg\\:block.hidden, .w-72.flex-shrink-0, .w-16.flex-shrink-0, .w-0.transition-all');
             const mainContainer = document.querySelector('.flex-1.flex.flex-col');
 
             if (sidebar && window.Alpine && window.Alpine.store('sidebar')) {
@@ -668,10 +723,22 @@
 
                 // Update sidebar space div to account for collapsed sidebar icons
                 if (sidebarSpace) {
-                    if (isCollapsed) {
-                        sidebarSpace.className = 'w-16 transition-all duration-300 lg:block hidden';
+                    if (sidebarSpace.classList.contains('sidebar-spacer')) {
+                        if (isCollapsed) {
+                            sidebarSpace.classList.add('collapsed');
+                        } else {
+                            sidebarSpace.classList.remove('collapsed');
+                        }
                     } else {
-                        sidebarSpace.className = 'w-72 transition-all duration-300 lg:block hidden';
+                        if (isCollapsed) {
+                            sidebarSpace.className = 'w-16 transition-all duration-300 lg:block hidden';
+                        } else {
+                            sidebarSpace.className = 'w-72 transition-all duration-300 lg:block hidden';
+                        }
+                    }
+                    if (mainContent) {
+                        mainContent.style.marginLeft = '';
+                        mainContent.style.width = '';
                     }
                 }
 
@@ -679,13 +746,13 @@
                 // For pages with direct main content, apply direct styles
                 if (mainContent && !sidebarSpace) {
                     if (isCollapsed) {
-                        // Sidebar is collapsed - account for icon space (64px)
-                        mainContent.style.marginLeft = '64px';
-                        mainContent.style.width = 'calc(100% - 64px)';
+                        // Sidebar is collapsed - account for icon space (4rem)
+                        mainContent.style.marginLeft = '4rem';
+                        mainContent.style.width = 'calc(100% - 4rem)';
                     } else {
-                        // Sidebar is expanded (72 = w-72 = 18rem = 288px)
-                        mainContent.style.marginLeft = '288px';
-                        mainContent.style.width = 'calc(100% - 288px)';
+                        // Sidebar is expanded (18rem)
+                        mainContent.style.marginLeft = '18rem';
+                        mainContent.style.width = 'calc(100% - 18rem)';
                     }
 
                     // Add smooth transition
@@ -718,7 +785,9 @@
         window.addEventListener('resize', function() {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.querySelector('main');
-            const sidebarSpace = document.getElementById('sidebar-space') || document.querySelector('.transition-all.duration-300.lg\\:block.hidden, .w-72.flex-shrink-0, .w-16.flex-shrink-0, .w-0.transition-all');
+            const sidebarSpace = document.getElementById('sidebar-space') || 
+                                 document.querySelector('.sidebar-spacer') || 
+                                 document.querySelector('.transition-all.duration-300.lg\\:block.hidden, .w-72.flex-shrink-0, .w-16.flex-shrink-0, .w-0.transition-all');
 
             if (window.innerWidth < 1024) {
                 // Mobile: Reset main content styles and sidebar space
@@ -727,7 +796,11 @@
                     mainContent.style.width = '';
                 }
                 if (sidebarSpace) {
-                    sidebarSpace.className = 'w-72 transition-all duration-300 lg:block hidden';
+                    if (sidebarSpace.classList.contains('sidebar-spacer')) {
+                        sidebarSpace.classList.remove('collapsed');
+                    } else {
+                        sidebarSpace.className = 'w-72 transition-all duration-300 lg:block hidden';
+                    }
                 }
                 // Ensure sidebar is hidden on mobile when collapsed
                 if (sidebar && window.Alpine && window.Alpine.store('sidebar') && window.Alpine.store('sidebar').collapsed) {
@@ -756,7 +829,7 @@
         // Chat notification system for support agents
         function loadChatNotifications() {
             <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])): ?>
-            fetch('/school_ms/chat/get_agent_notifications.php')
+            fetch('/chat/get_agent_notifications.php')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -782,7 +855,7 @@
 
                         if (notifications.unassigned_count > 0) {
                             html += `
-                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-red-500 cursor-pointer" onclick="window.location.href='/school_ms/chat/admin_dashboard.php'">
+                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-red-500 cursor-pointer" onclick="window.location.href='/chat/admin_dashboard.php'">
                                     <div class="flex items-start space-x-3">
                                         <div class="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
                                             <i class="fas fa-exclamation text-red-600 dark:text-red-400 text-xs"></i>
@@ -798,7 +871,7 @@
 
                         if (notifications.my_unread_count > 0) {
                             html += `
-                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-blue-500 cursor-pointer" onclick="window.location.href='/school_ms/help.php'">
+                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-blue-500 cursor-pointer" onclick="window.location.href='/help.php'">
                                     <div class="flex items-start space-x-3">
                                         <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                                             <i class="fas fa-message text-blue-600 dark:text-blue-400 text-xs"></i>
@@ -814,7 +887,7 @@
 
                         if (notifications.urgent_count > 0) {
                             html += `
-                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-orange-500 cursor-pointer" onclick="window.location.href='/school_ms/chat/admin_dashboard.php?filter=urgent'">
+                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-orange-500 cursor-pointer" onclick="window.location.href='/chat/admin_dashboard.php?filter=urgent'">
                                     <div class="flex items-start space-x-3">
                                         <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
                                             <i class="fas fa-fire text-orange-600 dark:text-orange-400 text-xs"></i>
@@ -843,14 +916,50 @@
             <?php endif; ?>
         }
 
+        // Lightweight global toast for real-time notification alerts
+        let __previousUnreadCount = null;
+        function headerToast(message, title) {
+            let container = document.getElementById('headerToastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'headerToastContainer';
+                container.className = 'fixed top-20 right-4 z-[100] space-y-2';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            toast.className = 'bg-white dark:bg-gray-800 border-l-4 border-blue-500 text-gray-800 dark:text-gray-100 px-4 py-3 rounded-lg shadow-xl flex items-start space-x-3 transform transition-all duration-300 translate-x-full opacity-0 max-w-sm cursor-pointer';
+            toast.innerHTML = `
+                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-bell text-blue-600 dark:text-blue-400 text-sm"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold truncate">${title || 'New Notification'}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">${message || ''}</p>
+                </div>`;
+            toast.addEventListener('click', () => { window.location.href = '/notifications.php'; });
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-x-full', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
         // Real-time notification system
         function loadNotifications() {
-            fetch('/school_ms/communication/notifications/get_notifications.php?limit=5&unread_only=false')
+            fetch('/communication/notifications/get_notifications.php?limit=5&unread_only=false')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         const notifications = data.notifications;
                         const unreadCount = data.pagination.unread;
+
+                        // Real-time alert: if unread count went up since last poll, toast the newest
+                        if (__previousUnreadCount !== null && unreadCount > __previousUnreadCount && notifications.length > 0) {
+                            const newest = notifications.find(n => !n.is_read) || notifications[0];
+                            headerToast(newest.message, newest.title);
+                        }
+                        __previousUnreadCount = unreadCount;
 
                         // Update badge
                         const badge = document.getElementById('notificationBadge');
@@ -929,7 +1038,7 @@
         }
 
         function markNotificationAsRead(notificationId) {
-            fetch('/school_ms/communication/notifications/mark_read.php', {
+            fetch('/communication/notifications/mark_read.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -953,7 +1062,7 @@
         }
 
         function markAllNotificationsAsRead() {
-            fetch('/school_ms/communication/notifications/mark_all_read.php', {
+            fetch('/communication/notifications/mark_all_read.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -965,7 +1074,7 @@
                 if (data.success) {
                     // Refresh notifications
                     loadNotifications();
-                    showNotification(`Marked ${data.affected_count} notifications as read`, 'success');
+                    headerToast(`Marked ${data.affected_rows ?? ''} notification(s) as read`, 'Notifications');
                 } else {
                     console.error('Failed to mark all notifications as read:', data.message);
                 }
@@ -982,9 +1091,9 @@
             // This would typically search via API
             // For now, we'll simulate with static data
             const searchResults = [
-                { type: 'student', name: 'John Doe', class: 'Grade 5A', url: '/school_ms/students/profile.php?id=1' },
-                { type: 'teacher', name: 'Jane Smith', subject: 'Mathematics', url: '/school_ms/teachers/profile.php?id=1' },
-                { type: 'class', name: 'Grade 5A', students: 25, url: '/school_ms/academic/classes/view.php?id=1' }
+                { type: 'student', name: 'John Doe', class: 'Grade 5A', url: '/students/profile.php?id=1' },
+                { type: 'teacher', name: 'Jane Smith', subject: 'Mathematics', url: '/teachers/profile.php?id=1' },
+                { type: 'class', name: 'Grade 5A', students: 25, url: '/academic/classes/view.php?id=1' }
             ];
 
             return searchResults.filter(item =>
@@ -1018,6 +1127,9 @@
             // Add event listeners for notification actions
             document.getElementById('markAllNotificationsRead')?.addEventListener('click', markAllNotificationsAsRead);
             document.getElementById('refreshNotifications')?.addEventListener('click', loadNotifications);
+            // Refresh the dropdown contents whenever the bell is opened
+            document.getElementById('notificationBtn')?.addEventListener('click', loadNotifications);
+            document.getElementById('notificationBtn')?.addEventListener('mouseenter', loadNotifications);
 
             // Initialize dropdown functionality
             const dropdowns = document.querySelectorAll('.dropdown');
@@ -1066,6 +1178,6 @@
     </script>
 
     <!-- Emergency Sidebar Toggle Fix -->
-    <script src="/school_ms/fix_sidebar_toggle.js"></script>
+    <script src="/fix_sidebar_toggle.js"></script>
 
     <main>

@@ -1,0 +1,21 @@
+first_name,last_name,email,role,gender,date_of_birth,phone,qualification,experience_years,department,position,joining_date,salary,contract_type
+Kwame,Mensah,kwame.mensah1@staff.gh,teacher,male,1975-01-01,+233241000000,B.Ed,1,Mathematics,"Senior Teacher",2018-01-01,1500,part_time
+Akua,Appiah,akua.appiah2@staff.gh,teacher,female,1976-02-02,+233241000037,B.Sc,2,Science,"Class Teacher",2019-02-02,1620,full_time
+Yaw,Annan,yaw.annan3@staff.gh,teacher,male,1977-03-03,+233241000074,M.Ed,3,Languages,"Subject Teacher",2020-03-03,1740,full_time
+Afua,Gyamfi,afua.gyamfi4@staff.gh,teacher,female,1978-04-04,+233241000111,HND,4,"Social Studies","Head of Department",2021-04-04,1860,full_time
+Kojo,Sarpong,kojo.sarpong5@staff.gh,teacher,male,1979-05-05,+233241000148,"Diploma in Education",5,ICT,Officer,2022-05-05,1980,full_time
+Akosua,Nkrumah,akosua.nkrumah6@staff.gh,teacher,female,1980-06-06,+233241000185,B.A,6,"Creative Arts",Coordinator,2023-06-06,2100,full_time
+Kwesi,Ankrah,kwesi.ankrah7@staff.gh,teacher,male,1981-07-07,+233241000222,M.Sc,7,"Physical Education","Senior Teacher",2024-07-07,2220,full_time
+Esi,Addai,esi.addai8@staff.gh,teacher,female,1982-08-08,+233241000259,PGDE,8,Administration,"Class Teacher",2018-08-08,2340,part_time
+Ebenezer,Owusu,ebenezer.owusu9@staff.gh,teacher,male,1983-09-09,+233241000296,B.Ed,9,Health,"Subject Teacher",2019-09-09,2460,full_time
+Comfort,Boateng,comfort.boateng10@staff.gh,teacher,female,1984-10-10,+233241000333,B.Sc,10,Finance,"Head of Department",2020-10-10,2580,full_time
+Daniel,Adjei,daniel.adjei11@staff.gh,teacher,male,1985-11-11,+233241000370,M.Ed,11,Mathematics,Officer,2021-11-11,2700,full_time
+Mercy,Frimpong,mercy.frimpong12@staff.gh,librarian,female,1986-12-12,+233241000407,HND,12,Librarian,Librarian,2022-12-12,2820,full_time
+Isaac,Ofori,isaac.ofori13@staff.gh,accountant,male,1987-01-13,+233241000444,"Diploma in Education",13,Accountant,Accountant,2023-01-13,2940,full_time
+Cynthia,Bonsu,cynthia.bonsu14@staff.gh,accountant,female,1988-02-14,+233241000481,B.A,14,Accountant,Accountant,2024-02-14,3060,full_time
+Joseph,Tetteh,joseph.tetteh15@staff.gh,nurse,male,1989-03-15,+233241000518,M.Sc,15,Nurse,Nurse,2018-03-15,3180,part_time
+Sandra,Yeboah,sandra.yeboah16@staff.gh,counselor,female,1990-04-16,+233241000555,PGDE,16,Counselor,Counselor,2019-04-16,3300,full_time
+Francis,Coleman,francis.coleman17@staff.gh,transport_officer,male,1991-05-17,+233241000592,B.Ed,17,"Transport officer","Transport officer",2020-05-17,3420,full_time
+Linda,Asante,linda.asante18@staff.gh,hostel_warden,female,1992-06-18,+233241000629,B.Sc,18,"Hostel warden","Hostel warden",2021-06-18,3540,full_time
+Nana,Agyemang,nana.agyemang19@staff.gh,canteen_manager,male,1993-07-19,+233241000666,M.Ed,1,"Canteen manager","Canteen manager",2022-07-19,3660,full_time
+Belinda,Darko,belinda.darko20@staff.gh,hr,female,1994-08-20,+233241000703,HND,2,Hr,Hr,2023-08-20,3780,full_time

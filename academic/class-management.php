@@ -233,53 +233,107 @@ foreach ($classes as $class) {
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden transition-all duration-300" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-semibold text-gray-800">Class Management</h1>
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800">
-                        <i class="fas fa-arrow-left mr-2"></i>Back to Academic Management
-                    </a>
+                <!-- Header Section -->
+                <div class="mb-8">
+                    <div class="page-header-gradient rounded-2xl p-6 text-white shadow-xl relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
+                        <!-- Abstract Background Shapes -->
+                        <div class="absolute top-0 right-0 -mt-4 -mr-4 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+                        <div class="absolute bottom-0 left-1/3 -mb-10 w-60 h-60 bg-pink-500/10 rounded-full blur-3xl"></div>
+
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between relative z-10">
+                            <div>
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                                        <i class="fas fa-user-friends text-2xl text-white"></i>
+                                    </div>
+                                    <h1 class="text-3xl font-bold tracking-tight">Class Management</h1>
+                                </div>
+                                <p class="text-indigo-100 text-sm max-w-xl">Assign students to classes, designate class teachers, manage subject specialists, and inspect current allocations.</p>
+                            </div>
+                            <div class="mt-4 md:mt-0">
+                                <a href="index.php" class="inline-flex items-center px-4 py-2 bg-white/15 hover:bg-white/25 text-white border border-white/20 hover:border-white/40 rounded-xl transition-all duration-300 backdrop-blur-md text-sm font-semibold shadow-sm hover:scale-[1.02]">
+                                    <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Stats Row Inside Header -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/10 relative z-10">
+                            <div class="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                                <div class="text-[10px] text-indigo-200 font-bold uppercase tracking-wider mb-1">Active Classes</div>
+                                <div class="text-2xl font-extrabold text-white"><?php echo count($classes); ?></div>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                                <div class="text-[10px] text-indigo-200 font-bold uppercase tracking-wider mb-1">Total Students</div>
+                                <div class="text-2xl font-extrabold text-white"><?php echo count($students); ?></div>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                                <div class="text-[10px] text-indigo-200 font-bold uppercase tracking-wider mb-1">Unassigned Students</div>
+                                <div class="text-2xl font-extrabold text-orange-300">
+                                    <?php 
+                                    $unassigned_count = count(array_filter($students, function($s) { return empty($s['current_class_id']); }));
+                                    echo $unassigned_count;
+                                    ?>
+                                </div>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                                <div class="text-[10px] text-indigo-200 font-bold uppercase tracking-wider mb-1">Active Teachers</div>
+                                <div class="text-2xl font-extrabold text-green-300"><?php echo count($teachers); ?></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <?php if (isset($success)): ?>
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                    <?php echo htmlspecialchars($success); ?>
+                <div class="flex items-center p-4 mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-2xl shadow-sm text-green-800 dark:text-green-400">
+                    <div class="bg-green-100 dark:bg-green-900/40 p-2 rounded-xl mr-3 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-check-circle text-lg"></i>
+                    </div>
+                    <span class="font-semibold text-sm"><?php echo htmlspecialchars($success); ?></span>
                 </div>
                 <?php endif; ?>
 
                 <?php if (isset($error)): ?>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    <?php echo htmlspecialchars($error); ?>
+                <div class="flex items-center p-4 mb-6 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-2xl shadow-sm text-red-800 dark:text-red-400">
+                    <div class="bg-red-100 dark:bg-red-900/40 p-2 rounded-xl mr-3 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-lg"></i>
+                    </div>
+                    <span class="font-semibold text-sm"><?php echo htmlspecialchars($error); ?></span>
                 </div>
                 <?php endif; ?>
 
-                <!-- Assignment Tabs -->
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="border-b border-gray-200">
-                        <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                <!-- Assignment Tabs Container -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+                    <div class="bg-gray-50/50 dark:bg-gray-900/30 px-6 py-4 border-b border-gray-100 dark:border-gray-700/50">
+                        <nav class="flex flex-wrap gap-2 p-1 bg-gray-100/70 dark:bg-gray-900/55 rounded-xl" aria-label="Tabs">
                             <button onclick="showTab('students')" id="students-tab" 
-                                class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                Assign Students to Classes
+                                class="tab-button flex items-center justify-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer select-none">
+                                <i class="fas fa-user-graduate text-base transition-colors duration-300"></i>
+                                <span>Assign Students</span>
                             </button>
                             <button onclick="showTab('main-teachers')" id="main-teachers-tab"
-                                class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                Assign Main Class Teachers
+                                class="tab-button flex items-center justify-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer select-none">
+                                <i class="fas fa-user-tie text-base transition-colors duration-300"></i>
+                                <span>Assign Main Class Teachers</span>
                             </button>
                             <button onclick="showTab('subject-teachers')" id="subject-teachers-tab"
-                                class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                Assign Subject Teachers
+                                class="tab-button flex items-center justify-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer select-none">
+                                <i class="fas fa-book-open text-base transition-colors duration-300"></i>
+                                <span>Assign Subject Teachers</span>
                             </button>
                             <button onclick="showTab('current')" id="current-tab"
-                                class="tab-button border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                Current Assignments
+                                class="tab-button flex items-center justify-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer select-none">
+                                <i class="fas fa-layer-group text-base transition-colors duration-300"></i>
+                                <span>Current Assignments</span>
                             </button>
                         </nav>
                     </div>
@@ -287,25 +341,28 @@ foreach ($classes as $class) {
                     <!-- Tab Content -->
                     <div class="p-6">
                         <!-- Assign Students to Classes Tab -->
-                        <div id="students-content" class="tab-content hidden">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Assign Students to Classes</h3>
+                        <div id="students-content" class="tab-content hidden space-y-6">
+                            <div class="border-b border-gray-100 dark:border-gray-700/50 pb-4">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white">Assign Students to Classes</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a class, choose students, and batch allocate them instantly.</p>
+                            </div>
 
                             <?php if (isset($_SESSION['already_assigned_students'])): ?>
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+                            <div class="bg-amber-50 dark:bg-amber-955/10 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-5 mb-4 shadow-sm">
                                 <div class="flex">
-                                    <div class="flex-shrink-0">
-                                        <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                    <div class="flex-shrink-0 bg-amber-100 dark:bg-amber-900/55 p-2.5 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-exclamation-triangle text-amber-600 dark:text-amber-400 text-lg"></i>
                                     </div>
-                                    <div class="ml-3">
-                                        <h3 class="text-sm font-medium text-yellow-800">Students Already Assigned</h3>
-                                        <div class="mt-2 text-sm text-yellow-700">
-                                            <p>The following students were skipped because they are already assigned to other classes:</p>
-                                            <ul class="list-disc list-inside mt-1">
+                                    <div class="ml-4">
+                                        <h3 class="text-base font-bold text-amber-800 dark:text-amber-400">Students Already Assigned</h3>
+                                        <div class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                                            <p class="font-medium">The following students were skipped because they are already assigned to other classes:</p>
+                                            <ul class="list-disc list-inside mt-2 space-y-1 bg-amber-100/30 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-200/20">
                                                 <?php foreach ($_SESSION['already_assigned_students'] as $student): ?>
                                                 <li><?php echo htmlspecialchars($student); ?></li>
                                                 <?php endforeach; ?>
                                             </ul>
-                                            <p class="mt-2">Use the "Transfer Students" option if you want to move them to a different class.</p>
+                                            <p class="mt-3">Use the <strong class="text-orange-600 dark:text-orange-400">Transfer Students</strong> option below if you want to force-move them to the selected class.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -313,157 +370,205 @@ foreach ($classes as $class) {
                             <?php unset($_SESSION['already_assigned_students']); ?>
                             <?php endif; ?>
 
-                            <form method="POST" class="space-y-4" id="studentAssignmentForm">
+                            <form method="POST" class="space-y-6" id="studentAssignmentForm">
                                 <input type="hidden" name="action" value="assign_students">
 
-                                <div>
-                                    <label for="student_class_id" class="block text-sm font-medium text-gray-700">Select Class</label>
-                                    <select id="student_class_id" name="class_id" required onchange="updateStudentList()"
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="">Choose a class</option>
-                                        <?php foreach ($classes as $class): ?>
-                                        <option value="<?php echo $class['id']; ?>">
-                                            <?php echo htmlspecialchars($class['name'] . ' - ' . $class['grade_level']); ?>
-                                        </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <!-- Class Select & Info Card -->
+                                    <div class="bg-gray-50/50 dark:bg-gray-900/20 p-5 rounded-2xl border border-gray-150 dark:border-gray-700/40 space-y-4">
+                                        <div>
+                                            <label for="student_class_id" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Select Target Class</label>
+                                            <select id="student_class_id" name="class_id" required onchange="updateStudentList()"
+                                                class="block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium">
+                                                <option value="">Choose a class</option>
+                                                <?php foreach ($classes as $class): ?>
+                                                <option value="<?php echo $class['id']; ?>">
+                                                    <?php echo htmlspecialchars($class['name'] . ' - ' . $class['grade_level']); ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
 
-                                <div>
-                                    <div class="flex justify-between items-center mb-2">
-                                        <label class="block text-sm font-medium text-gray-700">Select Students</label>
-                                        <div class="flex space-x-2">
-                                            <button type="button" onclick="selectAllStudents()" class="text-xs text-blue-600 hover:text-blue-800">Select All Available</button>
-                                            <button type="button" onclick="deselectAllStudents()" class="text-xs text-gray-600 hover:text-gray-800">Deselect All</button>
+                                        <!-- Transfer Mode Card Switch -->
+                                        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-150 dark:border-gray-700/50 p-4 hover:shadow-sm transition-shadow duration-205">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex-1 pr-4">
+                                                    <label for="transfer_students" class="font-bold text-sm text-gray-850 dark:text-gray-200 cursor-pointer block select-none">
+                                                        Enable Transfer Mode
+                                                    </label>
+                                                    <span class="text-xs text-gray-500 dark:text-gray-400 block mt-0.5">Move students who are currently in other classes to the selected class.</span>
+                                                </div>
+                                                <div class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" name="transfer_students" id="transfer_students" onchange="toggleTransferModeCheckbox(this)" class="sr-only peer">
+                                                    <div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-305 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-500 font-semibold"></div>
+                                                </div>
+                                            </div>
+                                            <p class="text-[11px] text-orange-600 dark:text-orange-400 mt-2 flex items-center font-medium">
+                                                <i class="fas fa-exclamation-triangle mr-1 animate-pulse"></i> Warning: This removes selected students from their current class.
+                                            </p>
+                                        </div>
+
+                                        <div class="bg-blue-50/50 dark:bg-blue-955/10 border border-blue-200/50 dark:border-blue-900/30 rounded-xl p-4 space-y-2.5">
+                                            <h4 class="text-xs font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wider flex items-center">
+                                                <i class="fas fa-info-circle mr-1.5 text-sm"></i> Assignment Rules
+                                            </h4>
+                                            <ul class="list-disc list-inside text-xs text-blue-700 dark:text-blue-300 space-y-1 font-medium">
+                                                <li>Each student can belong to exactly one active class.</li>
+                                                <li>Double assignments are blocked automatically.</li>
+                                                <li>Deactivating assignments archives the history.</li>
+                                            </ul>
                                         </div>
                                     </div>
-                                    <div id="studentsList" class="max-h-64 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
-                                        <div class="text-center text-gray-500 py-4">
-                                            <i class="fas fa-arrow-up mr-2"></i>Please select a class first
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-                                    <div class="flex items-start">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-info-circle text-blue-400"></i>
+                                    <!-- Student Selection List Card -->
+                                    <div class="bg-gray-50/50 dark:bg-gray-900/20 p-5 rounded-2xl border border-gray-150 dark:border-gray-700/40 flex flex-col h-full">
+                                        <!-- List Header Controls -->
+                                        <div class="space-y-3 mb-3">
+                                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                <span class="block text-sm font-bold text-gray-700 dark:text-gray-300">Select Students</span>
+                                                <div class="flex space-x-2">
+                                                    <button type="button" onclick="selectAllStudents()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-905/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200/20 dark:border-blue-800/30 rounded-lg text-xs font-semibold transition-all">
+                                                        Select All Available
+                                                    </button>
+                                                    <button type="button" onclick="deselectAllStudents()" class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200/20 dark:border-gray-700/40 rounded-lg text-xs font-semibold transition-all">
+                                                        Deselect All
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Live Search Filter -->
+                                            <div class="relative">
+                                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                                <input type="text" id="student_search" placeholder="Type to filter students..." onkeyup="filterStudentList()"
+                                                    class="pl-9 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-750 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm">
+                                            </div>
                                         </div>
-                                        <div class="ml-3">
-                                            <h3 class="text-sm font-medium text-blue-800">Assignment Rules</h3>
-                                            <div class="mt-2 text-sm text-blue-700">
-                                                <ul class="list-disc list-inside space-y-1">
-                                                    <li>Each student can only be assigned to <strong>one class</strong> at a time</li>
-                                                    <li>Students already assigned to other classes will be <strong>skipped</strong></li>
-                                                    <li>Use "Transfer Students" to move students between classes</li>
-                                                </ul>
+
+                                        <!-- Container for Scroll List -->
+                                        <div id="studentsList" class="flex-1 max-h-[300px] overflow-y-auto border border-gray-200 dark:border-gray-700/50 rounded-xl p-3 bg-white dark:bg-gray-800/40">
+                                            <div class="text-center text-gray-400 py-12">
+                                                <div class="w-12 h-12 bg-gray-100 dark:bg-gray-850 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                    <i class="fas fa-arrow-left text-lg text-gray-400 animate-pulse"></i>
+                                                </div>
+                                                <p class="text-sm font-medium">Please select a target class first</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="space-y-3">
-                                    <div class="flex items-center">
-                                        <input type="checkbox" name="transfer_students" id="transfer_students"
-                                            class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
-                                        <label for="transfer_students" class="ml-2 text-sm text-gray-700">
-                                            <span class="font-medium text-orange-600">Transfer Students</span> - Move students from their current class to the selected class
-                                        </label>
-                                    </div>
-                                    <p class="text-xs text-gray-500 ml-6">⚠️ This will remove students from their current classes and assign them to the selected class.</p>
-                                </div>
-
-                                <button type="submit" id="assignButton"
-                                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="fas fa-user-plus mr-2"></i>Assign Students to Class
+                                <button type="submit" id="assignButton" disabled
+                                    class="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-xl shadow-lg hover:shadow-xl text-base font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-650 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform active:scale-[0.99]">
+                                    <i class="fas fa-user-plus mr-2 text-lg"></i>
+                                    <span>Assign Students to Class</span>
                                 </button>
                             </form>
                         </div>
 
                         <!-- Assign Main Class Teachers Tab -->
-                        <div id="main-teachers-content" class="tab-content hidden">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Assign Main Class Teachers</h3>
-                            <form method="POST" class="space-y-4">
+                        <div id="main-teachers-content" class="tab-content hidden space-y-6">
+                            <div class="border-b border-gray-100 dark:border-gray-700/50 pb-4">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white">Assign Main Class Teachers</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Designate a primary educator as the lead teacher responsible for a class's overall progress.</p>
+                            </div>
+
+                            <form method="POST" class="space-y-6">
                                 <input type="hidden" name="action" value="assign_main_teacher">
 
-                                <div>
-                                    <label for="main_teacher_class_id" class="block text-sm font-medium text-gray-700">Select Class</label>
-                                    <select id="main_teacher_class_id" name="class_id" required
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="">Choose a class</option>
-                                        <?php foreach ($classes as $class): ?>
-                                        <option value="<?php echo $class['id']; ?>">
-                                            <?php echo htmlspecialchars($class['name'] . ' - ' . $class['grade_level']); ?>
-                                        </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+                                <div class="bg-gray-50/50 dark:bg-gray-900/20 p-6 rounded-2xl border border-gray-150 dark:border-gray-700/40 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-2">
+                                        <label for="main_teacher_class_id" class="block text-sm font-bold text-gray-700 dark:text-gray-300">Select Target Class</label>
+                                                                        <select id="main_teacher_class_id" name="class_id" required
+                                            class="block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium">
+                                            <option value="">Choose a class</option>
+                                            <?php foreach ($classes as $class): ?>
+                                            <option value="<?php echo $class['id']; ?>">
+                                                <?php echo htmlspecialchars($class['name'] . ' - ' . $class['grade_level']); ?>
+                                            </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label for="main_teacher_id" class="block text-sm font-medium text-gray-700">Select Main Teacher</label>
-                                    <select id="main_teacher_id" name="teacher_id" required
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="">Choose a teacher</option>
-                                        <?php foreach ($teachers as $teacher): ?>
-                                        <option value="<?php echo $teacher['id']; ?>">
-                                            <?php echo htmlspecialchars($teacher['name']); ?>
-                                        </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <div class="space-y-2">
+                                        <label for="main_teacher_id" class="block text-sm font-bold text-gray-700 dark:text-gray-300">Select Main Teacher</label>
+                                        <select id="main_teacher_id" name="teacher_id" required
+                                            class="block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium">
+                                            <option value="">Choose a teacher</option>
+                                            <?php foreach ($teachers as $teacher): ?>
+                                            <option value="<?php echo $teacher['id']; ?>">
+                                                <?php echo htmlspecialchars($teacher['name']); ?>
+                                            </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <button type="submit"
-                                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    class="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-xl shadow-lg hover:shadow-xl text-base font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 transform active:scale-[0.99]">
+                                    <i class="fas fa-user-tie mr-2 text-lg"></i>
                                     Assign Main Teacher
                                 </button>
                             </form>
                         </div>
 
                         <!-- Assign Subject Teachers Tab -->
-                        <div id="subject-teachers-content" class="tab-content hidden">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">Assign Subject Teachers</h3>
-                            <form method="POST" class="space-y-4">
+                        <div id="subject-teachers-content" class="tab-content hidden space-y-6">
+                            <div class="border-b border-gray-100 dark:border-gray-700/50 pb-4">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white">Assign Subject Teachers</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Assign subject specialist teachers to deliver curriculum content for the selected class.</p>
+                            </div>
+
+                            <form method="POST" class="space-y-6">
                                 <input type="hidden" name="action" value="assign_subject_teachers">
 
-                                <div>
-                                    <label for="subject_teacher_class_id" class="block text-sm font-medium text-gray-700">Select Class</label>
-                                    <select id="subject_teacher_class_id" name="class_id" required
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="">Choose a class</option>
-                                        <?php foreach ($classes as $class): ?>
-                                        <option value="<?php echo $class['id']; ?>">
-                                            <?php echo htmlspecialchars($class['name'] . ' - ' . $class['grade_level']); ?>
-                                        </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                <div class="bg-gray-50/50 dark:bg-gray-900/20 p-5 rounded-2xl border border-gray-150 dark:border-gray-700/40 space-y-4">
+                                    <div>
+                                        <label for="subject_teacher_class_id" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Select Target Class</label>
+                                        <select id="subject_teacher_class_id" name="class_id" required
+                                            class="block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium">
+                                            <option value="">Choose a class</option>
+                                            <?php foreach ($classes as $class): ?>
+                                            <option value="<?php echo $class['id']; ?>">
+                                                <?php echo htmlspecialchars($class['name'] . ' - ' . $class['grade_level']); ?>
+                                            </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Assign Teachers to Subjects</label>
-                                    <div class="space-y-4 max-h-96 overflow-y-auto p-4 border border-gray-200 rounded-md">
+                                <div class="space-y-3">
+                                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Assign Teachers to Subjects</label>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto p-4 border border-gray-200 dark:border-gray-700/60 rounded-2xl bg-white dark:bg-gray-800/30">
                                         <?php foreach ($subjects as $subject): ?>
-                                        <div class="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
-                                            <h4 class="font-medium text-gray-900 mb-2">
-                                                <?php echo htmlspecialchars($subject['name']); ?>
-                                                (<?php echo htmlspecialchars($subject['code']); ?>)
-                                            </h4>
-                                            <select name="teacher_subjects[]"
-                                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                                <option value="">Select Teacher</option>
-                                                <?php foreach ($teachers as $teacher): ?>
-                                                <option value="<?php echo $teacher['id'] . '_' . $subject['id']; ?>">
-                                                    <?php echo htmlspecialchars($teacher['name']); ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
+                                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-150 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-purple-200 dark:hover:border-purple-900/60 transition-all duration-300 flex flex-col justify-between">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <h4 class="font-bold text-gray-800 dark:text-gray-200 truncate pr-2">
+                                                    <?php echo htmlspecialchars($subject['name']); ?>
+                                                </h4>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-100 text-purple-850 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200/30">
+                                                    <?php echo htmlspecialchars($subject['code']); ?>
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <select name="teacher_subjects[]" data-subject-id="<?php echo $subject['id']; ?>" class="subject-teacher-select block w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all">
+                                                    <option value="">Select Specialist Teacher</option>
+                                                    <?php foreach ($teachers as $teacher): ?>
+                                                    <option value="<?php echo $teacher['id'] . '_' . $subject['id']; ?>">
+                                                        <?php echo htmlspecialchars($teacher['name']); ?>
+                                                    </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
                                         </div>
                                         <?php endforeach; ?>
                                     </div>
-                                    <p class="mt-2 text-sm text-gray-500">Select teachers for each subject. Leave empty if not applicable.</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-1">
+                                        <i class="fas fa-info-circle mr-1.5 animate-pulse"></i> Set specialized subject teacher assignments. Dropdowns left unassigned will skip that subject.
+                                    </p>
                                 </div>
 
                                 <button type="submit"
-                                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    class="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-xl shadow-lg hover:shadow-xl text-base font-bold text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 transform active:scale-[0.99]">
+                                    <i class="fas fa-book-open mr-2 text-lg"></i>
                                     Assign Subject Teachers
                                 </button>
                             </form>
@@ -472,43 +577,43 @@ foreach ($classes as $class) {
                         <!-- Current Assignments Tab -->
                         <div id="current-content" class="tab-content">
                             <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Current Assignments</h3>
-                                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <h3 class="text-2xl font-bold text-gray-950 dark:text-white">Current Assignments</h3>
+                                <div class="flex items-center space-x-4 text-sm text-gray-550 dark:text-gray-400">
                                     <span><i class="fas fa-chalkboard mr-1"></i><?php echo count($classes); ?> classes</span>
                                     <span><i class="fas fa-users mr-1"></i><?php echo count($students); ?> students</span>
                                     <?php
                                     $unassigned_count = count(array_filter($students, function($s) { return empty($s['current_class_id']); }));
                                     if ($unassigned_count > 0):
                                     ?>
-                                    <span class="text-orange-600"><i class="fas fa-exclamation-triangle mr-1"></i><?php echo $unassigned_count; ?> unassigned</span>
+                                    <span class="text-orange-600 dark:text-orange-400 font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i><?php echo $unassigned_count; ?> unassigned</span>
                                     <?php endif; ?>
                                 </div>
                             </div>
 
                             <?php if ($unassigned_count > 0): ?>
-                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+                            <div class="bg-orange-55 dark:bg-orange-955/10 border border-orange-200 dark:border-orange-900/50 rounded-2xl p-5 mb-6 shadow-sm">
                                 <div class="flex items-start">
-                                    <div class="flex-shrink-0">
-                                        <i class="fas fa-exclamation-triangle text-orange-400"></i>
+                                    <div class="flex-shrink-0 bg-orange-100 dark:bg-orange-900/55 p-2.5 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-exclamation-triangle text-orange-600 dark:text-orange-400 text-lg"></i>
                                     </div>
-                                    <div class="ml-3">
-                                        <h3 class="text-sm font-medium text-orange-800">Unassigned Students</h3>
-                                        <div class="mt-2 text-sm text-orange-700">
-                                            <p class="mb-2">The following students are not assigned to any class:</p>
-                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                    <div class="ml-4">
+                                        <h3 class="text-base font-bold text-orange-850 dark:text-orange-400">Unassigned Students</h3>
+                                        <div class="mt-2 text-sm text-orange-700 dark:text-gray-300">
+                                            <p class="mb-3 font-semibold">The following students are not assigned to any class:</p>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 <?php foreach ($students as $student): ?>
                                                     <?php if (empty($student['current_class_id'])): ?>
-                                                    <div class="bg-white rounded px-3 py-2 border border-orange-200">
-                                                        <span class="font-medium"><?php echo htmlspecialchars($student['name']); ?></span>
+                                                    <div class="bg-white dark:bg-gray-800 rounded-xl px-4 py-2.5 border border-orange-200/55 dark:border-orange-900/40 shadow-sm flex items-center justify-between">
+                                                        <span class="font-bold text-gray-800 dark:text-gray-200 text-sm"><?php echo htmlspecialchars($student['name']); ?></span>
                                                         <?php if ($student['roll_number']): ?>
-                                                            <span class="text-gray-500 text-xs">(ID: <?php echo htmlspecialchars($student['roll_number']); ?>)</span>
+                                                            <span class="text-gray-500 dark:text-gray-400 text-xs font-semibold bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">ID: <?php echo htmlspecialchars($student['roll_number']); ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <?php endif; ?>
                                                 <?php endforeach; ?>
                                             </div>
-                                            <p class="mt-3 text-xs">
-                                                <i class="fas fa-lightbulb mr-1"></i>
+                                            <p class="mt-4 text-xs font-semibold flex items-center">
+                                                <i class="fas fa-lightbulb mr-1.5 text-orange-500 animate-pulse text-sm"></i>
                                                 Use the "Assign Students to Classes" tab to assign these students to classes.
                                             </p>
                                         </div>
@@ -518,82 +623,82 @@ foreach ($classes as $class) {
                             <?php endif; ?>
 
                             <?php if (empty($classes)): ?>
-                            <div class="text-center py-12">
-                                <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                    <i class="fas fa-chalkboard-teacher text-gray-400 text-3xl"></i>
+                            <div class="text-center py-16">
+                                <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 dark:bg-gray-750 rounded-full flex items-center justify-center text-gray-400">
+                                    <i class="fas fa-chalkboard-teacher text-4xl"></i>
                                 </div>
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Classes Found</h3>
-                                <p class="text-gray-500 dark:text-gray-400 mb-4">Create some classes first to manage assignments.</p>
-                                <a href="classes/create.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">No Classes Found</h3>
+                                <p class="text-gray-500 dark:text-gray-400 mb-6">Create some classes first to manage assignments.</p>
+                                <a href="classes/create.php" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-all">
                                     <i class="fas fa-plus mr-2"></i>Create Class
                                 </a>
                             </div>
                             <?php else: ?>
-                            <div class="space-y-6">
+                            <div class="space-y-8">
                                 <?php foreach ($classes as $class): ?>
-                                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+                                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-150 dark:border-gray-700/60 overflow-hidden hover:shadow-xl transition-all duration-300">
                                     <!-- Class Header -->
-                                    <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
-                                        <div class="flex justify-between items-start">
-                                            <div class="text-white">
-                                                <h4 class="text-2xl font-bold mb-1">
+                                    <div class="bg-gradient-to-r from-blue-600 to-indigo-650 p-5 text-white relative">
+                                        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
+                                        <div class="flex justify-between items-center relative z-10">
+                                            <div>
+                                                <h4 class="text-2xl font-black tracking-tight">
                                                     <?php echo htmlspecialchars($class['name']); ?>
                                                 </h4>
-                                                <div class="flex items-center space-x-4 text-blue-100">
+                                                <div class="flex items-center space-x-4 text-blue-100 text-xs font-semibold mt-1">
                                                     <span class="flex items-center">
-                                                        <i class="fas fa-graduation-cap mr-2"></i>
+                                                        <i class="fas fa-graduation-cap mr-1.5"></i>
                                                         <?php echo htmlspecialchars($class['grade_level']); ?>
                                                     </span>
                                                     <span class="flex items-center">
-                                                        <i class="fas fa-calendar mr-2"></i>
+                                                        <i class="fas fa-calendar-alt mr-1.5"></i>
                                                         <?php echo htmlspecialchars($class['academic_year']); ?>
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div class="text-right text-white">
-                                                <div class="text-3xl font-bold">
+                                            <div class="text-right">
+                                                <div class="text-3xl font-black">
                                                     <?php echo count($current_assignments[$class['id']]['students']); ?>
                                                 </div>
-                                                <div class="text-blue-200 text-sm">Total Students</div>
+                                                <div class="text-blue-200 text-[10px] font-bold uppercase tracking-wider">Total Enrolled</div>
                                             </div>
                                         </div>
                                     </div>
-
                                     <!-- Class Content -->
                                     <div class="p-6">
                                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                             <!-- Main Teacher Card -->
-                                            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-5 border border-emerald-200 dark:border-emerald-700">
+                                            <div class="bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/10 dark:to-teal-950/10 rounded-2xl p-5 border border-green-100 dark:border-green-800/30">
                                                 <div class="flex items-center mb-3">
-                                                    <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mr-4">
-                                                        <i class="fas fa-user-tie text-emerald-600 dark:text-emerald-400 text-xl"></i>
+                                                    <div class="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center mr-4 flex-shrink-0 text-green-500">
+                                                        <i class="fas fa-user-tie text-2xl"></i>
                                                     </div>
                                                     <div>
-                                                        <h5 class="font-semibold text-gray-900 dark:text-white">Main Class Teacher</h5>
-                                                        <p class="text-sm text-gray-500 dark:text-gray-400">Primary Instructor</p>
+                                                        <h5 class="font-bold text-gray-900 dark:text-white text-sm">Main Class Teacher</h5>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">Primary Instructor</p>
                                                     </div>
                                                 </div>
-                                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3">
+                                                <div class="bg-white dark:bg-gray-800 rounded-xl p-3 border border-green-100/30 dark:border-green-800/10 shadow-sm">
                                                     <?php if ($current_assignments[$class['id']]['main_teacher'] !== 'Not Assigned'): ?>
                                                     <div class="flex items-center">
-                                                        <div class="w-8 h-8 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mr-3">
-                                                            <i class="fas fa-check text-emerald-600 dark:text-emerald-400 text-sm"></i>
+                                                        <div class="w-8 h-8 bg-green-100/50 dark:bg-green-900/20 rounded-full flex items-center justify-center mr-3 text-green-600">
+                                                            <i class="fas fa-check-double text-xs"></i>
                                                         </div>
                                                         <div>
-                                                            <p class="font-medium text-gray-900 dark:text-white">
+                                                            <p class="font-bold text-sm text-gray-900 dark:text-white">
                                                                 <?php echo htmlspecialchars($current_assignments[$class['id']]['main_teacher']); ?>
                                                             </p>
-                                                            <p class="text-xs text-gray-500 dark:text-gray-400">Assigned</p>
+                                                            <p class="text-[10px] text-gray-550 dark:text-gray-400 font-semibold">Active Class Lead</p>
                                                         </div>
                                                     </div>
                                                     <?php else: ?>
                                                     <div class="flex items-center">
-                                                        <div class="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
-                                                            <i class="fas fa-exclamation text-gray-400 text-sm"></i>
+                                                        <div class="w-8 h-8 bg-amber-50 dark:bg-amber-950/40 rounded-full flex items-center justify-center mr-3 text-amber-500">
+                                                            <i class="fas fa-exclamation-triangle text-xs animate-pulse"></i>
                                                         </div>
                                                         <div>
-                                                            <p class="font-medium text-gray-500 dark:text-gray-400">Not Assigned</p>
-                                                            <p class="text-xs text-gray-400">Needs Assignment</p>
+                                                            <p class="font-bold text-sm text-gray-500 dark:text-gray-400">Not Assigned</p>
+                                                            <p class="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">Required</p>
                                                         </div>
                                                     </div>
                                                     <?php endif; ?>
@@ -601,98 +706,98 @@ foreach ($classes as $class) {
                                             </div>
 
                                             <!-- Students Card -->
-                                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-700">
+                                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-955/10 dark:to-indigo-955/10 rounded-2xl p-5 border border-blue-100 dark:border-blue-900/40">
                                                 <div class="flex items-center justify-between mb-3">
                                                     <div class="flex items-center">
-                                                        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center mr-4">
-                                                            <i class="fas fa-users text-blue-600 dark:text-blue-400 text-xl"></i>
+                                                        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-905/50 rounded-xl flex items-center justify-center mr-4 flex-shrink-0 text-blue-500">
+                                                            <i class="fas fa-users text-2xl"></i>
                                                         </div>
                                                         <div>
-                                                            <h5 class="font-semibold text-gray-900 dark:text-white">Students</h5>
-                                                            <p class="text-sm text-gray-500 dark:text-gray-400">Enrolled Learners</p>
+                                                            <h5 class="font-bold text-gray-900 dark:text-white text-sm">Students</h5>
+                                                            <p class="text-xs text-gray-500 dark:text-gray-400">Enrolled Learners</p>
                                                         </div>
                                                     </div>
                                                     <div class="text-right">
-                                                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                                            <?php echo count($current_assignments[$class['id']]['students']); ?>
-                                                        </div>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                                            Total: <?php echo count($current_assignments[$class['id']]['students']); ?>
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                                <div class="bg-white dark:bg-gray-800 rounded-xl p-3 border border-blue-100/30 dark:border-blue-900/20 shadow-sm max-h-[140px] overflow-y-auto space-y-1.5">
                                                     <?php if (!empty($current_assignments[$class['id']]['students'])): ?>
                                                         <?php foreach (array_slice($current_assignments[$class['id']]['students'], 0, 5) as $student): ?>
-                                                        <div class="flex items-center justify-between py-1 group">
-                                                            <div class="flex items-center">
-                                                                <div class="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center mr-2">
-                                                                    <i class="fas fa-user text-blue-600 dark:text-blue-400 text-xs"></i>
+                                                        <div class="flex items-center justify-between py-1.5 group border-b border-blue-100/20 dark:border-blue-900/10 last:border-0">
+                                                            <div class="flex items-center min-w-0 pr-2">
+                                                                <div class="w-6 h-6 bg-blue-100/70 dark:bg-blue-900/40 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                                                                    <i class="fas fa-user text-blue-600 dark:text-blue-450 text-[10px]"></i>
                                                                 </div>
-                                                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                                                <span class="text-sm font-semibold text-gray-750 dark:text-gray-300 truncate">
                                                                     <?php echo htmlspecialchars($student['name']); ?>
                                                                     <?php if ($student['roll_number']): ?>
-                                                                        <span class="text-gray-500 dark:text-gray-400">(<?php echo htmlspecialchars($student['roll_number']); ?>)</span>
+                                                                        <span class="text-xs text-gray-500 font-normal">(<?php echo htmlspecialchars($student['roll_number']); ?>)</span>
                                                                     <?php endif; ?>
                                                                 </span>
                                                             </div>
                                                             <button onclick="removeStudent(<?php echo $student['id']; ?>, <?php echo $class['id']; ?>, '<?php echo htmlspecialchars($student['name']); ?>')"
-                                                                class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs p-1 rounded transition-all duration-200"
+                                                                class="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-500 hover:text-red-700 flex items-center justify-center transition-all duration-200 flex-shrink-0"
                                                                 title="Remove from class">
-                                                                <i class="fas fa-times"></i>
+                                                                <i class="fas fa-times text-[10px]"></i>
                                                             </button>
                                                         </div>
                                                         <?php endforeach; ?>
                                                         <?php if (count($current_assignments[$class['id']]['students']) > 5): ?>
-                                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                                                        <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-2 text-center font-semibold bg-gray-50 dark:bg-gray-900/45 py-1 rounded-lg">
                                                             +<?php echo count($current_assignments[$class['id']]['students']) - 5; ?> more students
                                                         </div>
                                                         <?php endif; ?>
                                                     <?php else: ?>
-                                                    <div class="text-center py-2">
-                                                        <i class="fas fa-user-slash text-gray-400 text-lg mb-2"></i>
-                                                        <p class="text-sm text-gray-500 dark:text-gray-400">No students assigned</p>
+                                                    <div class="text-center py-4">
+                                                        <i class="fas fa-user-slash text-gray-400 dark:text-gray-500 text-2xl mb-1.5 block"></i>
+                                                        <p class="text-xs text-gray-550 dark:text-gray-450 font-medium">No students assigned</p>
                                                     </div>
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
 
                                             <!-- Subject Teachers Card -->
-                                            <div class="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-5 border border-purple-200 dark:border-purple-700">
+                                            <div class="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-955/10 dark:to-pink-955/10 rounded-2xl p-5 border border-purple-100 dark:border-purple-900/40">
                                                 <div class="flex items-center justify-between mb-3">
                                                     <div class="flex items-center">
-                                                        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-800 rounded-full flex items-center justify-center mr-4">
-                                                            <i class="fas fa-chalkboard-teacher text-purple-600 dark:text-purple-400 text-xl"></i>
+                                                        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-xl flex items-center justify-center mr-4 flex-shrink-0 text-purple-500">
+                                                            <i class="fas fa-chalkboard-teacher text-2xl"></i>
                                                         </div>
                                                         <div>
-                                                            <h5 class="font-semibold text-gray-900 dark:text-white">Subject Teachers</h5>
-                                                            <p class="text-sm text-gray-500 dark:text-gray-400">Subject Specialists</p>
+                                                            <h5 class="font-bold text-gray-900 dark:text-white text-sm">Subject Teachers</h5>
+                                                            <p class="text-xs text-gray-500 dark:text-gray-400">Subject Specialists</p>
                                                         </div>
                                                     </div>
                                                     <div class="text-right">
-                                                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                                            <?php echo count($current_assignments[$class['id']]['subject_teachers']); ?>
-                                                        </div>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                                                            Count: <?php echo count($current_assignments[$class['id']]['subject_teachers']); ?>
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                                <div class="bg-white dark:bg-gray-800 rounded-xl p-3 border border-purple-100/30 dark:border-purple-900/20 shadow-sm max-h-[140px] overflow-y-auto space-y-1.5">
                                                     <?php if (!empty($current_assignments[$class['id']]['subject_teachers'])): ?>
                                                         <?php foreach ($current_assignments[$class['id']]['subject_teachers'] as $assignment): ?>
-                                                        <div class="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-600 last:border-0">
-                                                            <div class="flex items-center">
-                                                                <div class="w-6 h-6 bg-purple-100 dark:bg-purple-800 rounded-full flex items-center justify-center mr-2">
-                                                                    <i class="fas fa-book text-purple-600 dark:text-purple-400 text-xs"></i>
+                                                        <div class="flex items-center justify-between py-1.5 border-b border-purple-100/20 dark:border-purple-900/10 last:border-0">
+                                                            <div class="flex items-center min-w-0 pr-2">
+                                                                <div class="w-6 h-6 bg-purple-100/70 dark:bg-purple-900/40 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                                                                    <i class="fas fa-book text-purple-650 dark:text-purple-450 text-[10px]"></i>
                                                                 </div>
-                                                                <span class="text-sm font-medium text-gray-900 dark:text-white">
+                                                                <span class="text-sm font-semibold text-gray-750 dark:text-gray-300 truncate">
                                                                     <?php echo htmlspecialchars($assignment['subject_name']); ?>
                                                                 </span>
                                                             </div>
-                                                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                                            <span class="text-xs font-bold text-purple-600 dark:text-purple-450 truncate max-w-[120px]" title="<?php echo htmlspecialchars($assignment['teacher_name']); ?>">
                                                                 <?php echo htmlspecialchars($assignment['teacher_name']); ?>
                                                             </span>
                                                         </div>
                                                         <?php endforeach; ?>
                                                     <?php else: ?>
-                                                    <div class="text-center py-2">
-                                                        <i class="fas fa-chalkboard text-gray-400 text-lg mb-2"></i>
-                                                        <p class="text-sm text-gray-500 dark:text-gray-400">No subject teachers assigned</p>
+                                                    <div class="text-center py-4">
+                                                        <i class="fas fa-chalkboard text-gray-400 dark:text-gray-500 text-2xl mb-1.5 block"></i>
+                                                        <p class="text-xs text-gray-555 dark:text-gray-455 font-medium">No subject teachers assigned</p>
                                                     </div>
                                                     <?php endif; ?>
                                                 </div>
@@ -700,21 +805,21 @@ foreach ($classes as $class) {
                                         </div>
 
                                         <!-- Quick Actions -->
-                                        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
-                                            <div class="flex justify-between items-center">
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                    <i class="fas fa-clock mr-1"></i>
+                                        <div class="mt-6 pt-4 border-t border-gray-150 dark:border-gray-700/60">
+                                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                                    <i class="fas fa-clock mr-1.5 animate-pulse"></i>
                                                     Last updated: <?php echo date('M j, Y'); ?>
                                                 </div>
                                                 <div class="flex space-x-2">
                                                     <button onclick="editClass(<?php echo $class['id']; ?>)"
-                                                        class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                                                        <i class="fas fa-edit mr-1"></i>
+                                                        class="inline-flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-100/30 dark:border-blue-800/40 text-xs font-bold rounded-xl transition-all duration-200">
+                                                        <i class="fas fa-edit mr-1.5"></i>
                                                         Edit Assignments
                                                     </button>
                                                     <a href="classes/view.php?id=<?php echo $class['id']; ?>"
-                                                        class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
-                                                        <i class="fas fa-eye mr-1"></i>
+                                                        class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-200/40 dark:border-gray-600/40 text-xs font-bold rounded-xl transition-all duration-200">
+                                                        <i class="fas fa-eye mr-1.5"></i>
                                                         View Details
                                                     </a>
                                                 </div>
@@ -739,20 +844,41 @@ foreach ($classes as $class) {
 </div>
 
 <script>
+// Load all current class assignments from PHP
+const currentAssignments = <?php echo json_encode($current_assignments); ?>;
+
 // Student assignment management functions
 function updateStudentList() {
     const classId = document.getElementById('student_class_id').value;
     const studentsList = document.getElementById('studentsList');
     const assignButton = document.getElementById('assignButton');
+    const searchInput = document.getElementById('student_search');
+
+    // Reset search
+    if (searchInput) searchInput.value = '';
 
     if (!classId) {
-        studentsList.innerHTML = '<div class="text-center text-gray-500 py-4"><i class="fas fa-arrow-up mr-2"></i>Please select a class first</div>';
+        studentsList.innerHTML = `
+            <div class="text-center text-gray-400 py-12">
+                <div class="w-12 h-12 bg-gray-100 dark:bg-gray-850 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-arrow-left text-lg text-gray-400 animate-pulse"></i>
+                </div>
+                <p class="text-sm font-medium">Please select a target class first</p>
+            </div>
+        `;
         assignButton.disabled = true;
         return;
     }
 
-    // Show loading
-    studentsList.innerHTML = '<div class="text-center py-4"><div class="inline-flex items-center"><i class="fas fa-spinner fa-spin mr-2 text-blue-600"></i><span class="text-gray-600">Loading students...</span></div></div>';
+    // Show loading spinner
+    studentsList.innerHTML = `
+        <div class="text-center py-16">
+            <div class="inline-flex items-center space-x-3 bg-white dark:bg-gray-800 px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-md">
+                <i class="fas fa-circle-notch fa-spin text-2xl text-blue-600"></i>
+                <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Loading student records...</span>
+            </div>
+        </div>
+    `;
     assignButton.disabled = true;
 
     // Fetch students for the selected class
@@ -763,121 +889,191 @@ function updateStudentList() {
                 displayStudentsList(data);
                 assignButton.disabled = false;
             } else {
-                studentsList.innerHTML = '<div class="text-center py-4 text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Error loading students: ' + (data.error || 'Unknown error') + '</div>';
+                studentsList.innerHTML = `
+                    <div class="text-center py-12 text-red-600 dark:text-red-400">
+                        <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                        <p class="font-bold text-sm">Error loading students</p>
+                        <p class="text-xs mt-1 text-gray-500">${data.error || 'Unknown server error'}</p>
+                    </div>
+                `;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            studentsList.innerHTML = '<div class="text-center py-4 text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Error loading students</div>';
+            studentsList.innerHTML = `
+                <div class="text-center py-12 text-red-600 dark:text-red-400">
+                    <i class="fas fa-wifi text-3xl mb-2"></i>
+                    <p class="font-bold text-sm">Network / Fetch error</p>
+                    <p class="text-xs mt-1 text-gray-500">Could not connect to get_students_for_class.php</p>
+                </div>
+            `;
         });
+}
+
+function updateSubjectTeachersList() {
+    const classId = document.getElementById('subject_teacher_class_id').value;
+    const selects = document.querySelectorAll('.subject-teacher-select');
+    
+    // Clear all first
+    selects.forEach(select => {
+        select.value = '';
+    });
+    
+    if (!classId) return;
+    
+    // Load existing assignments
+    const assignments = currentAssignments[classId];
+    if (assignments && assignments.subject_teachers) {
+        const subjectTeachersMap = {};
+        assignments.subject_teachers.forEach(item => {
+            subjectTeachersMap[item.subject_id] = item.teacher_id;
+        });
+        
+        selects.forEach(select => {
+            const subjectId = select.getAttribute('data-subject-id');
+            const teacherId = subjectTeachersMap[subjectId];
+            if (teacherId) {
+                select.value = teacherId + '_' + subjectId;
+            }
+        });
+    }
 }
 
 function displayStudentsList(data) {
     const studentsList = document.getElementById('studentsList');
+    const transferCheckbox = document.getElementById('transfer_students');
+    const isTransferEnabled = transferCheckbox ? transferCheckbox.checked : false;
     let html = '';
 
     // Unassigned students (available for assignment)
     if (data.students.unassigned.length > 0) {
-        html += '<div class="mb-4">';
-        html += '<h4 class="text-sm font-semibold text-green-700 mb-2 flex items-center">';
-        html += '<i class="fas fa-user-plus mr-2"></i>Available Students (' + data.students.unassigned.length + ')';
+        html += '<div class="mb-5">';
+        html += '<h4 class="text-xs font-bold text-green-600 dark:text-green-400 mb-3 flex items-center uppercase tracking-wider">';
+        html += '<i class="fas fa-user-plus mr-2 text-sm"></i>Available Students (' + data.students.unassigned.length + ')';
         html += '</h4>';
+        html += '<div class="space-y-2">';
 
         data.students.unassigned.forEach(student => {
             html += `
-                <div class="flex items-center mb-2 p-2 bg-green-50 rounded border border-green-200">
+                <div class="student-item flex items-center p-3 bg-green-50/40 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-800/30 hover:bg-green-50 dark:hover:bg-green-900/20 hover:scale-[1.005] transition-all duration-200 cursor-pointer" onclick="toggleCheckbox('student_${student.id}')">
                     <input type="checkbox" name="student_ids[]" value="${student.id}"
-                           id="student_${student.id}" class="student-checkbox available-student h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                    <label for="student_${student.id}" class="ml-2 text-sm text-gray-700 flex-1">
-                        <span class="font-medium">${student.name}</span>
-                        ${student.roll_number ? `<span class="text-gray-500"> (ID: ${student.roll_number})</span>` : ''}
-                        <span class="text-green-600 text-xs ml-2">• Available</span>
+                           id="student_${student.id}" class="student-checkbox available-student h-5 w-5 text-green-600 focus:ring-green-500 dark:focus:ring-offset-gray-800 border-gray-300 dark:border-gray-600 rounded cursor-pointer transition-all" onclick="event.stopPropagation()">
+                    <label for="student_${student.id}" class="ml-3 text-sm text-gray-700 dark:text-gray-300 flex-1 font-semibold cursor-pointer select-none flex items-center justify-between" onclick="event.stopPropagation()">
+                        <span>${student.name}</span>
+                        ${student.roll_number ? `<span class="text-xs font-bold bg-white dark:bg-gray-850 px-2 py-0.5 border border-green-200/20 rounded shadow-sm text-gray-500">ID: ${student.roll_number}</span>` : ''}
                     </label>
                 </div>
             `;
         });
-        html += '</div>';
-    }
-
-    // Students already in this class
-    if (data.students.current_class.length > 0) {
-        html += '<div class="mb-4">';
-        html += '<h4 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">';
-        html += '<i class="fas fa-users mr-2"></i>Already in ' + data.class_name + ' (' + data.students.current_class.length + ')';
-        html += '</h4>';
-
-        data.students.current_class.forEach(student => {
-            html += `
-                <div class="flex items-center mb-2 p-2 bg-blue-50 rounded border border-blue-200">
-                    <input type="checkbox" disabled class="h-4 w-4 text-blue-600 border-gray-300 rounded opacity-50">
-                    <label class="ml-2 text-sm text-gray-600 flex-1">
-                        <span class="font-medium">${student.name}</span>
-                        ${student.roll_number ? `<span class="text-gray-500"> (ID: ${student.roll_number})</span>` : ''}
-                        <span class="text-blue-600 text-xs ml-2">• Already assigned</span>
-                    </label>
-                </div>
-            `;
-        });
-        html += '</div>';
+        html += '</div></div>';
     }
 
     // Students assigned to other classes
     if (data.students.other_class.length > 0) {
-        html += '<div class="mb-4">';
-        html += '<h4 class="text-sm font-semibold text-orange-700 mb-2 flex items-center">';
-        html += '<i class="fas fa-exchange-alt mr-2"></i>Assigned to Other Classes (' + data.students.other_class.length + ')';
+        const wrapperClass = isTransferEnabled 
+            ? 'bg-orange-50/50 dark:bg-orange-955/10 border-orange-100 dark:border-orange-900/30 hover:bg-orange-50 dark:hover:bg-orange-955/20 hover:scale-[1.005]' 
+            : 'bg-gray-100/50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700/50 opacity-50';
+
+        html += '<div class="mb-5">';
+        html += '<h4 class="text-xs font-bold text-orange-600 dark:text-orange-400 mb-3 flex items-center uppercase tracking-wider">';
+        html += '<i class="fas fa-exchange-alt mr-2 text-sm"></i>Assigned to Other Classes (' + data.students.other_class.length + ')';
         html += '</h4>';
+        html += '<div class="space-y-2">';
 
         data.students.other_class.forEach(student => {
             html += `
-                <div class="flex items-center mb-2 p-2 bg-orange-50 rounded border border-orange-200">
+                <div class="student-item transfer-student-wrapper flex items-center p-3 rounded-xl border transition-all duration-200 cursor-pointer ${wrapperClass}" onclick="if(!this.querySelector('input').disabled) toggleCheckbox('student_transfer_${student.id}')">
                     <input type="checkbox" name="student_ids[]" value="${student.id}"
-                           id="student_transfer_${student.id}" class="student-checkbox transfer-student h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded" disabled>
-                    <label for="student_transfer_${student.id}" class="ml-2 text-sm text-gray-700 flex-1">
-                        <span class="font-medium">${student.name}</span>
-                        ${student.roll_number ? `<span class="text-gray-500"> (ID: ${student.roll_number})</span>` : ''}
-                        <span class="text-orange-600 text-xs ml-2">• Currently in ${student.current_class_name}</span>
+                           id="student_transfer_${student.id}" class="student-checkbox transfer-student h-5 w-5 text-orange-600 focus:ring-orange-500 dark:focus:ring-offset-gray-800 border-gray-300 dark:border-gray-600 rounded cursor-pointer transition-all" ${isTransferEnabled ? '' : 'disabled'} onclick="event.stopPropagation()">
+                    <label for="student_transfer_${student.id}" class="ml-3 text-sm text-gray-700 dark:text-gray-300 flex-1 font-semibold cursor-pointer select-none flex items-center justify-between" onclick="event.stopPropagation()">
+                        <span class="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                            <span>${student.name}</span>
+                            <span class="text-[10px] bg-orange-100 dark:bg-orange-950/45 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border border-orange-200/20">Class: ${student.current_class_name}</span>
+                        </span>
+                        ${student.roll_number ? `<span class="text-xs font-bold bg-white dark:bg-gray-850 px-2 py-0.5 border border-orange-200/20 rounded shadow-sm text-gray-500">ID: ${student.roll_number}</span>` : ''}
                     </label>
                 </div>
             `;
         });
-        html += '<p class="text-xs text-orange-600 mt-2"><i class="fas fa-info-circle mr-1"></i>Enable "Transfer Students" option to move these students</p>';
-        html += '</div>';
+        html += '</div></div>';
+    }
+
+    // Students already in this class
+    if (data.students.current_class.length > 0) {
+        html += '<div class="mb-5">';
+        html += '<h4 class="text-xs font-bold text-blue-600 dark:text-blue-400 mb-3 flex items-center uppercase tracking-wider">';
+        html += '<i class="fas fa-check-circle mr-2 text-sm"></i>Already Enrolled in ' + data.class_name + ' (' + data.students.current_class.length + ')';
+        html += '</h4>';
+        html += '<div class="space-y-2 opacity-75">';
+
+        data.students.current_class.forEach(student => {
+            html += `
+                <div class="flex items-center p-3 bg-blue-50/30 dark:bg-blue-950/5 border border-blue-100/50 dark:border-blue-900/20 rounded-xl">
+                    <input type="checkbox" disabled checked class="h-5 w-5 text-blue-600 border-gray-300 dark:border-gray-650 rounded opacity-60">
+                    <label class="ml-3 text-sm text-gray-500 dark:text-gray-400 flex-1 font-semibold flex items-center justify-between select-none">
+                        <span>${student.name}</span>
+                        ${student.roll_number ? `<span class="text-xs font-bold bg-white dark:bg-gray-850 px-2 py-0.5 border border-blue-200/10 rounded shadow-sm text-gray-450">ID: ${student.roll_number}</span>` : ''}
+                    </label>
+                </div>
+            `;
+        });
+        html += '</div></div>';
     }
 
     if (data.students.unassigned.length === 0 && data.students.other_class.length === 0) {
-        html += '<div class="text-center py-4 text-gray-500">';
-        html += '<i class="fas fa-check-circle text-green-500 text-2xl mb-2"></i>';
-        html += '<p>All students are already assigned to classes</p>';
-        html += '</div>';
+        html += `
+            <div class="text-center py-12 text-gray-500">
+                <div class="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto mb-3 text-emerald-500">
+                    <i class="fas fa-check text-2xl"></i>
+                </div>
+                <h5 class="font-bold text-gray-800 dark:text-white mb-1">Fully Allocated</h5>
+                <p class="text-sm">All students are already assigned to active classes.</p>
+            </div>
+        `;
     }
 
     studentsList.innerHTML = html;
+}
 
-    // Add event listener for transfer mode
-    const transferCheckbox = document.getElementById('transfer_students');
-    if (transferCheckbox) {
-        transferCheckbox.addEventListener('change', function() {
-            const transferStudents = document.querySelectorAll('.transfer-student');
-            transferStudents.forEach(checkbox => {
-                checkbox.disabled = !this.checked;
-                if (!this.checked) {
-                    checkbox.checked = false;
-                }
-            });
-
-            // Update button text
-            const assignButton = document.getElementById('assignButton');
-            const buttonText = assignButton.querySelector('i').nextSibling;
-            if (this.checked) {
-                assignButton.className = assignButton.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-orange-600 hover:bg-orange-700');
-                buttonText.textContent = 'Transfer Students to Class';
-            } else {
-                assignButton.className = assignButton.className.replace('bg-orange-600 hover:bg-orange-700', 'bg-blue-600 hover:bg-blue-700');
-                buttonText.textContent = 'Assign Students to Class';
-            }
-        });
+function toggleCheckbox(id) {
+    const checkbox = document.getElementById(id);
+    if (checkbox && !checkbox.disabled) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
     }
+}
+
+function filterStudentList() {
+    const query = document.getElementById('student_search').value.toLowerCase();
+    const items = document.querySelectorAll('#studentsList .student-item');
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        if (text.includes(query)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function toggleTransferModeCheckbox(el) {
+    const transferStudents = document.querySelectorAll('.transfer-student');
+    const transferWrappers = document.querySelectorAll('.transfer-student-wrapper');
+    
+    transferStudents.forEach(checkbox => {
+        checkbox.disabled = !el.checked;
+        if (!el.checked) checkbox.checked = false; // Uncheck when disabling
+    });
+
+    transferWrappers.forEach(wrapper => {
+        if (el.checked) {
+            wrapper.classList.remove('opacity-50', 'bg-gray-100/50', 'dark:bg-gray-900/30', 'border-gray-200', 'dark:border-gray-700/50');
+            wrapper.classList.add('bg-orange-50/50', 'dark:bg-orange-955/10', 'border-orange-100', 'dark:border-orange-900/30', 'hover:bg-orange-50', 'dark:hover:bg-orange-955/20', 'hover:scale-[1.005]');
+        } else {
+            wrapper.classList.add('opacity-50', 'bg-gray-100/50', 'dark:bg-gray-900/30', 'border-gray-200', 'dark:border-gray-700/50');
+            wrapper.classList.remove('bg-orange-50/50', 'dark:bg-orange-955/10', 'border-orange-100', 'dark:border-orange-900/30', 'hover:bg-orange-50', 'dark:hover:bg-orange-955/20', 'hover:scale-[1.005]');
+        }
+    });
 }
 
 function selectAllStudents() {
@@ -937,8 +1133,17 @@ function showTab(tabName) {
         // Remove active class from all tabs
         const tabs = document.querySelectorAll('.tab-button');
         tabs.forEach(tab => {
-            tab.classList.remove('border-blue-500', 'text-blue-600');
-            tab.classList.add('border-transparent', 'text-gray-500');
+            // Remove active classes
+            tab.classList.remove('bg-white', 'dark:bg-gray-800', 'text-gray-900', 'dark:text-white', 'shadow-sm', 'border', 'border-gray-200/40', 'dark:border-gray-700/60');
+            // Add inactive classes
+            tab.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white', 'hover:bg-white/40', 'dark:hover:bg-gray-800/40');
+            
+            // Icon handling
+            const icon = tab.querySelector('i');
+            if (icon) {
+                icon.classList.remove('text-blue-600', 'dark:text-blue-400');
+                icon.classList.add('text-gray-400', 'dark:text-gray-500');
+            }
         });
 
         // Show selected tab content
@@ -953,8 +1158,17 @@ function showTab(tabName) {
         // Add active class to selected tab
         const activeTab = document.getElementById(tabName + '-tab');
         if (activeTab) {
-            activeTab.classList.remove('border-transparent', 'text-gray-500');
-            activeTab.classList.add('border-blue-500', 'text-blue-600');
+            // Remove inactive classes
+            activeTab.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white', 'hover:bg-white/40', 'dark:hover:bg-gray-800/40');
+            // Add active classes
+            activeTab.classList.add('bg-white', 'dark:bg-gray-850', 'text-gray-900', 'dark:text-white', 'shadow-sm', 'border', 'border-gray-200/40', 'dark:border-gray-700/60');
+            
+            // Icon handling
+            const icon = activeTab.querySelector('i');
+            if (icon) {
+                icon.classList.remove('text-gray-400', 'dark:text-gray-500');
+                icon.classList.add('text-blue-600', 'dark:text-blue-400');
+            }
         } else {
             console.error('Tab button not found:', tabName + '-tab');
         }
@@ -975,6 +1189,12 @@ function showTab(tabName) {
 // Initialize with current assignments tab active
 document.addEventListener('DOMContentLoaded', function() {
     showTab('current');
+
+    // Add change event listener for subject teacher assignment class dropdown
+    const subjectTeacherClassSelect = document.getElementById('subject_teacher_class_id');
+    if (subjectTeacherClassSelect) {
+        subjectTeacherClassSelect.addEventListener('change', updateSubjectTeachersList);
+    }
 });
 
 // Edit class function

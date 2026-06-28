@@ -93,39 +93,50 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
+ensureChatTables($db); // heal tenants that predate the chat module
 
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 $user_role = $_SESSION['role'];
 
 // Get user's accessible chat rooms
-$rooms_query = "
-    SELECT r.*, 
-           COUNT(p.user_id) as participant_count,
-           (SELECT COUNT(*) FROM live_chat_messages WHERE room_id = r.id AND created_at > COALESCE(
-               (SELECT last_seen FROM live_chat_participants WHERE room_id = r.id AND user_id = :user_id), 
-               '1970-01-01'
-           )) as unread_count
-    FROM live_chat_rooms r
-    LEFT JOIN live_chat_participants p ON r.id = p.room_id AND p.is_banned = FALSE
-    WHERE r.is_active = TRUE 
-    AND (
-        r.room_type = 'public' 
-        OR (r.room_type = 'admin_only' AND :user_role IN ('super_admin', 'school_admin', 'principal'))
-        OR EXISTS (SELECT 1 FROM live_chat_participants WHERE room_id = r.id AND user_id = :user_id2)
-    )
-    GROUP BY r.id
-    ORDER BY r.room_type, r.name
-";
+try {
+    $rooms_query = "
+        SELECT r.*, 
+               COUNT(p.user_id) as participant_count,
+               (SELECT COUNT(*) FROM live_chat_messages WHERE room_id = r.id AND created_at > COALESCE(
+                   (SELECT last_seen FROM live_chat_participants WHERE room_id = r.id AND user_id = :user_id), 
+                   '1970-01-01'
+               )) as unread_count
+        FROM live_chat_rooms r
+        LEFT JOIN live_chat_participants p ON r.id = p.room_id AND p.is_banned = FALSE
+        WHERE r.is_active = TRUE 
+        AND (
+            r.room_type = 'public' 
+            OR (r.room_type = 'admin_only' AND :user_role IN ('super_admin', 'school_admin', 'principal'))
+            OR EXISTS (SELECT 1 FROM live_chat_participants WHERE room_id = r.id AND user_id = :user_id2)
+        )
+        GROUP BY r.id
+        ORDER BY r.room_type, r.name
+    ";
 
-$rooms_stmt = $db->prepare($rooms_query);
-$rooms_stmt->bindParam(':user_id', $user_id);
-$rooms_stmt->bindParam(':user_id2', $user_id);
-$rooms_stmt->bindParam(':user_role', $user_role);
-$rooms_stmt->execute();
-$chat_rooms = $rooms_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rooms_stmt = $db->prepare($rooms_query);
+    $rooms_stmt->bindParam(':user_id', $user_id);
+    $rooms_stmt->bindParam(':user_id2', $user_id);
+    $rooms_stmt->bindParam(':user_role', $user_role);
+    $rooms_stmt->execute();
+    $chat_rooms = $rooms_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // If live_chat_rooms table doesn't exist, redirect to setup
+    if ($e->getCode() == '42S02') {
+        header("Location: ../setup_all_missing_tables.php");
+        exit();
+    }
+    $chat_rooms = [];
+}
 
 // Get online users - only truly online users
 $online_users_query = "
@@ -157,9 +168,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -194,13 +205,12 @@ include '../includes/sidebar.php';
                 </div>
 
                 <div class="mb-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                        <div class="flex space-x-3">
-                            <button onclick="refreshChat()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                    <div class="flex items-center justify-end">
+                        <div class="flex flex-row items-center gap-3">
+                            <button onclick="refreshChat()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 whitespace-nowrap flex-shrink-0 inline-flex items-center">
                                 <i class="fas fa-sync-alt mr-2"></i>Refresh
                             </button>
-                            <button onclick="toggleUserList()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 lg:hidden">
+                            <button onclick="toggleUserList()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 lg:hidden whitespace-nowrap flex-shrink-0 inline-flex items-center">
                                 <i class="fas fa-users mr-2"></i>Users
                             </button>
                         </div>
@@ -208,7 +218,7 @@ include '../includes/sidebar.php';
                 </div>
 
                 <!-- Chat Interface -->
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-250px)]">
+                <div class="chat-grid grid grid-cols-1 lg:grid-cols-4 gap-6">
                     <!-- Chat Rooms Sidebar -->
                     <div class="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col">
                         <div class="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -244,12 +254,12 @@ include '../includes/sidebar.php';
                     <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col">
                         <!-- Chat Header -->
                         <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-xl">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 id="current-room-name" class="text-lg font-semibold text-white">Select a chat room</h3>
-                                    <p id="current-room-info" class="text-blue-100 text-sm"></p>
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div class="min-w-0">
+                                    <h3 id="current-room-name" class="text-lg font-semibold text-white truncate">Select a chat room</h3>
+                                    <p id="current-room-info" class="text-blue-100 text-sm truncate"></p>
                                 </div>
-                                <div class="flex space-x-2">
+                                <div class="flex flex-wrap items-center gap-1 sm:gap-2 justify-start sm:justify-end sm:flex-nowrap">
                                     <!-- Voice Call Button -->
                                     <button onclick="startVoiceCall()" class="text-white hover:text-blue-200 transition-colors duration-200 p-2 rounded-lg hover:bg-white/10" title="Start Voice Call">
                                         <i class="fas fa-phone text-xl"></i>
@@ -331,8 +341,8 @@ include '../includes/sidebar.php';
                         </div>
 
                         <!-- Messages Area -->
-                        <div class="flex-1 relative">
-                            <div id="messages-container" class="h-full overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900 scroll-smooth max-h-[calc(100vh-400px)]">
+                        <div class="flex-1 relative min-h-0">
+                            <div id="messages-container" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900 scroll-smooth">
                                 <div class="text-center text-gray-500 dark:text-gray-400 py-8">
                                     <i class="fas fa-comments text-4xl mb-4"></i>
                                     <p>Select a chat room to start messaging</p>
@@ -387,8 +397,8 @@ include '../includes/sidebar.php';
                                 </div>
                             </div>
 
-                            <div class="flex space-x-3">
-                                <div class="flex-1 relative">
+                            <div class="flex flex-nowrap items-center gap-2 sm:gap-3">
+                                <div class="flex-1 min-w-0 relative">
                                     <input type="text"
                                            id="message-input"
                                            placeholder="Type your message..."
@@ -400,18 +410,18 @@ include '../includes/sidebar.php';
                                 </div>
                                 <button onclick="sendMessage()"
                                         id="send-button"
-                                        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        class="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-3 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                         disabled>
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                                 <button onclick="showFileUpload()"
-                                        class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg transition-colors duration-200">
+                                        class="flex-shrink-0 bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg transition-colors duration-200">
                                     <i class="fas fa-paperclip"></i>
                                 </button>
                                 <!-- Bulk Operations Button -->
                                 <button onclick="toggleBulkMode()"
                                         id="bulk-mode-button"
-                                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg transition-colors duration-200"
+                                        class="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg transition-colors duration-200"
                                         title="Bulk Operations">
                                     <i class="fas fa-check-square"></i>
                                 </button>
@@ -430,14 +440,14 @@ include '../includes/sidebar.php';
                             </div>
                             <p id="online-users-count" class="text-sm text-gray-500 dark:text-gray-400"><?php echo count($online_users); ?> online</p>
                         </div>
-                        <div class="flex-1 relative">
-                            <div id="online-users-container" class="h-full overflow-y-auto max-h-[calc(100vh-400px)] scroll-smooth">
+                        <div class="flex-1 relative min-h-0">
+                            <div id="online-users-container" class="absolute inset-0 overflow-y-auto scroll-smooth">
                                 <?php if (count($online_users) > 0): ?>
                                     <?php foreach ($online_users as $user): ?>
                                     <div class="p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                                         <div class="flex items-center space-x-3">
                                             <div class="relative profile-image w-8 h-8 rounded-full flex-shrink-0">
-                                                <img src="<?php echo !empty($user['profile_picture']) ? '../uploads/profile_pictures/' . $user['profile_picture'] : '../assets/images/default-avatar.png'; ?>"
+                                                <img src="<?php echo !empty($user['profile_picture']) ? 'download_file.php?file=profile_pictures/' . $user['profile_picture'] : '../assets/images/default-avatar.png'; ?>"
                                                      alt="<?php echo htmlspecialchars($user['name']); ?>"
                                                      class="w-8 h-8 rounded-full object-cover"
                                                      style="min-width: 32px; min-height: 32px;"
@@ -449,7 +459,7 @@ include '../includes/sidebar.php';
                                                     <?php echo htmlspecialchars($user['name']); ?>
                                                 </p>
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                    <?php echo ucfirst(str_replace('_', ' ', $user['role'])); ?>
+                                                    <?php echo htmlspecialchars(formatRoleName($user['role'])); ?>
                                                 </p>
                                                 <p class="text-xs text-green-500 dark:text-green-400">
                                                     <i class="fas fa-circle text-xs mr-1"></i>Online
@@ -856,7 +866,7 @@ include '../includes/sidebar.php';
 
 /* Messages container positioning */
 #messages-container {
-    position: relative;
+    position: absolute;
 }
 
 /* Demo content styling */
@@ -1022,6 +1032,29 @@ include '../includes/sidebar.php';
     0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
     40% { transform: translateY(-10px); }
     60% { transform: translateY(-5px); }
+}
+
+/* Chat grid height and min-height constraints */
+@media (min-width: 1024px) {
+    .chat-grid {
+        height: calc(100vh - 360px) !important;
+        min-height: 580px !important;
+    }
+}
+@media (max-width: 1023px) {
+    .chat-grid {
+        height: auto !important;
+        min-height: 450px;
+    }
+    /* Set Rooms list to 300px on mobile */
+    .chat-grid > div:nth-child(1) {
+        height: 300px !important;
+    }
+    /* Extend active chat area height on mobile */
+    .chat-grid > div:nth-child(2) {
+        height: calc(100vh - 200px) !important;
+        min-height: 650px !important;
+    }
 }
 </style>
 
@@ -1335,7 +1368,7 @@ function displayMessages(messages) {
         showNotification(
             `New message from ${latestMessage.sender_name}`,
             latestMessage.message.substring(0, 50) + (latestMessage.message.length > 50 ? '...' : ''),
-            latestMessage.profile_picture ? `../uploads/profile_pictures/${latestMessage.profile_picture}` : '../assets/images/default-avatar.png'
+            latestMessage.profile_picture ? `download_file.php?file=profile_pictures/${latestMessage.profile_picture}` : '../assets/images/default-avatar.png'
         );
         playNotificationSound();
     }
@@ -1401,14 +1434,14 @@ function createMessageElement(message) {
     let messageContent = '';
     if (message.message_type === 'image') {
         messageContent = `
-            <img src="../uploads/${message.file_path}" alt="Image" class="max-w-full h-auto rounded-lg mb-2 cursor-pointer" onclick="showImageModal('${message.file_path}')">
+            <img src="download_file.php?file=${message.file_path}" alt="Image" class="max-w-full h-auto rounded-lg mb-2 cursor-pointer" onclick="showImageModal('${message.file_path}')">
             <p class="text-sm">${escapeHtml(displayMessage)}</p>
         `;
     } else if (message.message_type === 'file') {
         messageContent = `
             <div class="flex items-center space-x-2 mb-2 p-2 bg-gray-100 dark:bg-gray-600 rounded">
                 <i class="fas fa-file text-blue-500"></i>
-                <a href="../uploads/${message.file_path}" download="${message.file_name}" class="text-blue-500 hover:underline text-sm">
+                <a href="download_file.php?file=${message.file_path}" class="text-blue-500 hover:underline text-sm">
                     ${escapeHtml(message.file_name)}
                 </a>
                 <span class="text-xs text-gray-500">${formatFileSize(message.file_size)}</span>
@@ -1720,7 +1753,7 @@ function updateOnlineUsersDisplay(users) {
         let html = '';
         users.forEach(user => {
             const profilePicture = user.profile_picture
-                ? `../uploads/profile_pictures/${user.profile_picture}`
+                ? `download_file.php?file=profile_pictures/${user.profile_picture}`
                 : '../assets/images/default-avatar.png';
 
             html += `
@@ -2122,7 +2155,7 @@ function showImageModal(imagePath) {
 
     modal.innerHTML = `
         <div class="max-w-4xl max-h-4xl p-4">
-            <img src="../uploads/${imagePath}" alt="Full size image" class="max-w-full max-h-full object-contain">
+            <img src="download_file.php?file=${imagePath}" alt="Full size image" class="max-w-full max-h-full object-contain">
             <button onclick="this.parentElement.parentElement.remove()" class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300">
                 <i class="fas fa-times"></i>
             </button>

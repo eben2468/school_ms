@@ -26,8 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($student_id && $record_date) {
         try {
-            $query = "INSERT INTO health_records (student_id, record_date, height_cm, weight_kg, blood_pressure, temperature_f, pulse_rate, medical_conditions, allergies, medications, vaccination_status, notes, recorded_by, created_at) 
-                     VALUES (:student_id, :record_date, :height_cm, :weight_kg, :blood_pressure, :temperature_f, :pulse_rate, :medical_conditions, :allergies, :medications, :vaccination_status, :notes, :recorded_by, NOW())";
+            $query = "INSERT INTO health_records (student_id, record_date, height_cm, weight_kg, blood_pressure, temperature_f, pulse_rate, medical_conditions, allergies, medications, vaccination_status, notes, recorded_by, created_by, created_at) 
+                     VALUES (:student_id, :record_date, :height_cm, :weight_kg, :blood_pressure, :temperature_f, :pulse_rate, :medical_conditions, :allergies, :medications, :vaccination_status, :notes, :recorded_by, :created_by, NOW())";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':student_id', $student_id);
             $stmt->bindParam(':record_date', $record_date);
@@ -42,7 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':vaccination_status', $vaccination_status);
             $stmt->bindParam(':notes', $notes);
             $stmt->bindParam(':recorded_by', $_SESSION['user_id']);
+            $stmt->bindParam(':created_by', $_SESSION['user_id']);
             $stmt->execute();
+            
+            // Sync medical conditions with student_profiles
+            if (!empty($medical_conditions)) {
+                $sync_query = "UPDATE student_profiles SET medical_conditions = :medical_conditions WHERE user_id = :student_id";
+                $sync_stmt = $db->prepare($sync_query);
+                $sync_stmt->bindParam(':medical_conditions', $medical_conditions);
+                $sync_stmt->bindParam(':student_id', $student_id);
+                $sync_stmt->execute();
+            }
             
             $success = "Health record created successfully!";
         } catch (PDOException $e) {
@@ -76,10 +86,10 @@ include '../../includes/sidebar.php';
 <!-- Main Layout Container -->
 <div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 64px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">

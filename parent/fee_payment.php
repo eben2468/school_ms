@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 }
 
 require_once '../config/database.php';
+require_once '../includes/settings_helper.php';
+require_once '../finance/includes/finance_functions.php';
+require_once '../finance/includes/payment_functions.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -46,13 +49,17 @@ if ($student_id) {
 $fees = [];
 $fee_summary = [];
 if ($student_id) {
-    // Get fees for the student
+    // Get active invoices for the student
     $fees_query = "
-        SELECT f.*, ft.fee_type, ft.amount as fee_amount, ft.description
-        FROM fees f
-        LEFT JOIN fee_structures ft ON f.fee_structure_id = ft.id
-        WHERE f.student_id = :student_id
-        ORDER BY f.due_date DESC
+        SELECT i.id, 
+               i.invoice_number as fee_type,
+               (i.total_amount + i.penalty_amount - i.discount_amount) as amount_due,
+               i.amount_paid,
+               i.due_date,
+               i.status
+        FROM finance_invoices i
+        WHERE i.student_id = :student_id AND i.status != 'cancelled'
+        ORDER BY i.due_date DESC
     ";
     $fees_stmt = $db->prepare($fees_query);
     $fees_stmt->bindParam(':student_id', $student_id);
@@ -84,33 +91,26 @@ if ($student_id) {
 // Handle payment processing
 if ($_POST && isset($_POST['pay_fee'])) {
     $fee_id = $_POST['fee_id'];
-    $payment_amount = $_POST['payment_amount'];
+    $payment_amount = (float)$_POST['payment_amount'];
     $payment_method = $_POST['payment_method'];
-    
-    // Process payment (simplified)
-    try {
-        $update_query = "
-            UPDATE fees 
-            SET amount_paid = amount_paid + :payment_amount,
-                status = CASE 
-                    WHEN (amount_paid + :payment_amount) >= amount_due THEN 'paid'
-                    ELSE 'partial'
-                END,
-                last_payment_date = NOW()
-            WHERE id = :fee_id
-        ";
-        $update_stmt = $db->prepare($update_query);
-        $update_stmt->bindParam(':payment_amount', $payment_amount);
-        $update_stmt->bindParam(':fee_id', $fee_id);
-        $update_stmt->execute();
-        
-        $success_message = "Payment of ₵" . number_format($payment_amount, 2) . " processed successfully!";
-        
-        // Refresh the page to show updated data
-        header("Location: fee_payment.php?student_id=" . $student_id . "&success=1");
-        exit();
-    } catch (PDOException $e) {
-        $error_message = "Payment processing failed. Please try again.";
+
+    // Reject methods disabled in settings
+    $method_setting_map = ['cash' => 'cash', 'bank_transfer' => 'bank', 'mobile_money' => 'mobile', 'card' => 'card'];
+    $method_disabled = isset($method_setting_map[$payment_method]) && !isPaymentMethodEnabled($method_setting_map[$payment_method]);
+
+    if ($method_disabled) {
+        $error_message = "The selected payment method is currently disabled. Please choose another method.";
+    } elseif ($fee_id && $payment_amount > 0) {
+        $result = recordPayment($fee_id, $payment_amount, $payment_method, '', 'Payment processed by Parent via Parent Portal.', $db);
+        if ($result['success']) {
+            $success_message = "Payment of ₵" . number_format($payment_amount, 2) . " processed successfully!";
+            header("Location: fee_payment.php?student_id=" . $student_id . "&success=1");
+            exit();
+        } else {
+            $error_message = "Payment recording failed: " . $result['message'];
+        }
+    } else {
+        $error_message = "Invalid payment amount.";
     }
 }
 
@@ -120,12 +120,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
                 <!-- Header -->
@@ -285,7 +285,11 @@ include '../includes/sidebar.php';
                                         ₵<?php echo number_format($fee['amount_paid'], 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium <?php echo $balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'; ?>">
-                                        ₵<?php echo number_format($balance, 2); ?>
+                                        <?php if ($balance < 0): ?>
+                                            ₵<?php echo number_format(abs($balance), 2); ?> (Credit)
+                                        <?php else: ?>
+                                            ₵<?php echo number_format($balance, 2); ?>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         <?php echo date('M j, Y', strtotime($fee['due_date'])); ?>
@@ -295,12 +299,13 @@ include '../includes/sidebar.php';
                                             <?php
                                             switch($fee['status']) {
                                                 case 'paid': echo 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'; break;
-                                                case 'partial': echo 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'; break;
+                                                case 'partial':
+                                                case 'partially_paid': echo 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'; break;
                                                 case 'overdue': echo 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'; break;
                                                 default: echo 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'; break;
                                             }
                                             ?>">
-                                            <?php echo ucfirst($fee['status']); ?>
+                                            <?php echo ucfirst(str_replace('_', ' ', $fee['status'])); ?>
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -363,10 +368,18 @@ include '../includes/sidebar.php';
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Payment Method</label>
                         <select name="payment_method" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required>
                             <option value="">Select Payment Method</option>
+                            <?php if (isPaymentMethodEnabled('cash')): ?>
                             <option value="cash">Cash</option>
+                            <?php endif; ?>
+                            <?php if (isPaymentMethodEnabled('bank')): ?>
                             <option value="bank_transfer">Bank Transfer</option>
+                            <?php endif; ?>
+                            <?php if (isPaymentMethodEnabled('mobile')): ?>
                             <option value="mobile_money">Mobile Money</option>
+                            <?php endif; ?>
+                            <?php if (isPaymentMethodEnabled('card')): ?>
                             <option value="card">Credit/Debit Card</option>
+                            <?php endif; ?>
                         </select>
                     </div>
                     
@@ -387,9 +400,9 @@ include '../includes/sidebar.php';
 <script>
 function openPaymentModal(feeId, balance, feeType) {
     document.getElementById('modal_fee_id').value = feeId;
-    document.getElementById('modal_payment_amount').value = balance.toFixed(2);
-    document.getElementById('modal_payment_amount').max = balance.toFixed(2);
-    document.getElementById('modal_fee_type').textContent = feeType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    document.getElementById('modal_payment_amount').value = balance > 0 ? balance.toFixed(2) : '';
+    // No max attribute to allow overpayments
+    document.getElementById('modal_fee_type').textContent = feeType.replace('invoice_no', 'Invoice #').replace(/\b\w/g, l => l.toUpperCase());
     document.getElementById('paymentModal').classList.remove('hidden');
 }
 

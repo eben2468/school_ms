@@ -25,19 +25,29 @@ try {
         exit();
     }
     
-    // Delete/dismiss the notification
-    $query = "DELETE FROM notifications WHERE id = :notification_id AND (user_id = :user_id OR user_id IS NULL)";
+    // Dismiss the notification (non-destructive: keeps it for audit/logs)
+    $query = "UPDATE notifications SET is_dismissed = TRUE, dismissed_at = NOW() WHERE id = :notification_id AND (user_id = :user_id OR user_id IS NULL) AND is_dismissed = FALSE";
     $stmt = $db->prepare($query);
     $stmt->bindParam(':notification_id', $notification_id);
     $stmt->bindParam(':user_id', $user_id);
     $stmt->execute();
-    
+
     $affected_rows = $stmt->rowCount();
-    
+
     if ($affected_rows > 0) {
+        // Best-effort log (ignore failure)
+        try {
+            $log = $db->prepare("INSERT INTO notification_logs (notification_id, action, user_id, ip_address, user_agent) VALUES (:nid, 'dismissed', :uid, :ip, :ua)");
+            $log->execute([
+                ':nid' => $notification_id,
+                ':uid' => $user_id,
+                ':ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                ':ua' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            ]);
+        } catch (Exception $e) { /* non-fatal */ }
         echo json_encode(['success' => true, 'message' => 'Notification dismissed']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Notification not found']);
+        echo json_encode(['success' => false, 'message' => 'Notification not found or already dismissed']);
     }
     
 } catch (PDOException $e) {

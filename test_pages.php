@@ -3,7 +3,6 @@
 $pages_to_test = [
     'profile.php',
     'logout.php',
-    'bulk_import.php',
     'academic/assignments/view.php?id=1',
     'academic/assignments/edit.php?id=1',
     'reports/class.php',

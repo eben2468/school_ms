@@ -9,6 +9,8 @@ require_once '../../config/database.php';
 $database = new Database();
 $db = $database->getConnection();
 
+require_once '../../includes/settings_helper.php';
+
 $success_message = '';
 $error_message = '';
 
@@ -151,6 +153,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error_message = "Error updating term dates: " . $e->getMessage();
                 }
                 break;
+            case 'update_report_settings':
+                $school_name_input = filter_input(INPUT_POST, 'school_name', FILTER_SANITIZE_STRING);
+                $school_motto_input = filter_input(INPUT_POST, 'school_motto', FILTER_SANITIZE_STRING);
+                $school_postal_input = filter_input(INPUT_POST, 'school_postal', FILTER_SANITIZE_STRING);
+                
+                try {
+                    $db->beginTransaction();
+                    
+                    // 1. Update school name in school_settings
+                    updateSchoolSetting('school_name', $school_name_input);
+                    
+                    // 2. Update motto and postal in academic_settings
+                    $upsert_sql = "INSERT INTO academic_settings (setting_key, setting_value) 
+                                   VALUES (:key, :value) 
+                                   ON DUPLICATE KEY UPDATE setting_value = :value";
+                    $stmt = $db->prepare($upsert_sql);
+                    
+                    $stmt->execute([':key' => 'school_motto', ':value' => $school_motto_input]);
+                    $stmt->execute([':key' => 'school_postal', ':value' => $school_postal_input]);
+                    
+                    $db->commit();
+                    $success_message = "Report card and branding settings updated successfully!";
+                } catch (PDOException $e) {
+                    $db->rollBack();
+                    $error_message = "Error updating report card settings: " . $e->getMessage();
+                }
+                break;
         }
     }
 }
@@ -195,6 +224,18 @@ if ($current_year) {
     $terms = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Load school settings
+$school_name = getSchoolSetting('school_name', 'Greenwood Academy');
+
+// Load academic settings
+$motto_stmt = $db->prepare("SELECT setting_value FROM academic_settings WHERE setting_key = 'school_motto'");
+$motto_stmt->execute();
+$school_motto = $motto_stmt->fetchColumn() ?: 'Excellence in Character and Knowledge';
+
+$postal_stmt = $db->prepare("SELECT setting_value FROM academic_settings WHERE setting_key = 'school_postal'");
+$postal_stmt->execute();
+$school_postal = $postal_stmt->fetchColumn() ?: 'P.O. Box GP 1234, Accra';
+
 $title = "Academic Settings";
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
@@ -209,7 +250,7 @@ include '../../includes/sidebar.php';
     <div class="flex-1 flex flex-col">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">
@@ -309,6 +350,46 @@ include '../../includes/sidebar.php';
                             <p class="text-gray-500 dark:text-gray-400">No term set</p>
                             <?php endif; ?>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Report Card & Branding Settings -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-8">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Report Card & Branding Settings</h3>
+                            <p class="text-gray-600 dark:text-gray-400 mt-1">Configure school details displayed on student report cards and transcripts</p>
+                        </div>
+                        <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-school text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <form method="POST" class="space-y-6">
+                            <input type="hidden" name="action" value="update_report_settings">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">School Name</label>
+                                    <input type="text" name="school_name" required value="<?php echo htmlspecialchars($school_name); ?>"
+                                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">School Motto</label>
+                                    <input type="text" name="school_motto" required value="<?php echo htmlspecialchars($school_motto); ?>"
+                                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Postal Address</label>
+                                    <input type="text" name="school_postal" required value="<?php echo htmlspecialchars($school_postal); ?>"
+                                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                                </div>
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200 flex items-center">
+                                    <i class="fas fa-save mr-2"></i>Save Settings
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 

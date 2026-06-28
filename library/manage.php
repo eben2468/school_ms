@@ -122,12 +122,12 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_COLUMN);
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -137,7 +137,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_COLUMN);
                     <a href="books/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                         <i class="fas fa-plus mr-2"></i>Add New Book
                     </a>
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800">
+                    <a href="books/index.php" class="text-blue-600 hover:text-blue-800">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Library
                     </a>
                 </div>
@@ -212,7 +212,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_COLUMN);
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">
-                                        <?php echo $book['copies_available'] - $book['borrowed_count']; ?> / <?php echo $book['copies_available']; ?> available
+                                        <?php echo $book['copies_available']; ?> / <?php echo $book['total_copies']; ?> available
                                     </div>
                                     <div class="text-xs text-gray-500">
                                         <?php echo $book['borrowed_count']; ?> borrowed
@@ -222,25 +222,29 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_COLUMN);
                                     <?php echo htmlspecialchars($book['location'] ?: 'Not specified'); ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div class="flex justify-end space-x-2">
+                                    <div class="flex justify-end items-center gap-2">
                                         <!-- Update Copies Modal Trigger -->
-                                        <button onclick="openUpdateModal(<?php echo $book['id']; ?>, '<?php echo htmlspecialchars($book['title']); ?>', <?php echo $book['copies_available']; ?>)"
-                                            class="text-blue-600 hover:text-blue-900">
-                                            <i class="fas fa-edit"></i>
+                                        <button type="button" onclick="openUpdateModal(<?php echo $book['id']; ?>, '<?php echo htmlspecialchars($book['title']); ?>', <?php echo $book['copies_available']; ?>)"
+                                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors duration-200"
+                                            title="Edit book" aria-label="Edit book">
+                                            <i class="fas fa-pen"></i>
                                         </button>
-                                        
+
                                         <!-- Delete Button -->
                                         <?php if ($book['borrowed_count'] == 0): ?>
-                                        <form action="" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this book?')">
+                                        <form action="" method="POST" class="inline-flex" onsubmit="return confirm('Are you sure you want to delete this book?')">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="book_id" value="<?php echo $book['id']; ?>">
-                                            <button type="submit" class="text-red-600 hover:text-red-900">
-                                                <i class="fas fa-trash"></i>
+                                            <button type="submit"
+                                                class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 bg-red-50 hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-colors duration-200"
+                                                title="Delete book" aria-label="Delete book">
+                                                <i class="fas fa-trash-alt"></i>
                                             </button>
                                         </form>
                                         <?php else: ?>
-                                        <span class="text-gray-400" title="Cannot delete book with active loans">
-                                            <i class="fas fa-trash"></i>
+                                        <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-300 bg-gray-100 cursor-not-allowed"
+                                            title="Cannot delete a book with active loans" aria-label="Delete disabled">
+                                            <i class="fas fa-trash-alt"></i>
                                         </span>
                                         <?php endif; ?>
                                     </div>
@@ -281,40 +285,40 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_COLUMN);
             </div>
             <?php endif; ?>
         </div>
-    </div>
-</div>
-
-<!-- Update Copies Modal -->
-<div id="updateModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Update Book Copies</h3>
-            <form id="updateForm" method="POST">
-                <input type="hidden" name="action" value="update_copies">
-                <input type="hidden" name="book_id" id="updateBookId">
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Book Title</label>
-                    <p id="updateBookTitle" class="text-sm text-gray-600"></p>
-                </div>
-                
-                <div class="mb-4">
-                    <label for="updateCopies" class="block text-sm font-medium text-gray-700 mb-2">Number of Copies</label>
-                    <input type="number" id="updateCopies" name="copies_available" min="0" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeUpdateModal()" 
-                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        Cancel
-                    </button>
-                    <button type="submit" 
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        Update
-                    </button>
+            
+            <!-- Update Copies Modal -->
+            <div id="updateModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                    <div class="mt-3">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Update Book Copies</h3>
+                        <form id="updateForm" method="POST">
+                            <input type="hidden" name="action" value="update_copies">
+                            <input type="hidden" name="book_id" id="updateBookId">
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Book Title</label>
+                                <p id="updateBookTitle" class="text-sm text-gray-600"></p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="updateCopies" class="block text-sm font-medium text-gray-700 mb-2">Number of Copies</label>
+                                <input type="number" id="updateCopies" name="copies_available" min="0" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="closeUpdateModal()" 
+                                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                    Cancel
+                                </button>
+                                <button type="submit" 
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    Update
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                </form>
+                </div>
             </div>
         </main>
 

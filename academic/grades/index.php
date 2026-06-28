@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher', 'student'])) {
     header("Location: ../../index.php");
     exit();
 }
@@ -17,11 +17,19 @@ function hasRole($roles) {
     return in_array($_SESSION['role'], $roles);
 }
 
+// Automatically detect student's active class to enforce it
+$student_class_id = null;
+if ($user_role === 'student') {
+    $class_stmt = $db->prepare("SELECT class_id FROM student_classes WHERE student_id = :student_id AND status = 'active' LIMIT 1");
+    $class_stmt->execute([':student_id' => $user_id]);
+    $student_class_id = $class_stmt->fetchColumn();
+}
+
 // Get filter parameters
-$class_filter = $_GET['class'] ?? '';
+$class_filter = ($user_role === 'student') ? ($student_class_id ?: '') : ($_GET['class'] ?? '');
 $subject_filter = $_GET['subject'] ?? '';
 $term_filter = $_GET['term'] ?? '';
-$year_filter = $_GET['year'] ?? '';
+$year_filter = $_GET['year'] ?? ''; // will default to active year if not set
 $student_filter = $_GET['student'] ?? '';
 
 try {
@@ -29,6 +37,11 @@ try {
     $current_year_query = "SELECT * FROM academic_years WHERE status = 'active' LIMIT 1";
     $current_year = $db->query($current_year_query)->fetch(PDO::FETCH_ASSOC);
     
+    // Default to current academic year if not explicitly set in URL query parameters
+    if (!isset($_GET['year']) && $current_year) {
+        $year_filter = $current_year['id'];
+    }
+
     $current_term_query = "SELECT * FROM academic_terms WHERE status = 'active' LIMIT 1";
     $current_term = $db->query($current_term_query)->fetch(PDO::FETCH_ASSOC);
 
@@ -36,17 +49,62 @@ try {
     $years_query = "SELECT * FROM academic_years ORDER BY year_name DESC";
     $years = $db->query($years_query)->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get all academic terms for filter
-    $terms_query = "SELECT * FROM academic_terms ORDER BY term_number";
-    $terms = $db->query($terms_query)->fetchAll(PDO::FETCH_ASSOC);
+    // Validate that the selected term belongs to the selected/active year to prevent invalid state
+    $selected_year_id = $year_filter ?: ($current_year['id'] ?? null);
+    if ($term_filter && $selected_year_id) {
+        $term_check_stmt = $db->prepare("SELECT COUNT(*) FROM academic_terms WHERE id = :term_id AND academic_year_id = :year_id");
+        $term_check_stmt->execute([':term_id' => $term_filter, ':year_id' => $selected_year_id]);
+        if ($term_check_stmt->fetchColumn() == 0) {
+            $term_filter = '';
+        }
+    }
 
-    // Get classes for filter
-    $classes_query = "SELECT * FROM classes WHERE status = 'active' ORDER BY name";
-    $classes = $db->query($classes_query)->fetchAll(PDO::FETCH_ASSOC);
+    // Get academic terms for the selected/active year to prevent duplicates
+    if ($selected_year_id) {
+        $terms_stmt = $db->prepare("SELECT * FROM academic_terms WHERE academic_year_id = :year_id ORDER BY term_number");
+        $terms_stmt->execute([':year_id' => $selected_year_id]);
+        $terms = $terms_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $terms_query = "SELECT * FROM academic_terms ORDER BY term_number";
+        $terms = $db->query($terms_query)->fetchAll(PDO::FETCH_ASSOC);
+    }
 
-    // Get subjects for filter
-    $subjects_query = "SELECT * FROM subjects WHERE status = 'active' ORDER BY name";
-    $subjects = $db->query($subjects_query)->fetchAll(PDO::FETCH_ASSOC);
+    // Get classes and subjects for filters.
+    // Teachers only see the classes and subjects they are assigned to teach.
+    if ($user_role === 'teacher') {
+        $classes_stmt = $db->prepare("SELECT DISTINCT c.id, c.name, c.grade_level
+            FROM class_teachers ct JOIN classes c ON ct.class_id = c.id
+            WHERE ct.teacher_id = :tid AND c.status = 'active'
+            ORDER BY c.grade_level, c.name");
+        $classes_stmt->execute([':tid' => $user_id]);
+        $classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $subjects_stmt = $db->prepare("SELECT DISTINCT s.id, s.name, s.code
+            FROM class_teachers ct JOIN subjects s ON ct.subject_id = s.id
+            WHERE ct.teacher_id = :tid ORDER BY s.name");
+        $subjects_stmt->execute([':tid' => $user_id]);
+        $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($user_role === 'student') {
+        // Students only see their own class and the subjects of that class in the filters.
+        $classes_stmt = $db->prepare("SELECT id, name, grade_level FROM classes WHERE id = :cid AND status = 'active'");
+        $classes_stmt->execute([':cid' => $student_class_id ?: 0]);
+        $classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $subjects_stmt = $db->prepare("SELECT id, name, code FROM subjects WHERE class_id = :cid ORDER BY name");
+        $subjects_stmt->execute([':cid' => $student_class_id ?: 0]);
+        $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $classes = $db->query("SELECT id, name, grade_level FROM classes WHERE status = 'active' ORDER BY grade_level, name")->fetchAll(PDO::FETCH_ASSOC);
+        if ($class_filter) {
+            // Only show subjects taught in the selected class.
+            $subjects_stmt = $db->prepare("SELECT id, name, code FROM subjects WHERE class_id = :cid ORDER BY name");
+            $subjects_stmt->execute([':cid' => $class_filter]);
+            $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            // No class selected: list each subject name once to avoid per-class duplicates.
+            $subjects = $db->query("SELECT MIN(id) as id, name, MIN(code) as code FROM subjects GROUP BY name ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+        }
+    }
 
     // Build WHERE conditions for grades query
     $where_conditions = [];
@@ -70,7 +128,7 @@ try {
     if ($year_filter) {
         $where_conditions[] = "sar.academic_year_id = :year_id";
         $params[':year_id'] = $year_filter;
-    } else if ($current_year) {
+    } else if (!isset($_GET['year']) && $current_year) {
         $where_conditions[] = "sar.academic_year_id = :current_year_id";
         $params[':current_year_id'] = $current_year['id'];
     }
@@ -81,10 +139,26 @@ try {
         $params[':student_id'] = "%$student_filter%";
     }
 
-    // For teachers, only show their subjects
+    // For teachers, only show grades for the class + subject combinations they teach
     if ($user_role === 'teacher') {
-        $where_conditions[] = "sar.teacher_id = :teacher_id";
+        $where_conditions[] = "EXISTS (SELECT 1 FROM class_teachers ct WHERE ct.teacher_id = :teacher_id AND ct.class_id = sar.class_id AND ct.subject_id = sar.subject_id)";
         $params[':teacher_id'] = $user_id;
+    }
+
+    // For students, only show their own grades AND only for subjects that
+    // actually belong to their class. Some records were created against the
+    // student's class id but reference a subject taught in a different class;
+    // requiring the subject's own class to match keeps the list to subjects the
+    // student really studies.
+    if ($user_role === 'student') {
+        $where_conditions[] = "sar.student_id = :current_student_id";
+        $params[':current_student_id'] = $user_id;
+        if ($student_class_id) {
+            // EXISTS (not "s.class_id = ...") so the same condition is valid in
+            // both the main query and the stats query, which doesn't join subjects.
+            $where_conditions[] = "EXISTS (SELECT 1 FROM subjects ss WHERE ss.id = sar.subject_id AND ss.class_id = :student_subject_class)";
+            $params[':student_subject_class'] = $student_class_id;
+        }
     }
 
     // Get grades/academic records
@@ -117,12 +191,14 @@ try {
     $grades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Get statistics
-    $stats_sql = "SELECT 
+    $stats_sql = "SELECT
         COUNT(*) as total_records,
-        AVG(total_score) as average_score,
-        COUNT(DISTINCT student_id) as total_students,
-        COUNT(DISTINCT subject_id) as total_subjects
-    FROM student_academic_records sar";
+        AVG(sar.total_score) as average_score,
+        COUNT(DISTINCT sar.student_id) as total_students,
+        COUNT(DISTINCT sar.subject_id) as total_subjects
+    FROM student_academic_records sar
+    JOIN users u ON sar.student_id = u.id
+    JOIN student_profiles sp ON u.id = sp.user_id";
 
     if (!empty($where_conditions)) {
         $stats_sql .= " WHERE " . implode(' AND ', $where_conditions);
@@ -136,78 +212,44 @@ try {
     $error = "Database error: " . $e->getMessage();
 }
 
-// Calculate grade letter from score
-function calculateGrade($score) {
-    if ($score >= 90) return 'A+';
-    if ($score >= 80) return 'A';
-    if ($score >= 70) return 'B+';
-    if ($score >= 60) return 'B';
-    if ($score >= 50) return 'C+';
-    if ($score >= 40) return 'C';
-    if ($score >= 30) return 'D';
-    return 'F';
-}
-
-// Get grade color
-function getGradeColor($grade) {
-    switch ($grade) {
-        case 'A+':
-        case 'A': return 'text-green-600 bg-green-100';
-        case 'B+':
-        case 'B': return 'text-blue-600 bg-blue-100';
-        case 'C+':
-        case 'C': return 'text-yellow-600 bg-yellow-100';
-        case 'D': return 'text-orange-600 bg-orange-100';
-        case 'F': return 'text-red-600 bg-red-100';
-        default: return 'text-gray-600 bg-gray-100';
-    }
-}
+// Grade letter, display formatting and badge colours are provided centrally by
+// includes/settings_helper.php (loaded via header.php) so they honour the
+// school's configured grading system. See formatGrade()/getGradeBadgeClass().
+$is_student = ($user_role === 'student');
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grades Management - School Management System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3b82f6',
-                        secondary: '#1e40af',
-                    }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="bg-gray-50 dark:bg-gray-900">
-    <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        <?php include '../../includes/sidebar.php'; ?>
-        
-        <!-- Main Content -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            <?php include '../../includes/header.php'; ?>
-            
-            <!-- Content Wrapper -->
-            <main class="p-6 lg:p-8 flex-1">
-                <div class="max-w-full mx-auto" style="margin-top: 20px; padding-left: 20px; padding-right: 20px;">
-                    
+<?php
+$title = $is_student ? 'My Grades' : 'Grades Management';
+include '../../includes/header.php';
+include '../../includes/sidebar.php';
+?>
+
+<!-- Main Layout Container -->
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-6 lg:p-8 flex-1">
+            <div class="w-full">
+
+                    <?php if (isset($error)): ?>
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                        <i class="fas fa-exclamation-circle mr-2"></i><?= htmlspecialchars($error) ?>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- Page Title -->
                     <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 mb-8 text-white">
                         <div class="flex items-center justify-between">
                             <div>
                                 <h1 class="text-3xl font-bold mb-2">
                                     <i class="fas fa-chart-bar mr-3"></i>
-                                    Grades Management
+                                    <?= $is_student ? 'My Grades' : 'Grades Management' ?>
                                 </h1>
-                                <p class="text-blue-100">Comprehensive student grade tracking and management</p>
+                                <p class="text-blue-100"><?= $is_student ? 'View your academic grades and performance' : 'Comprehensive student grade tracking and management' ?></p>
                             </div>
                             <div class="text-right">
                                 <div class="text-2xl font-bold"><?= $stats['total_records'] ?? 0 ?></div>
@@ -217,7 +259,8 @@ function getGradeColor($grade) {
                     </div>
 
                     <!-- Statistics Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="grid grid-cols-1 md:grid-cols-<?= $is_student ? '3' : '4' ?> gap-6 mb-8">
+                        <?php if (!$is_student): ?>
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
                             <div class="flex items-center">
                                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
@@ -229,6 +272,7 @@ function getGradeColor($grade) {
                                 </div>
                             </div>
                         </div>
+                        <?php endif; ?>
 
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
                             <div class="flex items-center">
@@ -296,6 +340,7 @@ function getGradeColor($grade) {
                                     </select>
                                 </div>
 
+                                <?php if (!$is_student): ?>
                                 <div class="flex flex-col">
                                     <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Class</label>
                                     <select name="class" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
@@ -326,6 +371,7 @@ function getGradeColor($grade) {
                                            placeholder="Search student..."
                                            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                                 </div>
+                                <?php endif; ?>
 
                                 <div class="flex items-end">
                                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
@@ -334,18 +380,33 @@ function getGradeColor($grade) {
                                 </div>
                             </form>
 
-                            <!-- Action Buttons -->
-                            <div class="flex gap-2">
-                                <?php if (hasRole(['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
-                                    <a href="create.php" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
-                                        <i class="fas fa-plus mr-2"></i>Add Grade
+            <!-- Action Buttons -->
+                            <div class="flex flex-wrap items-center gap-3">
+                                <?php if (!$is_student && hasRole(['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
+                                    <a href="create.php" class="group inline-flex items-center gap-2.5 pl-3 pr-5 py-2.5 rounded-xl font-semibold text-white whitespace-nowrap shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200" style="background-image: linear-gradient(135deg, #10b981, #059669);">
+                                        <span class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors"><i class="fas fa-plus"></i></span>
+                                        Add Grade
                                     </a>
-                                    <a href="bulk_entry.php" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
-                                        <i class="fas fa-table mr-2"></i>Bulk Entry
+                                    <a href="bulk_entry.php" class="group inline-flex items-center gap-2.5 pl-3 pr-5 py-2.5 rounded-xl font-semibold text-white whitespace-nowrap shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200" style="background-image: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                                        <span class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors"><i class="fas fa-table-cells"></i></span>
+                                        Bulk Entry
                                     </a>
                                 <?php endif; ?>
-                                <a href="export.php?<?= http_build_query($_GET) ?>" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors">
-                                    <i class="fas fa-download mr-2"></i>Export
+                                <?php
+                                $export_params = [
+                                    'class' => $class_filter,
+                                    'subject' => $subject_filter,
+                                    'term' => $term_filter,
+                                    'year' => $year_filter,
+                                    'student' => $student_filter
+                                ];
+                                if ($is_student) {
+                                    $export_params['format'] = 'excel';
+                                }
+                                ?>
+                                <a href="export.php?<?= http_build_query($export_params) ?>" class="group inline-flex items-center gap-2.5 pl-3 pr-5 py-2.5 rounded-xl font-semibold text-white whitespace-nowrap shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200" style="background-image: linear-gradient(135deg, #f97316, #ea580c);">
+                                    <span class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors"><i class="fas fa-download"></i></span>
+                                    <?= $is_student ? 'Download Results' : 'Export' ?>
                                 </a>
                             </div>
                         </div>
@@ -392,8 +453,8 @@ function getGradeColor($grade) {
                                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                         <?php foreach ($grades as $grade): ?>
                                             <?php
-                                                $calculated_grade = calculateGrade($grade['total_score']);
-                                                $grade_color = getGradeColor($calculated_grade);
+                                                $calculated_grade = formatGrade($grade['total_score']);
+                                                $grade_color = getGradeBadgeClass($grade['total_score']);
                                             ?>
                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -480,19 +541,19 @@ function getGradeColor($grade) {
                     </div>
 
                 </div>
-            </main>
+        </main>
 
-            <!-- Footer -->
+        <!-- Footer -->
+        <div class="lg:ml-0">
             <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
+</div>
 
-    <script>
-        function deleteGrade(id) {
-            if (confirm('Are you sure you want to delete this grade record? This action cannot be undone.')) {
-                window.location.href = 'delete.php?id=' + id;
-            }
+<script>
+    function deleteGrade(id) {
+        if (confirm('Are you sure you want to delete this grade record? This action cannot be undone.')) {
+            window.location.href = 'delete.php?id=' + id;
         }
-    </script>
-</body>
-</html>
+    }
+</script>

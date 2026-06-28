@@ -45,12 +45,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
                 <!-- Header -->
@@ -137,10 +137,11 @@ include '../includes/sidebar.php';
                                         case 'canteen_manager': echo 'utensils'; break;
                                         case 'nurse': echo 'user-md'; break;
                                         case 'counselor': echo 'comments'; break;
+                                        case 'hr': echo 'id-card'; break;
                                         default: echo 'user'; break;
                                     }
                                     ?> mr-2"></i>
-                                    <?php echo ucfirst(str_replace('_', ' ', $role)); ?>
+                                    <?php echo htmlspecialchars(formatRoleName($role)); ?>
                                 </h3>
                                 <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-full text-sm font-medium">
                                     <?php echo count($users); ?> user<?php echo count($users) !== 1 ? 's' : ''; ?>

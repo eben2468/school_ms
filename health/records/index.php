@@ -54,7 +54,7 @@ $total_records = $count_stmt->fetchColumn();
 $total_pages = ceil($total_records / $per_page);
 
 // Fetch health records
-$query = "SELECT hr.*, u.name as student_name, sp.student_id, c.name as class_name,
+$query = "SELECT hr.*, u.id as user_id, u.name as student_name, sp.student_id, c.name as class_name,
                  sp.blood_group as blood_type, sp.medical_conditions,
                  sp.emergency_contact_name, sp.emergency_contact_phone
           FROM health_records hr
@@ -85,7 +85,7 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
@@ -94,13 +94,13 @@ include '../../includes/sidebar.php';
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-7xl mx-auto">
-                <div class="flex justify-between items-center mb-6">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                     <h1 class="text-3xl font-semibold text-gray-800">Health Records</h1>
-                    <div class="flex space-x-3">
-                        <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+                    <div class="flex flex-row items-center gap-3">
+                        <a href="../index.php" class="text-blue-600 hover:text-blue-800 whitespace-nowrap flex-shrink-0 inline-flex items-center">
                             <i class="fas fa-arrow-left mr-2"></i>Back to Health
                         </a>
-                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0 inline-flex items-center">
                             <i class="fas fa-plus mr-2"></i>Add Record
                         </a>
                     </div>
@@ -199,14 +199,14 @@ include '../../includes/sidebar.php';
                                             <div class="text-sm text-gray-500"><?php echo htmlspecialchars($record['emergency_contact_phone'] ?? ''); ?></div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div class="flex space-x-2">
-                                                <a href="view.php?id=<?php echo $record['id']; ?>" class="text-blue-600 hover:text-blue-900">
+                                            <div class="flex items-center space-x-2">
+                                                <a href="view.php?id=<?php echo $record['id']; ?>" title="View" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition-colors">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="edit.php?id=<?php echo $record['id']; ?>" class="text-green-600 hover:text-green-900">
+                                                <a href="edit.php?id=<?php echo $record['id']; ?>" title="Edit" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition-colors">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                <a href="medical_history.php?student_id=<?php echo $record['student_id']; ?>" class="text-purple-600 hover:text-purple-900">
+                                                <a href="medical_history.php?student_id=<?php echo $record['user_id']; ?>" title="Medical History" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 hover:text-purple-700 transition-colors">
                                                     <i class="fas fa-history"></i>
                                                 </a>
                                             </div>

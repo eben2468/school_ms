@@ -1,11 +1,11 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'nurse', 'counselor'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('health');
 
 require_once '../config/database.php';
+require_once '../includes/module_access.php';
+requireModule('health'); // block access if disabled for this school
 $database = new Database();
 $db = $database->getConnection();
 
@@ -15,7 +15,7 @@ $user_role = $_SESSION['role'];
 $health_stats_query = "SELECT
     COUNT(DISTINCT hr.id) as total_records,
     COUNT(DISTINCT CASE WHEN COALESCE(hr.visit_date, hr.record_date) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN hr.id END) as recent_visits,
-    COUNT(DISTINCT hr.id) as active_cases,
+    COUNT(DISTINCT CASE WHEN hr.status = 'active' THEN hr.id END) as active_cases,
     COUNT(DISTINCT hr.student_id) as students_with_records
     FROM health_records hr";
 $health_stats_stmt = $db->query($health_stats_query);
@@ -34,8 +34,8 @@ $counseling_stats = $counseling_stats_stmt->fetch(PDO::FETCH_ASSOC);
 // Get recent health visits
 $recent_visits_query = "SELECT hr.*, s.name as student_name, s.student_id,
     hr.created_at as visit_date,
-    COALESCE(hr.description, 'General checkup') as complaint,
-    'completed' as status
+    COALESCE(hr.complaint, hr.description, 'General checkup') as complaint,
+    COALESCE(hr.status, 'completed') as status
     FROM health_records hr
     JOIN students s ON hr.student_id = s.id
     WHERE hr.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
@@ -57,11 +57,11 @@ $upcoming_sessions = $upcoming_sessions_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get common health issues
 $common_issues_query = "SELECT
-    COALESCE(description, 'General checkup') as complaint,
+    COALESCE(complaint, description, 'General checkup') as complaint,
     COUNT(*) as count
     FROM health_records
     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    GROUP BY COALESCE(description, 'General checkup')
+    GROUP BY COALESCE(complaint, description, 'General checkup')
     ORDER BY count DESC
     LIMIT 5";
 $common_issues_stmt = $db->query($common_issues_query);
@@ -74,10 +74,10 @@ include '../includes/sidebar.php';
 
 <div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-full mx-auto" style="margin-top: 40px; padding-left: 20px; padding-right: 20px;">
@@ -115,11 +115,14 @@ include '../includes/sidebar.php';
             <!-- Action Buttons -->
             <div class="flex justify-between items-center mb-6">
                 <div class="flex space-x-3">
-                    <a href="medical_records/create.php" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-plus mr-2"></i>New Health Record
+                    <a href="medical_records/create.php" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        <i class="fas fa-stethoscope mr-2"></i>Log Clinic Visit
                     </a>
-                    <a href="counseling/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-calendar-plus mr-2"></i>Schedule Session
+                    <a href="records/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        <i class="fas fa-file-medical mr-2"></i>New Vital Assessment
+                    </a>
+                    <a href="counseling/create.php" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        <i class="fas fa-calendar-plus mr-2"></i>Schedule Counseling Session
                     </a>
                 </div>
             </div>

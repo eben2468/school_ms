@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     // Validate role
-                    $valid_roles = ['super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor'];
+                    $valid_roles = ['super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor', 'hr'];
                     if (!in_array($role, $valid_roles)) {
                         $failed++;
                         continue;
@@ -91,12 +91,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -146,7 +146,7 @@ include '../includes/sidebar.php';
                                 <ol class="text-sm text-blue-700 list-decimal list-inside space-y-1">
                                     <li><strong>Name</strong> - Full name of the user</li>
                                     <li><strong>Email</strong> - Valid email address (must be unique)</li>
-                                    <li><strong>Role</strong> - One of: student, teacher, parent, super_admin, school_admin, principal, librarian, accountant, transport_officer, hostel_warden, canteen_manager, nurse, counselor</li>
+                                    <li><strong>Role</strong> - One of: student, teacher, parent, super_admin, school_admin, principal, librarian, accountant, transport_officer, hostel_warden, canteen_manager, nurse, counselor, hr</li>
                                     <li><strong>Password</strong> - Optional (defaults to 'password123' if empty)</li>
                                 </ol>
                                 <p class="text-sm text-blue-700 mt-2">

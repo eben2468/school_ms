@@ -33,7 +33,7 @@ if (isset($_POST['return_book']) && isset($_POST['loan_id'])) {
         
         if ($loan) {
             // Update loan status
-            $return_query = "UPDATE book_loans SET status = 'returned', return_date = NOW() WHERE id = :loan_id";
+            $return_query = "UPDATE book_loans SET status = 'returned', returned_date = NOW() WHERE id = :loan_id";
             $return_stmt = $db->prepare($return_query);
             $return_stmt->bindParam(':loan_id', $loan_id);
             $return_stmt->execute();
@@ -135,12 +135,12 @@ $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -149,7 +149,7 @@ $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
                     <?php echo ($user_role === 'student' || $user_role === 'teacher') ? 'My Book Loans' : 'Book Loans Management'; ?>
                 </h1>
                 <div class="flex space-x-3">
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800">
+                    <a href="books/index.php" class="text-blue-600 hover:text-blue-800">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Library
                     </a>
                 </div>
@@ -267,7 +267,7 @@ $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
                                 <?php if (!in_array($user_role, ['student', 'teacher'])): ?>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900"><?php echo htmlspecialchars($loan['borrower_name']); ?></div>
-                                    <div class="text-xs text-gray-500"><?php echo ucfirst($loan['borrower_role']); ?></div>
+                                    <div class="text-xs text-gray-500"><?php echo htmlspecialchars(formatRoleName($loan['borrower_role'])); ?></div>
                                 </td>
                                 <?php endif; ?>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -302,7 +302,7 @@ $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <?php if ($loan['status'] === 'borrowed' && in_array($user_role, ['librarian', 'super_admin'])): ?>
+                                    <?php if ($loan['status'] === 'borrowed' && in_array($user_role, ['librarian', 'super_admin', 'school_admin'])): ?>
                                     <form action="" method="POST" class="inline">
                                         <input type="hidden" name="loan_id" value="<?php echo $loan['id']; ?>">
                                         <button type="submit" name="return_book" 

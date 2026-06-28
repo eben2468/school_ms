@@ -1,11 +1,11 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('communication');
 
 require_once '../config/database.php';
+require_once '../includes/module_access.php';
+requireModule('communication'); // block access if disabled for this school
 $database = new Database();
 $db = $database->getConnection();
 
@@ -68,9 +68,9 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -108,13 +108,15 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="flex justify-end items-center mb-6">
                     <div class="flex space-x-3">
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
-                        <a href="announcements/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                        <a href="announcements.php?create=1" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                             <i class="fas fa-bullhorn mr-2"></i>New Announcement
                         </a>
                         <?php endif; ?>
+                        <?php if ($user_role !== 'parent'): ?>
                         <a href="messages/compose.php" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
                             <i class="fas fa-envelope mr-2"></i>Compose Message
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -146,7 +148,7 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                     </div>
                     <div class="mt-4">
-                        <a href="notifications/" class="text-yellow-600 hover:text-yellow-800 text-sm font-medium">View All Notifications</a>
+                        <a href="../notifications.php" class="text-yellow-600 hover:text-yellow-800 text-sm font-medium">View All Notifications</a>
                     </div>
                 </div>
 
@@ -161,7 +163,7 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                     </div>
                     <div class="mt-4">
-                        <a href="announcements/" class="text-green-600 hover:text-green-800 text-sm font-medium">View All Announcements</a>
+                        <a href="announcements.php" class="text-green-600 hover:text-green-800 text-sm font-medium">View All Announcements</a>
                     </div>
                 </div>
             </div>
@@ -171,7 +173,7 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="bg-white rounded-lg shadow">
                     <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                         <h2 class="text-lg font-semibold text-gray-800">Recent Announcements</h2>
-                        <a href="announcements/" class="text-blue-600 hover:text-blue-800 text-sm">View All</a>
+                        <a href="announcements.php" class="text-blue-600 hover:text-blue-800 text-sm">View All</a>
                     </div>
                     <div class="p-6">
                         <?php if (!empty($announcements)): ?>
@@ -251,7 +253,7 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="mt-8 bg-white rounded-lg shadow">
                 <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <h2 class="text-lg font-semibold text-gray-800">Recent Notifications</h2>
-                    <a href="notifications/" class="text-blue-600 hover:text-blue-800 text-sm">View All</a>
+                    <a href="../notifications.php" class="text-blue-600 hover:text-blue-800 text-sm">View All</a>
                 </div>
                 <div class="p-6">
                     <?php if (!empty($recent_notifications)): ?>
@@ -306,6 +308,7 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 <div class="p-6">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <?php if ($user_role !== 'parent'): ?>
                         <a href="messages/compose.php" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                             <div class="p-2 bg-blue-100 rounded-lg mr-3">
                                 <i class="fas fa-envelope text-blue-600"></i>
@@ -315,9 +318,10 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div class="text-sm text-gray-500">Compose a new message</div>
                             </div>
                         </a>
-                        
+                        <?php endif; ?>
+
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
-                        <a href="announcements/create.php" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <a href="announcements.php?create=1" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                             <div class="p-2 bg-green-100 rounded-lg mr-3">
                                 <i class="fas fa-bullhorn text-green-600"></i>
                             </div>
@@ -328,7 +332,7 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
                         </a>
                         <?php endif; ?>
                         
-                        <a href="notifications/mark_all_read.php" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <a href="javascript:void(0)" onclick="markAllNotificationsAsRead()" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                             <div class="p-2 bg-yellow-100 rounded-lg mr-3">
                                 <i class="fas fa-check-double text-yellow-600"></i>
                             </div>
@@ -349,3 +353,29 @@ $recent_notifications = $notifications_stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 </div>
+
+<script>
+function markAllNotificationsAsRead() {
+    if (confirm('Mark all notifications as read?')) {
+        fetch('notifications/mark_all_read.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('All notifications marked as read.');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred.');
+        });
+    }
+}
+</script>

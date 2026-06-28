@@ -107,7 +107,7 @@ try {
         if (move_uploaded_file($file_tmp, $file_path)) {
             // Insert into database
             $insert_query = "
-                INSERT INTO document_uploads 
+                INSERT INTO documents 
                 (title, description, file_name, file_path, file_type, file_size, document_type, uploaded_by, access_level, created_at)
                 VALUES (:title, :description, :file_name, :file_path, :file_type, :file_size, :document_type, :uploaded_by, :access_level, NOW())
             ";

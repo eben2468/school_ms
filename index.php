@@ -4,6 +4,12 @@ if(isset($_SESSION['user_id'])) {
     header("Location: dashboard.php");
     exit();
 }
+require_once __DIR__ . '/includes/csrf.php';
+
+// Clear dynamic DB context if we are on the landing login page and not authenticated
+unset($_SESSION['school_db_name']);
+unset($_SESSION['school_id']);
+unset($_SESSION['school_name']);
 
 // Include settings helper for dynamic theming
 require_once 'includes/settings_helper.php';
@@ -19,7 +25,14 @@ $theme_gradient = getThemeGradient();
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="assets/css/dynamic-theme.php" rel="stylesheet">
+    <link href="assets/css/responsive.css" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <style>
+        /* 40% size decrease: 16px default * 0.60 = ~10px */
+        html {
+            font-size: 13px !important;
+        }
+
         .login-gradient {
             background: <?php echo $theme_gradient; ?>;
         }
@@ -93,8 +106,16 @@ $theme_gradient = getThemeGradient();
 
     <div class="login-card p-8 rounded-2xl shadow-2xl w-full max-w-md relative z-10">
         <div class="text-center mb-8">
-            <div class="w-20 h-20 mx-auto mb-4 rounded-2xl theme-button flex items-center justify-center shadow-lg">
-                <i class="fas fa-graduation-cap text-3xl text-white"></i>
+            <?php 
+            $logo_url = getSchoolLogo();
+            $is_default = (strpos($logo_url, 'logo.svg') !== false);
+            ?>
+            <div class="w-20 h-20 mx-auto mb-4 rounded-2xl <?php echo $is_default ? 'theme-button' : 'bg-white'; ?> flex items-center justify-center shadow-lg overflow-hidden">
+                <?php if ($logo_url): ?>
+                    <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Logo" class="w-full h-full object-contain <?php echo $is_default ? 'p-2' : 'p-1'; ?>">
+                <?php else: ?>
+                    <i class="fas fa-graduation-cap text-3xl text-white"></i>
+                <?php endif; ?>
             </div>
             <h1 class="text-3xl font-bold text-gray-800 mb-2"><?php echo htmlspecialchars($school_name); ?></h1>
             <p class="text-gray-600">Welcome back! Please sign in to your account</p>
@@ -106,23 +127,37 @@ $theme_gradient = getThemeGradient();
         </div>
         <?php endif; ?>
 
+        <?php if(isset($_GET['timeout'])): ?>
+        <div class="bg-amber-100 border border-amber-400 text-amber-700 px-4 py-3 rounded mb-4">
+            <i class="fas fa-clock mr-1"></i> You were signed out due to inactivity. Please log in again.
+        </div>
+        <?php endif; ?>
+
         <form action="auth/login.php" method="POST" class="space-y-6">
+            <?php echo csrf_field(); ?>
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-envelope mr-2 text-gray-500"></i>Email Address
+                    <i class="fas fa-user mr-2 text-gray-500"></i>Email or ID
                 </label>
-                <input type="email" id="email" name="email" required
+                <input type="text" id="email" name="email" required autocomplete="username"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none theme-focus focus:border-blue-500 transition-colors duration-200"
-                    placeholder="Enter your email address">
+                    placeholder="Email, Student ID or Staff ID">
+                <p class="mt-1 text-xs text-gray-500">Students and staff can sign in with their ID instead of email.</p>
             </div>
 
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
                     <i class="fas fa-lock mr-2 text-gray-500"></i>Password
                 </label>
-                <input type="password" id="password" name="password" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none theme-focus focus:border-blue-500 transition-colors duration-200"
-                    placeholder="Enter your password">
+                <div class="relative">
+                    <input type="password" id="password" name="password" required
+                        class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg shadow-sm focus:outline-none theme-focus focus:border-blue-500 transition-colors duration-200"
+                        placeholder="Enter your password">
+                    <button type="button" id="togglePassword" aria-label="Show password" aria-pressed="false"
+                        class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200">
+                        <i class="fas fa-eye" id="togglePasswordIcon"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="flex items-center justify-between">
@@ -145,5 +180,24 @@ $theme_gradient = getThemeGradient();
             </button>
         </form>
     </div>
+
+    <script>
+        (function () {
+            const toggle = document.getElementById('togglePassword');
+            const input = document.getElementById('password');
+            const icon = document.getElementById('togglePasswordIcon');
+            if (toggle && input && icon) {
+                toggle.addEventListener('click', function () {
+                    const show = input.type === 'password';
+                    input.type = show ? 'text' : 'password';
+                    icon.classList.toggle('fa-eye', !show);
+                    icon.classList.toggle('fa-eye-slash', show);
+                    toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+                    toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                    input.focus();
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

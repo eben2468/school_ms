@@ -6,13 +6,17 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../../config/database.php';
+require_once '../../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
+
+// Heal older tenant DBs missing newer library_books columns before editing.
+ensureLibraryBooksColumns($db);
 
 $book_id = filter_input(INPUT_GET, 'id', FILTER_SANITIZE_NUMBER_INT);
 
 if (!$book_id) {
-    header("Location: ../index.php");
+    header("Location: index.php");
     exit();
 }
 
@@ -24,7 +28,7 @@ $stmt->execute();
 $book = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$book) {
-    header("Location: ../index.php");
+    header("Location: index.php");
     exit();
 }
 
@@ -61,27 +65,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
+    // Handle cover image upload (keep existing if none uploaded)
+    $cover_image = $book['cover_image'] ?? null;
+    if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
+        $file_ext = strtolower(pathinfo($_FILES['cover_image']['name'], PATHINFO_EXTENSION));
+        $allowed_exts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+        if (!in_array($file_ext, $allowed_exts)) {
+            $errors[] = "Cover image must be a PNG, JPG, GIF, or WEBP file.";
+        } elseif ($_FILES['cover_image']['size'] > 5 * 1024 * 1024) {
+            $errors[] = "Cover image must be 5MB or smaller.";
+        } else {
+            $upload_dir = '../../uploads/book_covers/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            $new_file_name = 'cover_' . time() . '_' . mt_rand(1000, 9999) . '.' . $file_ext;
+            if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $upload_dir . $new_file_name)) {
+                // Remove the previous cover file if one existed
+                if (!empty($book['cover_image']) && file_exists($upload_dir . $book['cover_image'])) {
+                    @unlink($upload_dir . $book['cover_image']);
+                }
+                $cover_image = $new_file_name;
+            } else {
+                $errors[] = "Failed to upload cover image. Please try again.";
+            }
+        }
+    }
+
     if (empty($errors)) {
         try {
             // Calculate new available copies
             $borrowed_copies = ($book['total_copies'] ?? 1) - ($book['copies_available'] ?? 1);
             $new_available = max(0, $total_copies - $borrowed_copies);
-            
-            $update_query = "UPDATE library_books SET 
-                           title = :title, 
-                           author = :author, 
-                           isbn = :isbn, 
-                           category = :category, 
-                           publisher = :publisher, 
-                           publication_year = :publication_year, 
-                           language = :language, 
-                           location = :location, 
-                           description = :description, 
-                           total_copies = :total_copies, 
+
+            $update_query = "UPDATE library_books SET
+                           title = :title,
+                           author = :author,
+                           isbn = :isbn,
+                           category = :category,
+                           publisher = :publisher,
+                           publication_year = :publication_year,
+                           language = :language,
+                           location = :location,
+                           description = :description,
+                           total_copies = :total_copies,
                            copies_available = :copies_available,
+                           cover_image = :cover_image,
                            updated_at = NOW()
                            WHERE id = :book_id";
-            
+
             $update_stmt = $db->prepare($update_query);
             $update_stmt->bindParam(':title', $title);
             $update_stmt->bindParam(':author', $author);
@@ -94,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_stmt->bindParam(':description', $description);
             $update_stmt->bindParam(':total_copies', $total_copies);
             $update_stmt->bindParam(':copies_available', $new_available);
+            $update_stmt->bindParam(':cover_image', $cover_image);
             $update_stmt->bindParam(':book_id', $book_id);
             $update_stmt->execute();
             
@@ -111,12 +144,12 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-4xl mx-auto">
@@ -140,7 +173,27 @@ include '../../includes/sidebar.php';
                 <?php endif; ?>
 
                 <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <form action="" method="POST" class="p-6 space-y-6">
+                    <form action="" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
+                        <!-- Book Cover -->
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Book Cover</h3>
+                            <div class="flex flex-col items-center sm:items-start">
+                                <?php $existing_cover = !empty($book['cover_image']) ? '../../uploads/book_covers/' . htmlspecialchars($book['cover_image']) : ''; ?>
+                                <label for="cover_image" class="group cursor-pointer block">
+                                    <div class="relative w-40 sm:w-44 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden flex items-center justify-center" style="aspect-ratio: 2 / 3;">
+                                        <img id="cover_preview" src="<?php echo $existing_cover; ?>" alt="Cover preview" class="absolute inset-0 w-full h-full object-cover <?php echo $existing_cover ? '' : 'hidden'; ?>">
+                                        <div id="cover_placeholder" class="text-center px-3 <?php echo $existing_cover ? 'hidden' : ''; ?>">
+                                            <i class="fas fa-image text-3xl text-gray-400 group-hover:text-blue-400 transition-colors"></i>
+                                            <p class="text-xs text-gray-500 mt-2 font-medium">Click to upload</p>
+                                            <p class="text-[10px] text-gray-400 mt-1">Portrait · JPG/PNG · Max 5MB</p>
+                                        </div>
+                                    </div>
+                                </label>
+                                <input type="file" id="cover_image" name="cover_image" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange="previewCover(this)">
+                                <p class="text-xs text-gray-500 mt-2 text-center sm:text-left">Click the cover to <?php echo $existing_cover ? 'replace' : 'upload'; ?> the image.</p>
+                            </div>
+                        </div>
+
                         <!-- Basic Information -->
                         <div>
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Basic Information</h3>
@@ -242,3 +295,19 @@ include '../../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<script>
+function previewCover(input) {
+    const img = document.getElementById('cover_preview');
+    const placeholder = document.getElementById('cover_placeholder');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>

@@ -64,13 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_document'])) {
             if (move_uploaded_file($file['tmp_name'], $upload_path)) {
                 // Save to database
                 try {
-                    $query = "INSERT INTO documents (title, description, file_path, file_type, file_size, uploaded_by, document_type, access_level, related_user_id)
-                              VALUES (:title, :description, :file_path, :file_type, :file_size, :uploaded_by, :document_type, :access_level, :related_user_id)";
+                    $query = "INSERT INTO documents (title, description, file_name, file_path, file_type, file_size, uploaded_by, document_type, access_level, related_user_id)
+                              VALUES (:title, :description, :file_name, :file_path, :file_type, :file_size, :uploaded_by, :document_type, :access_level, :related_user_id)";
 
                     $stmt = $db->prepare($query);
                     $stmt->bindParam(':title', $title);
                     $stmt->bindParam(':description', $description);
-                    $stmt->bindParam(':file_path', $unique_filename);
+                    $stmt->bindParam(':file_name', $file['name']);
+                    $db_file_path = 'uploads/documents/' . $unique_filename;
+                    $stmt->bindParam(':file_path', $db_file_path);
                     $stmt->bindParam(':file_type', $file_extension);
                     $stmt->bindParam(':file_size', $file['size'], PDO::PARAM_INT);
                     $stmt->bindParam(':uploaded_by', $user_id, PDO::PARAM_INT);
@@ -112,9 +114,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -259,7 +261,7 @@ include '../includes/sidebar.php';
                                     <option value="">Select User</option>
                                     <?php foreach ($users as $user): ?>
                                     <option value="<?php echo $user['id']; ?>" <?php echo ($_POST['related_user_id'] ?? '') == $user['id'] ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($user['name'] . ' (' . ucfirst(str_replace('_', ' ', $user['role'])) . ')'); ?>
+                                        <?php echo htmlspecialchars($user['name'] . ' (' . formatRoleName($user['role']) . ')'); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>

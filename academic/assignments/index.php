@@ -127,41 +127,80 @@ $stmt->execute();
 $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get classes and subjects for filters
-$classes_query = "SELECT id, name FROM classes WHERE status = 'active' ORDER BY name";
-$classes_stmt = $db->query($classes_query);
-$classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($user_role === 'student') {
+    // Students only get their own active class and that class's subjects in the
+    // filter dropdowns, so no other class/subject is exposed.
+    $own_class_stmt = $db->prepare("SELECT class_id FROM student_classes WHERE student_id = :sid AND status = 'active' LIMIT 1");
+    $own_class_stmt->execute([':sid' => $user_id]);
+    $own_class_id = $own_class_stmt->fetchColumn() ?: 0;
 
-$subjects_query = "SELECT id, name FROM subjects ORDER BY name";
-$subjects_stmt = $db->query($subjects_query);
-$subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $classes_stmt = $db->prepare("SELECT id, name FROM classes WHERE id = :cid AND status = 'active'");
+    $classes_stmt->execute([':cid' => $own_class_id]);
+    $classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $subjects_stmt = $db->prepare("SELECT id, name FROM subjects WHERE class_id = :cid ORDER BY name");
+    $subjects_stmt->execute([':cid' => $own_class_id]);
+    $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+} elseif ($user_role === 'teacher') {
+    // Teachers only get the classes and subjects they are assigned to teach
+    // (via the class_teachers junction), so the filters are teacher-specific.
+    $classes_stmt = $db->prepare("SELECT DISTINCT c.id, c.name
+        FROM class_teachers ct
+        JOIN classes c ON ct.class_id = c.id
+        WHERE ct.teacher_id = :tid AND c.status = 'active'
+        ORDER BY c.name");
+    $classes_stmt->execute([':tid' => $user_id]);
+    $classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $subjects_stmt = $db->prepare("SELECT DISTINCT s.id, s.name
+        FROM class_teachers ct
+        JOIN subjects s ON ct.subject_id = s.id
+        WHERE ct.teacher_id = :tid
+        ORDER BY s.name");
+    $subjects_stmt->execute([':tid' => $user_id]);
+    $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $classes_query = "SELECT id, name FROM classes WHERE status = 'active' ORDER BY name";
+    $classes_stmt = $db->query($classes_query);
+    $classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $subjects_query = "SELECT id, name FROM subjects ORDER BY name";
+    $subjects_stmt = $db->query($subjects_query);
+    $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <?php include '../../includes/header.php'; ?>
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
         <div class="w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-3xl font-semibold text-gray-800">
+            <div class="mb-6 assignment-header">
+                <h1 class="text-3xl font-semibold text-gray-800 mb-3">
                     <?php echo $user_role === 'student' ? 'My Assignments' : 'Assignment Management'; ?>
                 </h1>
-                <div class="flex space-x-3">
-                    <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+                <div class="flex flex-wrap items-center gap-3">
+                    <a href="../index.php" class="inline-flex items-center whitespace-nowrap bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Academic
                     </a>
-                    <?php if (in_array($user_role, ['super_admin', 'school_admin', 'teacher'])): ?>
-                    <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-plus mr-2"></i>Create Assignment
-                    </a>
-                    <?php endif; ?>
+                    <div class="flex items-center gap-3">
+                        <?php if (in_array($user_role, ['super_admin', 'school_admin', 'teacher'])): ?>
+                        <a href="create.php" class="inline-flex items-center whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg">
+                            <i class="fas fa-plus mr-2"></i>Create Assignment
+                        </a>
+                        <?php endif; ?>
+                        <a href="../../online_learning/submissions.php" class="inline-flex items-center whitespace-nowrap bg-indigo-500 hover:bg-indigo-600 text-white px-3 sm:px-4 py-2 rounded-lg">
+                            <i class="fas fa-file-signature mr-2"></i><?php echo $user_role === 'student' ? 'My Submissions' : 'Submissions &amp; Grading'; ?>
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -345,12 +384,19 @@ $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="text-xs text-gray-500 dark:text-gray-400">
                                 Created: <?php echo date('M j, Y', strtotime($assignment['created_at'])); ?>
                             </div>
-                            <div class="flex space-x-2">
+                            <div class="flex space-x-2 no-stack assignment-actions">
                                 <a href="view.php?id=<?php echo $assignment['id']; ?>"
                                     class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                                     <i class="fas fa-eye mr-2"></i>
                                     View Details
                                 </a>
+                                <?php if (in_array($user_role, ['super_admin', 'school_admin', 'teacher'])): ?>
+                                <a href="../../online_learning/submissions.php?assignment_id=<?php echo $assignment['id']; ?>"
+                                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                                    <i class="fas fa-file-signature mr-2"></i>
+                                    Submissions
+                                </a>
+                                <?php endif; ?>
                                 <?php if ($user_role === 'student' && !$is_submitted && !$is_overdue): ?>
                                 <a href="submit.php?id=<?php echo $assignment['id']; ?>"
                                     class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">

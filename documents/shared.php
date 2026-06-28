@@ -16,14 +16,26 @@ $role = $_SESSION['role'];
 if ($_POST && isset($_POST['share_file'])) {
     $document_id = $_POST['document_id'];
     $shared_with = $_POST['shared_with'] ?? null;
+    if (empty($shared_with)) {
+        $shared_with = null;
+    }
     $shared_with_role = $_POST['shared_with_role'] ?? null;
+    if ($shared_with_role === 'admin') {
+        $shared_with_role = 'school_admin';
+    }
+    if (empty($shared_with_role)) {
+        $shared_with_role = null;
+    }
     $access_type = $_POST['access_type'];
     $expires_at = $_POST['expires_at'] ?? null;
+    if (empty($expires_at)) {
+        $expires_at = null;
+    }
 
     try {
         $insert_query = "
-            INSERT INTO shared_documents
-            (document_id, shared_by, shared_with, shared_with_role, access_type, expires_at, created_at)
+            INSERT INTO document_shares
+            (document_id, shared_by, shared_with_user_id, shared_with_role, permission_level, expiry_date, created_at)
             VALUES (:document_id, :shared_by, :shared_with, :shared_with_role, :access_type, :expires_at, NOW())
         ";
         $insert_stmt = $db->prepare($insert_query);
@@ -35,6 +47,58 @@ if ($_POST && isset($_POST['share_file'])) {
         $insert_stmt->bindParam(':expires_at', $expires_at);
         $insert_stmt->execute();
 
+        // Send notifications
+        if ($shared_with) {
+            $doc_query = "SELECT title FROM documents WHERE id = :doc_id";
+            $doc_stmt = $db->prepare($doc_query);
+            $doc_stmt->bindParam(':doc_id', $document_id);
+            $doc_stmt->execute();
+            $doc_title = $doc_stmt->fetchColumn() ?: 'a file';
+
+            $notif_query = "
+                INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
+                VALUES (:user_id, :title, :message, 'info', 0, NOW())
+            ";
+            $notif_stmt = $db->prepare($notif_query);
+            $notif_stmt->bindParam(':user_id', $shared_with);
+            $notif_title = "New Shared File";
+            $sender_name = $_SESSION['name'] ?? 'Someone';
+            $notif_msg = htmlspecialchars($sender_name) . " shared a file with you: \"" . htmlspecialchars($doc_title) . "\".";
+            $notif_stmt->bindParam(':title', $notif_title);
+            $notif_stmt->bindParam(':message', $notif_msg);
+            $notif_stmt->execute();
+        } elseif ($shared_with_role) {
+            $doc_query = "SELECT title FROM documents WHERE id = :doc_id";
+            $doc_stmt = $db->prepare($doc_query);
+            $doc_stmt->bindParam(':doc_id', $document_id);
+            $doc_stmt->execute();
+            $doc_title = $doc_stmt->fetchColumn() ?: 'a file';
+
+            $users_query = "SELECT id FROM users WHERE role = :role";
+            $users_stmt = $db->prepare($users_query);
+            $users_stmt->bindParam(':role', $shared_with_role);
+            $users_stmt->execute();
+            $role_users = $users_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $notif_query = "
+                INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
+                VALUES (:user_id, :title, :message, 'info', 0, NOW())
+            ";
+            $notif_stmt = $db->prepare($notif_query);
+            $notif_title = "New Shared File";
+            $sender_name = $_SESSION['name'] ?? 'Someone';
+            $notif_msg = htmlspecialchars($sender_name) . " shared a file with your department: \"" . htmlspecialchars($doc_title) . "\".";
+            $notif_stmt->bindParam(':title', $notif_title);
+            $notif_stmt->bindParam(':message', $notif_msg);
+
+            foreach ($role_users as $r_user_id) {
+                if ($r_user_id != $user_id) {
+                    $notif_stmt->bindParam(':user_id', $r_user_id);
+                    $notif_stmt->execute();
+                }
+            }
+        }
+
         $success_message = "File shared successfully!";
     } catch (PDOException $e) {
         $error_message = "Failed to share file: " . $e->getMessage();
@@ -45,13 +109,13 @@ if ($_POST && isset($_POST['share_file'])) {
 $shared_files = [];
 try {
     $shared_query = "
-        SELECT sd.*, du.title, du.file_name, du.file_type, du.file_size, du.created_at as upload_date,
+        SELECT sd.*, sd.expiry_date as expires_at, sd.permission_level as access_type, d.title, d.file_name, d.file_type, d.file_size, d.created_at as upload_date,
                sharer.name as shared_by_name, recipient.name as shared_with_name
-        FROM shared_documents sd
-        LEFT JOIN document_uploads du ON sd.document_id = du.id
+        FROM document_shares sd
+        LEFT JOIN documents d ON sd.document_id = d.id
         LEFT JOIN users sharer ON sd.shared_by = sharer.id
-        LEFT JOIN users recipient ON sd.shared_with = recipient.id
-        WHERE sd.shared_with = :user_id
+        LEFT JOIN users recipient ON sd.shared_with_user_id = recipient.id
+        WHERE sd.shared_with_user_id = :user_id
         OR sd.shared_with_role = :role
         OR sd.shared_by = :user_id
         ORDER BY sd.created_at DESC
@@ -71,7 +135,7 @@ if (in_array($role, ['super_admin', 'school_admin', 'principal', 'teacher'])) {
     try {
         $docs_query = "
             SELECT id, title, file_name, file_type
-            FROM document_uploads
+            FROM documents
             WHERE uploaded_by = :user_id
             ORDER BY title
         ";
@@ -102,9 +166,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -224,7 +288,7 @@ include '../includes/sidebar.php';
                                         <?php if ($file['shared_with_name']): ?>
                                             <?php echo htmlspecialchars($file['shared_with_name']); ?>
                                         <?php else: ?>
-                                            <span class="text-blue-600 dark:text-blue-400"><?php echo ucfirst($file['shared_with_role']); ?> Role</span>
+                                            <span class="text-blue-600 dark:text-blue-400"><?php echo htmlspecialchars(formatRoleName($file['shared_with_role'])); ?> Role</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -330,7 +394,7 @@ include '../includes/sidebar.php';
                             <option value="">Choose a user</option>
                             <?php foreach ($users as $user): ?>
                             <option value="<?php echo $user['id']; ?>">
-                                <?php echo htmlspecialchars($user['name']); ?> (<?php echo ucfirst($user['role']); ?>)
+                                <?php echo htmlspecialchars($user['name']); ?> (<?php echo htmlspecialchars(formatRoleName($user['role'])); ?>)
                             </option>
                             <?php endforeach; ?>
                         </select>
@@ -343,7 +407,7 @@ include '../includes/sidebar.php';
                             <option value="student">All Students</option>
                             <option value="teacher">All Teachers</option>
                             <option value="parent">All Parents</option>
-                            <option value="admin">All Admins</option>
+                            <option value="school_admin">All Admins</option>
                         </select>
                     </div>
 

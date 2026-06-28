@@ -1,0 +1,1539 @@
+/* ============================================================
+   RESPONSIVE DESIGN SYSTEM - School Management System
+   Comprehensive responsive styles for all screen sizes
+   Breakpoints: 480px (xs), 640px (sm), 768px (md), 1024px (lg), 1280px (xl)
+   ============================================================ */
+
+/* ============================================================
+   BASE & GLOBAL RESPONSIVE FIXES
+   ============================================================ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+}
+
+img,
+video,
+iframe,
+canvas,
+svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Prevent text overflow everywhere */
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span,
+a,
+li,
+td,
+th,
+label,
+div {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ============================================================
+   MOBILE SIDEBAR OVERLAY
+   ============================================================ */
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 25;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ============================================================
+   HEADER RESPONSIVE STYLES
+   ============================================================ */
+
+/* All mobile/tablet screens (< 1024px) */
+@media (max-width: 1023px) {
+
+    /* Ensure header height is consistently 56px and padding is clean */
+    header.gradient-bg {
+        height: 56px !important;
+    }
+
+    /* Hide academic context, time, date center section on mobile/tablet */
+    header .header-center-section {
+        display: none !important;
+    }
+
+    /* Ensure user menu button and profile picture are aligned and compact */
+    header .dropdown button.flex {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        width: 32px !important;
+        height: 32px !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    header .w-8.h-8.rounded-full {
+        width: 32px !important;
+        height: 32px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Simplify right section layout spacing */
+    header .header-right-section {
+        gap: 6px !important;
+        padding-right: 4px !important;
+    }
+
+    /* Reduce icon/button sizes for compact mobile header */
+    header button.p-2,
+    header .dropdown button {
+        padding: 6px !important;
+        width: 34px !important;
+        height: 34px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+}
+
+/* Extra small screens (< 480px) */
+@media (max-width: 480px) {
+
+    /* Hide school name text entirely */
+    header .hidden.sm\:block {
+        display: none !important;
+    }
+
+    /* Force header content to stay on one line and center vertically */
+    header .flex {
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+    }
+
+    /* Fixed alignment for visible header items */
+    header .flex.justify-between {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+    }
+}
+
+/* All screens below 1024px (mobile/tablet) - sidebar + layout */
+@media (max-width: 1023px) {
+
+    /* Sidebar: Full overlay on mobile */
+    .sidebar {
+        width: 280px !important;
+        z-index: 30 !important;
+    }
+
+    /* Hide the sidebar spacer div - ENHANCED FORCE */
+    .sidebar-spacer,
+    [class*="sidebar-spacer"],
+    .w-72.flex-shrink-0,
+    .w-64.flex-shrink-0,
+    .w-16.flex-shrink-0,
+    div[x-bind\:class*="sidebar"] {
+        display: none !important;
+        width: 0 !important;
+        max-width: 0 !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        pointer-events: none !important;
+    }
+
+    /* Main content full width on mobile */
+    main {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .flex-1.flex.flex-col {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Reduce main content padding */
+    main.p-6,
+    main.p-6.lg\:p-8 {
+        padding: 4px 12px 12px 12px !important;
+        /* Tighten top padding for mobile */
+    }
+
+    /* The wrapper <main> emitted by header.php (no class) must NOT inset page
+       content — the inner <main class="p-6"> already provides content padding.
+       Removing its side padding lets the page container span the full viewport so
+       full-width sections (e.g. the footer) reach the screen edges like the header. */
+    main:not([class]) {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Notification & chat dropdown widths */
+    .dropdown-content.w-80 {
+        width: 280px !important;
+        right: -40px !important;
+    }
+
+    .dropdown-content.w-56 {
+        width: 220px !important;
+    }
+
+    /* Make sure dropdowns don't go off-screen */
+    .dropdown-content {
+        max-width: calc(100vw - 20px) !important;
+    }
+}
+
+/* ============================================================
+   MAIN CONTENT AREA RESPONSIVE
+   ============================================================ */
+
+/* Page header sections (the gradient hero banners used across pages) */
+@media (max-width: 640px) {
+
+    .page-header-gradient,
+    .dashboard-card-gradient {
+        padding: 16px !important;
+        border-radius: 12px !important;
+    }
+
+    .page-header-gradient h1,
+    .dashboard-card-gradient h1 {
+        font-size: 1.25rem !important;
+        margin-bottom: 4px !important;
+    }
+
+    .page-header-gradient p,
+    .dashboard-card-gradient p {
+        font-size: 0.8rem !important;
+    }
+
+    .page-header-gradient .text-3xl,
+    .dashboard-card-gradient .text-3xl {
+        font-size: 1.25rem !important;
+    }
+
+    /* Hide the large decorative icon on mobile */
+    .page-header-gradient .hidden.md\:block,
+    .dashboard-card-gradient .hidden.md\:block {
+        display: none !important;
+    }
+
+    .page-header-gradient .flex.items-center.space-x-4 {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+    }
+
+    /* Margin below header */
+    .mb-8 {
+        margin-bottom: 16px !important;
+    }
+
+    /* OVERRIDE: All header navigation buttons - maintain readable size */
+    .subjects-header .flex.no-stack a,
+    .assignment-header .flex.no-stack a,
+    .assignment-details-header .flex.no-stack a,
+    .edit-assignment-header .flex.no-stack a,
+    .timetable-header .flex.no-stack a {
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+        line-height: 20px !important;
+        background-color: #3b82f6 !important;
+        color: white !important;
+        border-radius: 0.5rem !important;
+        text-decoration: none !important;
+        transition: background-color 0.2s !important;
+    }
+
+    .subjects-header .flex.no-stack a:hover,
+    .assignment-header .flex.no-stack a:hover,
+    .assignment-details-header .flex.no-stack a:hover,
+    .edit-assignment-header .flex.no-stack a:hover,
+    .timetable-header .flex.no-stack a:hover {
+        background-color: #2563eb !important;
+    }
+
+    .subjects-header .flex.no-stack a i,
+    .assignment-header .flex.no-stack a i,
+    .assignment-details-header .flex.no-stack a i,
+    .edit-assignment-header .flex.no-stack a i,
+    .timetable-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 14px !important;
+        color: white !important;
+    }
+
+    /* Timetable Management Header - Button stays horizontal under title */
+    .timetable-header {
+        display: block !important;
+    }
+
+    .timetable-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .timetable-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    /* Timetable action buttons - horizontal layout */
+    .timetable-header .flex.space-x-2 {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        margin: 0 !important;
+    }
+
+    .timetable-header .flex.space-x-2 > * + * {
+        margin-left: 0 !important;
+    }
+
+    .timetable-header .flex.space-x-2 button {
+        padding: 8px 12px !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+    }
+
+    .timetable-header .flex.space-x-2 button i {
+        margin-right: 4px !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Form action buttons - keep horizontal on mobile */
+    .form-buttons.flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 10px !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+    }
+
+    .form-buttons.flex.no-stack a,
+    .form-buttons.flex.no-stack button {
+        padding: 10px 20px !important;
+        font-size: 14px !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .form-buttons.flex.no-stack button i {
+        margin-right: 6px !important;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+
+    .page-header-gradient,
+    .dashboard-card-gradient {
+        padding: 20px !important;
+    }
+
+    .page-header-gradient h1,
+    .dashboard-card-gradient h1,
+    .page-header-gradient .text-3xl,
+    .dashboard-card-gradient .text-3xl {
+        font-size: 1.5rem !important;
+    }
+}
+
+/* ============================================================
+   DASHBOARD CARDS / STAT CARDS RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Stats grid: 2 columns on mobile */
+    .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4,
+    .grid.grid-cols-2.md\:grid-cols-4,
+    .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4,
+    .grid.grid-cols-1.md\:grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    /* Dashboard stat cards - smaller on mobile */
+    .grid .bg-white.rounded-lg,
+    .grid .bg-white.rounded-xl,
+    .grid .bg-white.dark\:bg-gray-800 {
+        padding: 12px !important;
+    }
+
+    .grid .text-2xl,
+    .grid .text-3xl {
+        font-size: 1.25rem !important;
+    }
+
+    .grid .text-4xl {
+        font-size: 1.5rem !important;
+    }
+
+    /* Student cards: 1 column on mobile */
+    .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-3 {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1023px) {
+
+    /* Stats grid: 2 columns on tablet */
+    .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4,
+    .grid.grid-cols-2.md\:grid-cols-4,
+    .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Student cards: 2 columns on tablet */
+    .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-3 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* ============================================================
+   TABLES RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+
+    /* Make tables horizontally scrollable */
+    .overflow-x-auto {
+        display: block !important;
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    table {
+        display: table !important;
+        width: 100% !important;
+        min-width: 600px;
+    }
+
+    /* Smaller table text/padding on mobile */
+    table th,
+    table td {
+        padding: 8px 10px !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap;
+    }
+
+    /* Ensure table has full width layout inside cards */
+    .bg-white table,
+    .dark\:bg-gray-800 table {
+        display: table !important;
+        width: 100% !important;
+    }
+}
+
+/* ============================================================
+   FORMS RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Stack form grids */
+    .grid.grid-cols-1.md\:grid-cols-2,
+    .grid.grid-cols-1.md\:grid-cols-3,
+    .grid.grid-cols-1.md\:grid-cols-4,
+    .grid.grid-cols-2.md\:grid-cols-4,
+    form .grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    /* Full-width inputs */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="search"],
+    select,
+    textarea {
+        width: 100% !important;
+        font-size: 16px !important;
+        /* Prevent iOS zoom on focus */
+    }
+
+    /* Stack button groups */
+    .flex.space-x-3:not(header *):not(.sidebar *):not(#sidebar *):not(table *):not(footer *):not(.text-gray-600):not(.breadcrumbs *):not(.breadcrumb *):not(.no-stack),
+    .flex.space-x-2:not(header *):not(.sidebar *):not(#sidebar *):not(table *):not(footer *):not(.text-gray-600):not(.breadcrumbs *):not(.breadcrumb *):not(.no-stack),
+    .flex.space-x-4:not(header *):not(.sidebar *):not(#sidebar *):not(table *):not(footer *):not(.text-gray-600):not(.breadcrumbs *):not(.breadcrumb *):not(.no-stack) {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    [class*="space-x-"]:not(header *):not(.sidebar *):not(#sidebar *):not(table *):not(footer *):not(.text-gray-600):not(.breadcrumbs *):not(.breadcrumb *):not(.no-stack)>*+* {
+        margin-left: 0 !important;
+    }
+
+    /* Full-width buttons on mobile */
+    .flex.justify-end.items-center.mb-6 {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .flex.justify-end.items-center.mb-6 .flex {
+        flex-direction: column !important;
+    }
+
+    .flex.justify-end.items-center.mb-6 a,
+    .flex.justify-end.items-center.mb-6 button {
+        width: 100% !important;
+        text-align: center !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 10px !important;
+        white-space: nowrap !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Subjects Management Header - Buttons stay horizontal under title */
+    .subjects-header {
+        display: block !important;
+    }
+
+    .subjects-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .subjects-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .subjects-header .flex.no-stack a {
+        padding: 10px 14px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .subjects-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Assignment Management Header - Buttons stay horizontal under title */
+    .assignment-header {
+        display: block !important;
+    }
+
+    .assignment-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .assignment-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .assignment-header .flex.no-stack a {
+        padding: 10px 14px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .assignment-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Assignment Actions - Keep buttons horizontal on mobile */
+    .assignment-actions.flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+    }
+
+    .assignment-actions.flex.no-stack a,
+    .assignment-actions.flex.no-stack button {
+        padding: 6px 8px !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+    }
+
+    .assignment-actions.flex.no-stack a i {
+        font-size: 0.7rem !important;
+    }
+
+    .assignment-actions.flex.no-stack form {
+        margin: 0 !important;
+    }
+
+    /* Assignment Details Header - Buttons stay horizontal under title */
+    .assignment-details-header {
+        display: block !important;
+    }
+
+    .assignment-details-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .assignment-details-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .assignment-details-header .flex.no-stack a {
+        padding: 10px 14px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .assignment-details-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Assignment Card Header - Better mobile layout */
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 .flex.justify-between.items-start {
+        flex-direction: column !important;
+        gap: 0 !important;
+    }
+
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 .text-white.flex-grow {
+        width: 100% !important;
+        margin-bottom: 8px !important;
+    }
+
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 h3 {
+        font-size: 1rem !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Assignment info - display in grid on mobile */
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 .flex.flex-wrap.gap-3 {
+        display: grid !important;
+        grid-template-columns: auto 1fr !important;
+        gap: 6px 12px !important;
+        font-size: 0.75rem !important;
+    }
+
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 .flex.flex-wrap.gap-3 span {
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    /* Status badge - position at top right */
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 .flex.flex-col.items-end {
+        width: 100% !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+    }
+
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 .flex.flex-col.items-end .flex.space-x-2 {
+        display: flex !important;
+        flex-direction: row !important;
+    }
+
+    .bg-gradient-to-r.from-indigo-500.to-purple-600 span.px-3.py-1 {
+        font-size: 0.7rem !important;
+        padding: 4px 8px !important;
+        white-space: nowrap !important;
+    }
+
+    /* Edit Assignment Header - Buttons stay horizontal under title */
+    .edit-assignment-header {
+        display: block !important;
+    }
+
+    .edit-assignment-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .edit-assignment-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .edit-assignment-header .flex.no-stack a {
+        padding: 10px 14px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .edit-assignment-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    .edit-assignment-header .flex.no-stack a i {
+        margin-right: 4px !important;
+    }
+
+    /* Class Details Header - Buttons stay horizontal under title */
+    .class-details-header {
+        display: block !important;
+        margin-bottom: 24px !important;
+    }
+
+    .class-details-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .class-details-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .class-details-header .flex.no-stack a {
+        padding: 10px 16px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 0.5rem !important;
+        text-decoration: none !important;
+        transition: background-color 0.2s !important;
+    }
+
+    /* Edit Class button - blue background */
+    .class-details-header .flex.no-stack a.bg-blue-500 {
+        background-color: #3b82f6 !important;
+        color: white !important;
+    }
+
+    .class-details-header .flex.no-stack a.bg-blue-500:hover {
+        background-color: #2563eb !important;
+    }
+
+    /* Back button - add gray background */
+    .class-details-header .flex.no-stack a.text-blue-600 {
+        background-color: #e5e7eb !important;
+        color: #2563eb !important;
+        padding: 10px 16px !important;
+    }
+
+    .class-details-header .flex.no-stack a.text-blue-600:hover {
+        background-color: #d1d5db !important;
+        color: #1d4ed8 !important;
+    }
+
+    .class-details-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Exam Management Header - Buttons stay horizontal under title */
+    .exam-management-header {
+        display: block !important;
+        margin-bottom: 24px !important;
+    }
+
+    .exam-management-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .exam-management-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .exam-management-header .flex.no-stack a {
+        padding: 10px 16px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 0.5rem !important;
+        text-decoration: none !important;
+        transition: background-color 0.2s !important;
+    }
+
+    /* Schedule New Exam button - blue background */
+    .exam-management-header .flex.no-stack a.bg-blue-500 {
+        background-color: #3b82f6 !important;
+        color: white !important;
+    }
+
+    .exam-management-header .flex.no-stack a.bg-blue-500:hover {
+        background-color: #2563eb !important;
+    }
+
+    /* Back button - add gray background */
+    .exam-management-header .flex.no-stack a.text-blue-600 {
+        background-color: #e5e7eb !important;
+        color: #2563eb !important;
+        padding: 10px 16px !important;
+    }
+
+    .exam-management-header .flex.no-stack a.text-blue-600:hover {
+        background-color: #d1d5db !important;
+        color: #1d4ed8 !important;
+    }
+
+    .exam-management-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Exam Results Header - Buttons stay horizontal under title */
+    .exam-results-header {
+        display: block !important;
+        margin-bottom: 24px !important;
+    }
+
+    .exam-results-header h1 {
+        margin-bottom: 12px !important;
+    }
+
+    .exam-results-header .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
+    .exam-results-header .flex.no-stack a {
+        padding: 10px 16px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 0.5rem !important;
+        text-decoration: none !important;
+        transition: background-color 0.2s !important;
+    }
+
+    /* Export Results button - green background */
+    .exam-results-header .flex.no-stack a.bg-green-500 {
+        background-color: #10b981 !important;
+        color: white !important;
+    }
+
+    .exam-results-header .flex.no-stack a.bg-green-500:hover {
+        background-color: #059669 !important;
+    }
+
+    /* Back button - add gray background */
+    .exam-results-header .flex.no-stack a.text-blue-600 {
+        background-color: #e5e7eb !important;
+        color: #2563eb !important;
+        padding: 10px 16px !important;
+    }
+
+    .exam-results-header .flex.no-stack a.text-blue-600:hover {
+        background-color: #d1d5db !important;
+        color: #1d4ed8 !important;
+    }
+
+    .exam-results-header .flex.no-stack a i {
+        margin-right: 6px !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Attendance Action Buttons - Keep horizontal on mobile */
+    .attendance-action-buttons {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin-bottom: 24px !important;
+    }
+
+    .attendance-action-buttons .flex.no-stack {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .attendance-action-buttons .flex.no-stack a {
+        flex: 1 !important;
+        justify-content: center !important;
+        padding: 12px 16px !important;
+        font-size: 0.875rem !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+    }
+
+    .attendance-action-buttons .export-button-wrapper {
+        width: 100% !important;
+    }
+
+    .attendance-action-buttons .export-button-wrapper button {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 10px 16px !important;
+    }
+
+    /* Exam List - Hide desktop table, show mobile cards */
+    .exam-table-header {
+        display: none !important;
+    }
+
+    .exam-table-row {
+        display: none !important;
+    }
+
+    .exam-mobile-card {
+        display: block !important;
+    }
+
+    /* Mobile card styling enhancements */
+    .exam-mobile-card {
+        background-color: #ffffff;
+        transition: background-color 0.2s;
+    }
+
+    .exam-mobile-card:hover {
+        background-color: #f9fafb;
+    }
+
+    .exam-mobile-card h3 {
+        font-size: 1rem !important;
+        line-height: 1.3 !important;
+    }
+
+    .exam-mobile-card .grid.grid-cols-2 {
+        margin-bottom: 12px !important;
+    }
+
+    .exam-mobile-card .flex.flex-wrap {
+        margin-top: 12px !important;
+    }
+
+    .exam-mobile-card .flex.flex-wrap a {
+        min-width: 80px !important;
+        text-align: center !important;
+    }
+
+    /* Assignment Statistics Cards - Force horizontal 2-column layout on mobile */
+    main .grid.grid-cols-2.md\:grid-cols-4 {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+
+    /* Make stat cards more compact and vertical layout on mobile */
+    main .grid.grid-cols-2.md\:grid-cols-4 > div {
+        padding: 12px !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .space-x-4 {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        gap: 0 !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .space-x-4 > * + * {
+        margin-left: 0 !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .p-3 {
+        padding: 10px !important;
+        margin-bottom: 8px !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .text-xl {
+        font-size: 1.1rem !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .text-2xl {
+        font-size: 1.5rem !important;
+        line-height: 1.2 !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .text-sm {
+        font-size: 0.7rem !important;
+        margin-bottom: 4px !important;
+    }
+
+    main .grid.grid-cols-2.md\:grid-cols-4 .text-xs {
+        font-size: 0.65rem !important;
+    }
+}
+
+/* ============================================================
+   FILTERS / SEARCH BAR RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Filter forms - stack vertically */
+    .bg-white.rounded-lg.shadow.mb-6 form.grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .bg-white.rounded-lg.shadow.mb-6 .p-4 {
+        padding: 12px !important;
+    }
+}
+
+/* ============================================================
+   FOOTER RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+    footer .container {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        padding-top: 24px !important;
+        padding-bottom: 4px !important;
+    }
+
+    footer .border-t {
+        padding-top: 4px !important;
+    }
+
+    footer .border-t .space-y-4>*+* {
+        margin-top: 4px !important;
+    }
+
+    /* Stack footer grid to single column */
+    footer .grid {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+    }
+
+    /* Center footer bottom content */
+    footer .flex.flex-col.md\:flex-row {
+        text-align: center !important;
+    }
+
+    footer .flex.items-center.space-x-4.text-xs {
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+
+    /* Social media icons - center */
+    footer .flex.space-x-4 {
+        justify-content: center !important;
+    }
+
+    /* Hide "Last updated" on very small screens */
+    footer .text-xs.text-blue-100 {
+        display: none !important;
+    }
+
+    /* Footer heading size */
+    footer h3 {
+        font-size: 1rem !important;
+    }
+
+    /* System status boxes */
+    footer .flex.items-center.justify-between.p-3 {
+        padding: 8px 12px !important;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+    footer .grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 20px !important;
+    }
+}
+
+
+/* ============================================================
+   MODAL / DIALOG RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Search modal */
+    .search-overlay .max-w-2xl {
+        max-width: 95% !important;
+        margin: 10px !important;
+    }
+
+    .search-overlay .p-4 {
+        padding: 12px !important;
+    }
+
+    .search-overlay input {
+        font-size: 16px !important;
+        /* Prevent iOS zoom */
+    }
+
+    /* Any modal popups */
+    .fixed.inset-0 .max-w-lg,
+    .fixed.inset-0 .max-w-xl,
+    .fixed.inset-0 .max-w-2xl,
+    .fixed.inset-0 .max-w-3xl,
+    .fixed.inset-0 .max-w-4xl {
+        max-width: 95vw !important;
+        margin: 8px !important;
+    }
+}
+
+/* ============================================================
+   CARD LAYOUTS RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Cards general */
+    .rounded-2xl {
+        border-radius: 12px !important;
+    }
+
+    .rounded-xl {
+        border-radius: 10px !important;
+    }
+
+    /* Card padding reduction */
+    .p-8 {
+        padding: 16px !important;
+    }
+
+    .p-6 {
+        padding: 12px !important;
+    }
+
+    /* Shadow reduction for performance */
+    .shadow-xl {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .shadow-2xl {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    }
+}
+
+/* ============================================================
+   CHARTS / CANVAS RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+    canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Chart containers */
+    .chart-container,
+    [style*="height: 300px"],
+    [style*="height: 400px"] {
+        height: 200px !important;
+    }
+}
+
+/* ============================================================
+   TYPOGRAPHY RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+    .text-3xl {
+        font-size: 1.5rem !important;
+    }
+
+    .text-2xl {
+        font-size: 1.25rem !important;
+    }
+
+    .text-xl {
+        font-size: 1.1rem !important;
+    }
+
+    .text-lg {
+        font-size: 1rem !important;
+    }
+}
+
+/* ============================================================
+   NOTIFICATION / ALERTS RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+    .notification {
+        max-width: calc(100vw - 32px) !important;
+        right: 16px !important;
+        left: 16px !important;
+    }
+
+    /* Alert boxes */
+    .bg-green-100.border,
+    .bg-red-100.border,
+    .bg-yellow-100.border,
+    .bg-blue-100.border {
+        padding: 10px 12px !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+/* ============================================================
+   PAGINATION RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+    nav[aria-label="Pagination"] {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+    }
+
+    nav[aria-label="Pagination"] a {
+        padding: 6px 10px !important;
+        font-size: 0.75rem !important;
+    }
+}
+
+/* ============================================================
+   SPECIFIC PAGE FIXES
+   ============================================================ */
+
+/* Profile page */
+@media (max-width: 640px) {
+    .profile-header .flex {
+        flex-direction: column !important;
+        text-align: center !important;
+    }
+
+    .profile-header .w-32,
+    .profile-header .w-24 {
+        width: 80px !important;
+        height: 80px !important;
+        margin: 0 auto 12px !important;
+    }
+}
+
+/* Settings page */
+@media (max-width: 768px) {
+    .settings-tabs {
+        flex-direction: column !important;
+    }
+
+    .settings-tabs button,
+    .settings-tabs a {
+        width: 100% !important;
+        text-align: left !important;
+    }
+}
+
+/* Help / Support page */
+@media (max-width: 640px) {
+    .accordion .p-6 {
+        padding: 12px !important;
+    }
+}
+
+/* ============================================================
+   PRINT RESPONSIVE (prevent breaking)
+   ============================================================ */
+@media print {
+
+    .sidebar,
+    .sidebar-overlay,
+    header,
+    #sidebar-toggle {
+        display: none !important;
+    }
+
+    main {
+        margin: 0 !important;
+        padding: 10px !important;
+        width: 100% !important;
+    }
+
+    .flex.bg-gray-50 {
+        margin-top: 0 !important;
+    }
+}
+
+/* ============================================================
+   SIDEBAR RESPONSIVE (additional fixes)
+   ============================================================ */
+@media (max-width: 1023px) {
+
+    /* Ensure sidebar starts hidden on mobile */
+    #sidebar {
+        transform: translateX(-100%);
+    }
+
+    /* When sidebar is shown on mobile */
+    #sidebar.sidebar-open {
+        transform: translateX(0) !important;
+    }
+
+    /* Sidebar profile section compact on mobile */
+    #sidebar .py-6 {
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+    }
+
+    #sidebar .w-14.h-14 {
+        width: 40px !important;
+        height: 40px !important;
+    }
+}
+
+/* ============================================================
+   DASHBOARD SPECIFIC RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Welcome banner */
+    .dashboard-card-gradient .text-3xl.font-bold {
+        font-size: 1.25rem !important;
+    }
+
+    .dashboard-card-gradient .text-lg {
+        font-size: 0.875rem !important;
+    }
+
+    /* Activity lists */
+    .space-y-4>div {
+        padding: 8px !important;
+    }
+
+    /* Quick action buttons in dashboards */
+    .grid.grid-cols-2.gap-4,
+    .grid.grid-cols-3.gap-4,
+    .grid.grid-cols-4.gap-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+}
+
+/* ============================================================
+   COMMUNICATION / CHAT RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+
+    /* Chat containers */
+    .chat-container {
+        height: calc(100vh - 200px) !important;
+    }
+
+    .chat-messages {
+        max-height: calc(100vh - 300px) !important;
+    }
+
+    .chat-input {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+}
+
+/* ============================================================
+   UTILITIES - Responsive helpers
+   ============================================================ */
+
+/* Hide on mobile */
+@media (max-width: 640px) {
+    .hide-mobile {
+        display: none !important;
+    }
+}
+
+/* Hide on tablet */
+@media (min-width: 641px) and (max-width: 1023px) {
+    .hide-tablet {
+        display: none !important;
+    }
+}
+
+/* Show only on mobile */
+@media (min-width: 641px) {
+    .show-mobile-only {
+        display: none !important;
+    }
+}
+
+/* Full width on mobile */
+@media (max-width: 640px) {
+    .mobile-full-width {
+        width: 100% !important;
+    }
+
+    .mobile-stack {
+        flex-direction: column !important;
+    }
+
+    .mobile-center {
+        text-align: center !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+}
+
+/* ============================================================
+   LANDSCAPE PHONE FIX
+   ============================================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+    main {
+        padding: 8px !important;
+    }
+}
+
+/* ============================================================
+   SAFE AREA (Notched phones like iPhone X+)
+   ============================================================ */
+@supports (padding: env(safe-area-inset-bottom)) {
+    footer {
+        padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    }
+
+    @media (max-width: 640px) {
+        footer {
+            padding-bottom: env(safe-area-inset-bottom) !important;
+        }
+    }
+
+    header {
+        padding-top: env(safe-area-inset-top) !important;
+    }
+}
+
+/* ============================================================
+   SCROLLBAR MOBILE - Thinner on mobile
+   ============================================================ */
+@media (max-width: 768px) {
+    ::-webkit-scrollbar {
+        width: 4px !important;
+        height: 4px !important;
+    }
+}
+
+/* ============================================================
+   DARK MODE + RESPONSIVE COMBINED FIXES
+   ============================================================ */
+@media (max-width: 640px) {
+
+    .dark .bg-white.rounded-lg,
+    .dark .bg-white.rounded-xl {
+        background-color: #1e293b !important;
+    }
+
+    .dark .bg-gray-50 {
+        background-color: #0f172a !important;
+    }
+}
+
+/* Outlines and focus rings reset for polished mobile look */
+header button:focus,
+header button:active,
+header .dropdown button:focus,
+header .dropdown button:active,
+#sidebar-toggle:focus,
+#sidebar-toggle:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+
+/* ============================================================
+   EXAM LIST - DESKTOP VIEW (Show table, hide mobile cards)
+   ============================================================ */
+@media (min-width: 641px) {
+    /* Show desktop table elements */
+    .exam-table-header {
+        display: block !important;
+    }
+
+    .exam-table-row {
+        display: grid !important;
+    }
+
+    /* Hide mobile card view */
+    .exam-mobile-card {
+        display: none !important;
+    }
+
+    /* Attendance Action Buttons - Desktop layout */
+    .attendance-action-buttons {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+
+    .attendance-action-buttons .flex.no-stack {
+        width: auto !important;
+    }
+
+    .attendance-action-buttons .flex.no-stack a {
+        flex: 0 !important;
+        padding: 12px 24px !important;
+    }
+
+    .attendance-action-buttons .export-button-wrapper {
+        width: auto !important;
+    }
+
+    .attendance-action-buttons .export-button-wrapper button {
+        width: auto !important;
+        padding: 8px 16px !important;
+    }
+}

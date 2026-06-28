@@ -6,8 +6,12 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
+
+// Heal older tenant DBs that predate some optional profile columns.
+ensureStudentProfileColumns($db);
 
 $student_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
@@ -21,17 +25,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $db->beginTransaction();
         
-        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
-        $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+        // Fetch existing records for fallback
+        $ex_stmt = $db->prepare("SELECT u.name, u.email, u.status, u.first_name, u.other_names, u.last_name FROM users u WHERE u.id = :id");
+        $ex_stmt->execute([':id' => $student_id]);
+        $ex = $ex_stmt->fetch(PDO::FETCH_ASSOC);
+
+        $first_name = !empty(trim($_POST['first_name'] ?? '')) ? filter_input(INPUT_POST, 'first_name', FILTER_SANITIZE_STRING) : $ex['first_name'];
+        $other_names = filter_input(INPUT_POST, 'other_names', FILTER_SANITIZE_STRING);
+        $last_name = !empty(trim($_POST['last_name'] ?? '')) ? filter_input(INPUT_POST, 'last_name', FILTER_SANITIZE_STRING) : $ex['last_name'];
+        $name = trim($first_name . ' ' . trim($other_names . ' ' . $last_name));
+        $email = !empty(trim($_POST['email'] ?? '')) ? filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL) : $ex['email'];
         $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING);
-        $date_of_birth = $_POST['date_of_birth'];
+        $date_of_birth = $_POST['date_of_birth'] ?? '';
         $address = filter_input(INPUT_POST, 'address', FILTER_SANITIZE_STRING);
         $emergency_contact_name = filter_input(INPUT_POST, 'emergency_contact_name', FILTER_SANITIZE_STRING);
         $emergency_contact_phone = filter_input(INPUT_POST, 'emergency_contact_phone', FILTER_SANITIZE_STRING);
-        $status = $_POST['status'];
+        $status = !empty($_POST['status']) ? $_POST['status'] : $ex['status'];
 
         // Additional fields
         $student_id_field = filter_input(INPUT_POST, 'student_id', FILTER_SANITIZE_STRING);
+        
+        if (!empty($student_id_field)) {
+            $sid_check = "SELECT user_id FROM student_profiles WHERE student_id = :student_id AND user_id != :user_id";
+            $sid_stmt = $db->prepare($sid_check);
+            $sid_stmt->execute([':student_id' => $student_id_field, ':user_id' => $student_id]);
+            if ($sid_stmt->rowCount() > 0) {
+                throw new Exception("Student ID already exists for another student.");
+            }
+        } else {
+            throw new Exception("Student ID is required.");
+        }
         $gender = $_POST['gender'] ?? '';
         $blood_group = filter_input(INPUT_POST, 'blood_group', FILTER_SANITIZE_STRING);
         $guardian_name = filter_input(INPUT_POST, 'guardian_name', FILTER_SANITIZE_STRING);
@@ -41,33 +64,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $admission_date = $_POST['admission_date'] ?? '';
         $previous_school = filter_input(INPUT_POST, 'previous_school', FILTER_SANITIZE_STRING);
         
+        // Handle Profile Picture Upload
+        $profile_picture = null;
+        $update_picture = false;
+        if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+            if (in_array($_FILES['profile_picture']['type'], $allowed_types)) {
+                $ext = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+                $filename = uniqid('profile_') . '.' . $ext;
+                $upload_dir = '../uploads/profile_pictures/';
+                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $filename)) {
+                    $profile_picture = $filename;
+                    $update_picture = true;
+                }
+            }
+        }
+
         // Update user table
-        $user_query = "UPDATE users SET name = :name, email = :email, status = :status WHERE id = :id AND role = 'student'";
+        $user_query = "UPDATE users SET name = :name, first_name = :first_name, other_names = :other_names, last_name = :last_name, email = :email, status = :status, student_id = :student_id";
+        if ($update_picture) $user_query .= ", profile_picture = :profile_picture";
+        $user_query .= " WHERE id = :id AND role = 'student'";
         $user_stmt = $db->prepare($user_query);
         $user_stmt->bindParam(':name', $name);
+        $user_stmt->bindParam(':first_name', $first_name);
+        $user_stmt->bindParam(':other_names', $other_names);
+        $user_stmt->bindParam(':last_name', $last_name);
         $user_stmt->bindParam(':email', $email);
         $user_stmt->bindParam(':status', $status);
+        $user_stmt->bindParam(':student_id', $student_id_field);
         $user_stmt->bindParam(':id', $student_id);
+        if ($update_picture) $user_stmt->bindParam(':profile_picture', $profile_picture);
         $user_stmt->execute();
         
-        // Update student profile
-        $profile_query = "UPDATE student_profiles SET
-                         student_id = :student_id,
-                         phone = :phone,
-                         date_of_birth = :date_of_birth,
-                         gender = :gender,
-                         blood_group = :blood_group,
-                         address = :address,
-                         guardian_name = :guardian_name,
-                         guardian_phone = :guardian_phone,
-                         guardian_email = :guardian_email,
-                         emergency_contact_name = :emergency_contact_name,
-                         emergency_contact_phone = :emergency_contact_phone,
-                         medical_conditions = :medical_conditions,
-                         admission_date = :admission_date,
-                         previous_school = :previous_school
-                         WHERE user_id = :user_id";
-        $profile_stmt = $db->prepare($profile_query);
+        // Update student profile (Insert if it does not exist yet)
+        $admission_date = !empty($_POST['admission_date']) ? $_POST['admission_date'] : date('Y-m-d');
+
+        $check_stmt = $db->prepare("SELECT COUNT(*) FROM student_profiles WHERE user_id = :user_id");
+        $check_stmt->execute([':user_id' => $student_id]);
+        $profile_exists = $check_stmt->fetchColumn() > 0;
+
+        if ($profile_exists) {
+            $profile_query = "UPDATE student_profiles SET
+                             student_id = :student_id,
+                             phone = :phone,
+                             date_of_birth = :date_of_birth,
+                             gender = :gender,
+                             blood_group = :blood_group,
+                             address = :address,
+                             guardian_name = :guardian_name,
+                             guardian_phone = :guardian_phone,
+                             guardian_email = :guardian_email,
+                             emergency_contact_name = :emergency_contact_name,
+                             emergency_contact_phone = :emergency_contact_phone,
+                             medical_conditions = :medical_conditions,
+                             admission_date = :admission_date,
+                             previous_school = :previous_school
+                             WHERE user_id = :user_id";
+            $profile_stmt = $db->prepare($profile_query);
+        } else {
+            $profile_query = "INSERT INTO student_profiles (
+                                user_id, student_id, phone, date_of_birth, gender, blood_group,
+                                address, guardian_name, guardian_phone, guardian_email,
+                                emergency_contact_name, emergency_contact_phone, medical_conditions,
+                                admission_date, previous_school
+                             ) VALUES (
+                                :user_id, :student_id, :phone, :date_of_birth, :gender, :blood_group,
+                                :address, :guardian_name, :guardian_phone, :guardian_email,
+                                :emergency_contact_name, :emergency_contact_phone, :medical_conditions,
+                                :admission_date, :previous_school
+                             )";
+            $profile_stmt = $db->prepare($profile_query);
+        }
+
         $profile_stmt->bindParam(':student_id', $student_id_field);
         $profile_stmt->bindParam(':phone', $phone);
         $profile_stmt->bindParam(':date_of_birth', $date_of_birth);
@@ -108,6 +176,26 @@ if (!$student) {
     exit();
 }
 
+$first_name = !empty($student['first_name']) ? $student['first_name'] : '';
+$other_names = !empty($student['other_names']) ? $student['other_names'] : '';
+$last_name = !empty($student['last_name']) ? $student['last_name'] : '';
+
+if (empty($first_name) && empty($last_name) && !empty($student['name'])) {
+    $fullName = trim($student['name']);
+    $parts = preg_split('/\s+/', $fullName);
+    $num_parts = count($parts);
+    if ($num_parts === 1) {
+        $first_name = $parts[0];
+    } elseif ($num_parts === 2) {
+        $first_name = $parts[0];
+        $last_name = $parts[1];
+    } else {
+        $first_name = $parts[0];
+        $last_name = $parts[$num_parts - 1];
+        $other_names = implode(' ', array_slice($parts, 1, $num_parts - 2));
+    }
+}
+
 $title = "Edit Student";
 $breadcrumbs = [
     ['title' => 'Dashboard', 'url' => '../dashboard.php'],
@@ -119,12 +207,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -152,17 +240,60 @@ include '../includes/sidebar.php';
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Student Information</h3>
                     </div>
                     
-                    <form action="" method="POST" class="p-6 space-y-8">
+                    <form action="" method="POST" enctype="multipart/form-data" class="p-6 space-y-8">
                         <!-- Basic Information Section -->
                         <div>
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 border-b border-gray-200 dark:border-gray-600 pb-2">
                                 <i class="fas fa-user mr-2 text-blue-600"></i>Basic Information
                             </h4>
+
+                            <!-- Profile Picture Upload -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Profile Picture (Optional)</label>
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border border-gray-300 dark:border-gray-600 shadow-sm" id="imagePreviewContainer">
+                                        <?php if(!empty($student['profile_picture'])): ?>
+                                            <img id="imagePreview" src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" class="w-full h-full object-cover">
+                                        <?php else: ?>
+                                            <i class="fas fa-user text-3xl text-gray-400" id="defaultIcon"></i>
+                                            <img id="imagePreview" src="#" alt="Preview" class="hidden w-full h-full object-cover">
+                                        <?php endif; ?>
+                                    </div>
+                                    <div>
+                                        <input type="file" name="profile_picture" accept="image/jpeg, image/png, image/gif"
+                                          data-cropper data-crop-preview="#imagePreview" data-crop-icon="#defaultIcon"
+                                          class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                          file:mr-4 file:py-2 file:px-4
+                                          file:rounded-full file:border-0
+                                          file:text-sm file:font-semibold
+                                          file:bg-blue-50 file:text-blue-700
+                                          hover:file:bg-blue-100
+                                          dark:file:bg-gray-700 dark:file:text-gray-300
+                                          transition-colors cursor-pointer">
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF up to 2MB. Crop to frame the face before saving.</p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div>
-                                    <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name *</label>
-                                    <input type="text" id="name" name="name" required
-                                        value="<?php echo htmlspecialchars($student['name']); ?>"
+                                    <label for="first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">First Name</label>
+                                    <input type="text" id="first_name" name="first_name" required
+                                        value="<?php echo htmlspecialchars($first_name); ?>"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+
+                                <div>
+                                    <label for="other_names" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Other Name(s)</label>
+                                    <input type="text" id="other_names" name="other_names"
+                                        value="<?php echo htmlspecialchars($other_names); ?>"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+
+                                <div>
+                                    <label for="last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Last Name</label>
+                                    <input type="text" id="last_name" name="last_name" required
+                                        value="<?php echo htmlspecialchars($last_name); ?>"
                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
 
@@ -174,8 +305,8 @@ include '../includes/sidebar.php';
                                 </div>
 
                                 <div>
-                                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address *</label>
-                                    <input type="email" id="email" name="email" required
+                                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                                    <input type="email" id="email" name="email"
                                         value="<?php echo htmlspecialchars($student['email']); ?>"
                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
@@ -228,8 +359,8 @@ include '../includes/sidebar.php';
                                 </div>
 
                                 <div>
-                                    <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status *</label>
-                                    <select id="status" name="status" required
+                                    <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                                    <select id="status" name="status"
                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <option value="active" <?php echo $student['status'] === 'active' ? 'selected' : ''; ?>>Active</option>
                                         <option value="inactive" <?php echo $student['status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
@@ -326,14 +457,14 @@ include '../includes/sidebar.php';
                         </div>
 
                         <!-- Submit Button -->
-                        <div class="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
-                            <div class="flex space-x-4">
+                        <div class="pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <div class="flex gap-3">
                                 <a href="index.php"
-                                   class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors duration-200">
+                                   class="flex-1 px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors duration-200 text-center">
                                     <i class="fas fa-times mr-2"></i>Cancel
                                 </a>
                                 <button type="submit"
-                                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 shadow-lg hover:shadow-xl">
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 shadow-lg hover:shadow-xl">
                                     <i class="fas fa-save mr-2"></i>Update Student Information
                                 </button>
                             </div>
@@ -349,3 +480,21 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imagePreview').src = e.target.result;
+            document.getElementById('imagePreview').classList.remove('hidden');
+            var defaultIcon = document.getElementById('defaultIcon');
+            if (defaultIcon) defaultIcon.classList.add('hidden');
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+
+</body>
+</html>

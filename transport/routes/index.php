@@ -77,9 +77,9 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -115,11 +115,11 @@ include '../../includes/sidebar.php';
 
             <div class="flex justify-between items-center mb-6">
                 <div></div>
-                <div class="flex space-x-3">
-                    <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+                <div class="flex flex-wrap items-center gap-3 no-stack">
+                    <a href="../index.php" class="inline-flex items-center whitespace-nowrap text-blue-600 hover:text-blue-800">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Transport
                     </a>
-                    <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <a href="create.php" class="inline-flex items-center whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                         <i class="fas fa-plus mr-2"></i>Add Route
                     </a>
                 </div>

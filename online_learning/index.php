@@ -1,11 +1,11 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher', 'student'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('online_learning');
 
 require_once '../config/database.php';
+require_once '../includes/module_access.php';
+requireModule('online_learning'); // block access if disabled for this school
 $database = new Database();
 $db = $database->getConnection();
 
@@ -18,36 +18,157 @@ $stats = [];
 
 try {
     if (in_array($role, ['super_admin', 'school_admin', 'principal'])) {
-        // Admin statistics - using dummy data since tables may not exist
+        // Scheduled virtual classrooms
+        $stmt = $db->query("SELECT COUNT(*) FROM virtual_classrooms WHERE status = 'scheduled'");
+        $scheduled_classes = $stmt->fetchColumn();
+
+        // Learning materials uploaded in the last 30 days
+        $stmt = $db->query("SELECT COUNT(*) FROM learning_materials WHERE created_at >= NOW() - INTERVAL 30 DAY");
+        $recent_materials = $stmt->fetchColumn();
+
+        // Active quizzes
+        $stmt = $db->query("SELECT COUNT(*) FROM online_quizzes WHERE status = 'published'");
+        $active_quizzes = $stmt->fetchColumn();
+
+        // Recent discussions (last 7 days)
+        $stmt = $db->query("SELECT COUNT(*) FROM discussion_boards WHERE created_at >= NOW() - INTERVAL 7 DAY");
+        $recent_discussions = $stmt->fetchColumn();
+
         $stats = [
-            'scheduled_classes' => 0,
-            'recent_materials' => 0,
-            'active_quizzes' => 0,
-            'recent_discussions' => 0
+            'scheduled_classes' => $scheduled_classes,
+            'recent_materials' => $recent_materials,
+            'active_quizzes' => $active_quizzes,
+            'recent_discussions' => $recent_discussions
         ];
     } elseif ($role === 'teacher') {
-        // Teacher statistics - using dummy data since tables may not exist
+        // Teacher statistics
+        // Scheduled virtual classrooms owned by teacher
+        $stmt = $db->prepare("SELECT COUNT(*) FROM virtual_classrooms WHERE teacher_id = :teacher_id AND status = 'scheduled'");
+        $stmt->execute([':teacher_id' => $user_id]);
+        $my_classes = $stmt->fetchColumn();
+
+        // Learning materials uploaded by teacher
+        $stmt = $db->prepare("SELECT COUNT(*) FROM learning_materials WHERE uploaded_by = :teacher_id");
+        $stmt->execute([':teacher_id' => $user_id]);
+        $my_materials = $stmt->fetchColumn();
+
+        // Active quizzes created by teacher
+        $stmt = $db->prepare("SELECT COUNT(*) FROM online_quizzes WHERE teacher_id = :teacher_id AND status = 'published'");
+        $stmt->execute([':teacher_id' => $user_id]);
+        $my_quizzes = $stmt->fetchColumn();
+
+        // Discussions created by teacher
+        $stmt = $db->prepare("SELECT COUNT(*) FROM discussion_boards WHERE created_by = :teacher_id");
+        $stmt->execute([':teacher_id' => $user_id]);
+        $my_discussions = $stmt->fetchColumn();
+
         $stats = [
-            'my_classes' => 0,
-            'my_materials' => 0,
-            'my_quizzes' => 0,
-            'my_discussions' => 0
+            'my_classes' => $my_classes,
+            'my_materials' => $my_materials,
+            'my_quizzes' => $my_quizzes,
+            'my_discussions' => $my_discussions
         ];
     } else {
-        // Student statistics - using dummy data since tables may not exist
+        // Student statistics
+        // Get student's class
+        $stmt = $db->prepare("SELECT class_id FROM student_classes WHERE student_id = :student_id AND status = 'active' LIMIT 1");
+        $stmt->execute([':student_id' => $user_id]);
+        $class_id = $stmt->fetchColumn();
+
+        $upcoming_classes = 0;
+        if ($class_id) {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM virtual_classrooms WHERE class_id = :class_id AND status = 'scheduled'");
+            $stmt->execute([':class_id' => $class_id]);
+            $upcoming_classes = $stmt->fetchColumn();
+        }
+
+        // Completed quizzes (distinct quizzes they completed attempts for)
+        $stmt = $db->prepare("SELECT COUNT(DISTINCT quiz_id) FROM quiz_attempts WHERE student_id = :student_id AND status = 'completed'");
+        $stmt->execute([':student_id' => $user_id]);
+        $completed_quizzes = $stmt->fetchColumn();
+
+        // Submitted assignments
+        $stmt = $db->prepare("SELECT COUNT(*) FROM student_assignments WHERE student_id = :student_id AND status = 'submitted'");
+        $stmt->execute([':student_id' => $user_id]);
+        $submitted_assignments = $stmt->fetchColumn();
+
+        // Discussion posts
+        $stmt = $db->prepare("SELECT COUNT(*) FROM discussion_posts WHERE user_id = :student_id");
+        $stmt->execute([':student_id' => $user_id]);
+        $my_posts = $stmt->fetchColumn();
+
         $stats = [
-            'upcoming_classes' => 0,
-            'completed_quizzes' => 0,
-            'submitted_assignments' => 0,
-            'my_posts' => 0
+            'upcoming_classes' => $upcoming_classes,
+            'completed_quizzes' => $completed_quizzes,
+            'submitted_assignments' => $submitted_assignments,
+            'my_posts' => $my_posts
         ];
     }
 } catch (PDOException $e) {
     $stats = [];
 }
 
-// Get recent activities - using dummy data since tables may not exist
+// Get recent activities
 $recent_activities = [];
+try {
+    if (in_array($role, ['super_admin', 'school_admin', 'principal'])) {
+        // Query recent quizzes and learning materials overall
+        $recent_query = "
+            (SELECT 'quiz' as type, title, q.created_at, u.name as teacher_name, NULL as uploader_name
+             FROM online_quizzes q
+             JOIN users u ON q.teacher_id = u.id)
+            UNION
+            (SELECT 'material' as type, title, lm.created_at, NULL as teacher_name, u.name as uploader_name
+             FROM learning_materials lm
+             JOIN users u ON lm.uploaded_by = u.id)
+            ORDER BY created_at DESC LIMIT 50
+        ";
+        $stmt = $db->query($recent_query);
+        $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($role === 'teacher') {
+        // Query recent quizzes and learning materials uploaded by this teacher
+        $recent_query = "
+            (SELECT 'quiz' as type, title, q.created_at, u.name as teacher_name, NULL as uploader_name
+             FROM online_quizzes q
+             JOIN users u ON q.teacher_id = u.id
+             WHERE q.teacher_id = :teacher_id)
+            UNION
+            (SELECT 'material' as type, title, lm.created_at, NULL as teacher_name, u.name as uploader_name
+             FROM learning_materials lm
+             JOIN users u ON lm.uploaded_by = u.id
+             WHERE lm.uploaded_by = :teacher_id)
+            ORDER BY created_at DESC LIMIT 50
+        ";
+        $stmt = $db->prepare($recent_query);
+        $stmt->execute([':teacher_id' => $user_id]);
+        $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        // Student: fetch for their class
+        $stmt = $db->prepare("SELECT class_id FROM student_classes WHERE student_id = :student_id AND status = 'active' LIMIT 1");
+        $stmt->execute([':student_id' => $user_id]);
+        $class_id = $stmt->fetchColumn();
+
+        if ($class_id) {
+            $recent_query = "
+                (SELECT 'quiz' as type, title, q.created_at, u.name as teacher_name, NULL as uploader_name
+                 FROM online_quizzes q
+                 JOIN users u ON q.teacher_id = u.id
+                 WHERE q.class_id = :class_id AND q.status = 'published')
+                UNION
+                (SELECT 'material' as type, title, lm.created_at, NULL as teacher_name, u.name as uploader_name
+                 FROM learning_materials lm
+                 JOIN users u ON lm.uploaded_by = u.id
+                 WHERE lm.class_id = :class_id)
+                ORDER BY created_at DESC LIMIT 50
+            ";
+            $stmt = $db->prepare($recent_query);
+            $stmt->execute([':class_id' => $class_id]);
+            $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+    }
+} catch (PDOException $e) {
+    $recent_activities = [];
+}
 
 // Force output buffering to catch any errors
 ob_start();
@@ -63,41 +184,16 @@ $title = "Online Learning Tools";
 
 include '../includes/header.php';
 include '../includes/sidebar.php';
-
-// Hardcoded JavaScript title fix - immediate and aggressive
-echo '<script>
-// HARDCODED TITLE FIX - IMMEDIATE
-document.title = "Online Learning Tools - School Management System";
-
-// Backup fixes with multiple attempts
-(function() {
-    function forceTitle() {
-        document.title = "Online Learning Tools - School Management System";
-        console.log("Hardcoded title set to: " + document.title);
-    }
-
-    // Fix immediately
-    forceTitle();
-
-    // Fix multiple times to ensure it sticks
-    setTimeout(forceTitle, 50);
-    setTimeout(forceTitle, 100);
-    setTimeout(forceTitle, 200);
-    setTimeout(forceTitle, 500);
-    setTimeout(forceTitle, 1000);
-    setTimeout(forceTitle, 2000);
-})();
-</script>';
 ?>
 
 <!-- Online Learning Tools Page - Cache Buster: <?php echo time(); ?> -->
 <!-- Main Layout Container -->
 <div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen online-learning-container">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -391,7 +487,7 @@ document.title = "Online Learning Tools - School Management System";
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Assignment Submissions</h3>
                         <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Submit assignments online with plagiarism checking and progress tracking.</p>
-                        <a href="assignment_upload.php" class="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium text-sm">
+                        <a href="submissions.php" class="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium text-sm">
                             <span>Manage Submissions</span>
                             <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
                         </a>
@@ -435,7 +531,7 @@ document.title = "Online Learning Tools - School Management System";
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Recent Activities</h2>
-                            <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
+                            <button onclick="showActivitiesModal()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
                                 View All
                             </button>
                         </div>
@@ -443,7 +539,7 @@ document.title = "Online Learning Tools - School Management System";
                     <div class="p-6">
                         <?php if (!empty($recent_activities)): ?>
                         <div class="space-y-4">
-                            <?php foreach ($recent_activities as $activity): ?>
+                            <?php foreach (array_slice($recent_activities, 0, 5) as $activity): ?>
                             <div class="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                 <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
                                     <?php if ($activity['type'] === 'quiz'): ?>
@@ -553,7 +649,7 @@ document.title = "Online Learning Tools - School Management System";
 
 <!-- Integration Modal -->
 <div id="integrationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full" style="max-height: 85vh; overflow-y: auto;">
         <div class="p-6 border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Platform Integrations</h3>
@@ -617,21 +713,61 @@ document.title = "Online Learning Tools - School Management System";
     </div>
 </div>
 
+<!-- Recent Activities Modal -->
+<div id="activitiesModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full" style="max-height: 85vh; overflow-y: auto;">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">All Recent Activities</h3>
+                <button onclick="hideActivitiesModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <div class="p-6 space-y-4">
+            <?php if (!empty($recent_activities)): ?>
+                <?php foreach ($recent_activities as $activity): ?>
+                <div class="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                        <?php if ($activity['type'] === 'quiz'): ?>
+                        <i class="fas fa-question-circle text-blue-600 dark:text-blue-400"></i>
+                        <?php else: ?>
+                        <i class="fas fa-file-alt text-blue-600 dark:text-blue-400"></i>
+                        <?php endif; ?>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-medium text-gray-900 dark:text-white"><?php echo htmlspecialchars($activity['title']); ?></h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            <?php if ($activity['type'] === 'quiz'): ?>
+                            Quiz by <?php echo htmlspecialchars($activity['teacher_name']); ?>
+                            <?php else: ?>
+                            Material uploaded by <?php echo htmlspecialchars($activity['uploader_name']); ?>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        <?php echo date('M j, Y', strtotime($activity['created_at'])); ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="text-center py-8">
+                    <i class="fas fa-clock text-gray-400 text-4xl mb-4"></i>
+                    <p class="text-gray-600 dark:text-gray-400">No activities to display.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-gray-900 rounded-b-xl">
+            <button onclick="hideActivitiesModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
-// Inline JavaScript for modal functionality and HARDCODED title fix
+// Inline JavaScript for modal functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // HARDCODED TITLE FIX - FORCE IT NO MATTER WHAT
-    document.title = "Online Learning Tools - School Management System";
-    console.log('HARDCODED title set to:', document.title);
-
-    // Additional aggressive checks
-    setInterval(function() {
-        if (document.title !== "Online Learning Tools - School Management System") {
-            document.title = "Online Learning Tools - School Management System";
-            console.log('Title corrected by interval check');
-        }
-    }, 1000);
-
     // Modal functions for integration modal
     function showModal(modalId) {
         const modal = document.getElementById(modalId);
@@ -664,7 +800,21 @@ document.addEventListener('DOMContentLoaded', function() {
             hideModal('integrationModal');
         }
     });
+
+    // Activities modal handlers
+    window.showActivitiesModal = function() {
+        showModal('activitiesModal');
+    };
+    window.hideActivitiesModal = function() {
+        hideModal('activitiesModal');
+    };
+
+    document.getElementById('activitiesModal')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideModal('activitiesModal');
+        }
+    });
 });
 </script>
 
-<script src="/school_ms/assets/js/online-learning.js"></script>
+<script src="/assets/js/online-learning.js"></script>

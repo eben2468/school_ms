@@ -1,12 +1,5 @@
 // Online Learning Tools JavaScript
 console.log('Online Learning page loaded successfully');
-console.log('Title should be: Online Learning Tools');
-
-// Force title to be correct
-if (document.title.includes('0') || document.title === '0 - School Management System' || document.title === '0') {
-    document.title = 'Online Learning Tools - School Management System';
-    console.log('Fixed page title to: ' + document.title);
-}
 
 function showIntegrationModal() {
     const modal = document.getElementById('integrationModal');
@@ -25,12 +18,6 @@ function hideIntegrationModal() {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Online Learning DOM loaded');
-
-    // Force title to be correct (backup check)
-    if (document.title.includes('0') || document.title === '0 - School Management System' || document.title === '0') {
-        document.title = 'Online Learning Tools - School Management System';
-        console.log('DOM Ready: Fixed page title to: ' + document.title);
-    }
 
     // Force gradient background on header
     const header = document.querySelector('.online-learning-header');

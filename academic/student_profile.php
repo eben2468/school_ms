@@ -127,24 +127,24 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-semibold text-gray-800">Academic Profile</h1>
-                    <div class="flex space-x-3">
+                <div class="mb-6">
+                    <h1 class="text-3xl font-semibold text-gray-800 dark:text-white mb-4">Academic Profile</h1>
+                    <div class="flex gap-3">
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'principal'])): ?>
-                        <a href="../students/edit.php?id=<?php echo $student_id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                        <a href="../students/edit.php?id=<?php echo $student_id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
                             <i class="fas fa-edit mr-2"></i>Edit Profile
                         </a>
                         <?php endif; ?>
-                        <a href="<?php echo $user_role === 'student' ? '../dashboard.php' : 'index.php'; ?>" class="text-blue-600 hover:text-blue-800">
+                        <a href="<?php echo $user_role === 'student' ? '../dashboard.php' : 'index.php'; ?>" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
                             <i class="fas fa-arrow-left mr-2"></i>Back
                         </a>
                     </div>

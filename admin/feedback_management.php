@@ -116,9 +116,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -261,7 +261,7 @@ include '../includes/sidebar.php';
                                             </div>
                                             <div>
                                                 <h3 class="font-semibold text-gray-900 dark:text-white"><?= htmlspecialchars($feedback['user_name']) ?></h3>
-                                                <p class="text-sm text-gray-500 dark:text-gray-400"><?= htmlspecialchars($feedback['user_email']) ?> • <?= ucfirst($feedback['user_role']) ?></p>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400"><?= htmlspecialchars($feedback['user_email']) ?> • <?= htmlspecialchars(formatRoleName($feedback['user_role'])) ?></p>
                                             </div>
                                         </div>
 

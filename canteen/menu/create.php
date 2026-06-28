@@ -13,13 +13,13 @@ $user_role = $_SESSION['role'];
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_STRING);
-    $meal_type = filter_input(INPUT_POST, 'meal_type', FILTER_SANITIZE_STRING);
-    $item_name = filter_input(INPUT_POST, 'item_name', FILTER_SANITIZE_STRING);
-    $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_STRING);
+    $date = isset($_POST['date']) ? htmlspecialchars(trim($_POST['date']), ENT_QUOTES, 'UTF-8') : '';
+    $meal_type = isset($_POST['meal_type']) ? htmlspecialchars(trim($_POST['meal_type']), ENT_QUOTES, 'UTF-8') : '';
+    $item_name = isset($_POST['item_name']) ? htmlspecialchars(trim($_POST['item_name']), ENT_QUOTES, 'UTF-8') : '';
+    $description = isset($_POST['description']) ? htmlspecialchars(trim($_POST['description']), ENT_QUOTES, 'UTF-8') : '';
     $price = filter_input(INPUT_POST, 'price', FILTER_VALIDATE_FLOAT);
     $available_quantity = filter_input(INPUT_POST, 'available_quantity', FILTER_VALIDATE_INT);
-    $status = filter_input(INPUT_POST, 'status', FILTER_SANITIZE_STRING);
+    $status = isset($_POST['status']) ? htmlspecialchars(trim($_POST['status']), ENT_QUOTES, 'UTF-8') : '';
 
     if ($date && $meal_type && $item_name && $price !== false && $available_quantity !== false) {
         try {
@@ -53,12 +53,12 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">

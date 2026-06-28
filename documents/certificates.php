@@ -74,9 +74,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -372,13 +372,66 @@ function hideVerificationModal() {
 
 function downloadCertificate(certificateId) {
     // Implement download functionality
-    window.open(`download_certificate.php?id=${certificateId}`, '_blank');
+    window.open(`download_certificate.php?id=${certificateId}&preview=1`, '_blank');
 }
 
 function verifyCertificate(verificationCode) {
-    // Show verification modal with details
+    const detailsContainer = document.getElementById('verificationDetails');
+    detailsContainer.innerHTML = `
+        <div class="flex justify-center items-center py-4">
+            <i class="fas fa-spinner fa-spin text-2xl text-blue-600"></i>
+        </div>
+    `;
     showVerificationModal();
-    // In a real implementation, you would fetch verification details from the server
+    
+    fetch(`verify_certificate.php?code=${verificationCode}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            detailsContainer.innerHTML = `
+                <div class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Certificate No:</span>
+                        <span>${data.certificate_number}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Title:</span>
+                        <span>${data.title}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Student Name:</span>
+                        <span>${data.student_name}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Student ID:</span>
+                        <span>${data.student_number}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Date of Issue:</span>
+                        <span>${data.issue_date}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Issued By:</span>
+                        <span>${data.issued_by}</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-1 border-gray-200 dark:border-gray-600">
+                        <span class="font-semibold text-gray-600 dark:text-gray-400">Status:</span>
+                        <span class="font-medium text-green-600">${data.status}</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            detailsContainer.innerHTML = `
+                <div class="text-red-600 font-medium text-center">${data.message}</div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error verifying certificate:', error);
+        detailsContainer.innerHTML = `
+            <div class="text-red-600 font-medium text-center">Failed to fetch certificate verification details.</div>
+        `;
+    });
 }
 
 function editCertificate(certificateId) {

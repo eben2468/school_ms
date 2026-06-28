@@ -27,12 +27,22 @@ if (!$class) {
     exit();
 }
 
-// Fetch teachers and their subjects for this class
-$query = "SELECT ct.*, u.name as teacher_name, s.name as subject_name, s.code as subject_code 
-          FROM class_teachers ct 
-          JOIN users u ON ct.teacher_id = u.id 
-          JOIN subjects s ON ct.subject_id = s.id 
-          WHERE ct.class_id = :class_id 
+// Teachers may only view classes they are assigned to teach.
+if ($_SESSION['role'] === 'teacher') {
+    $access_stmt = $db->prepare("SELECT COUNT(*) FROM class_teachers WHERE class_id = :class_id AND teacher_id = :teacher_id");
+    $access_stmt->execute([':class_id' => $id, ':teacher_id' => $_SESSION['user_id']]);
+    if ($access_stmt->fetchColumn() == 0) {
+        header("Location: index.php?error=" . urlencode("You can only view classes you teach."));
+        exit();
+    }
+}
+
+// Fetch subjects and their assigned teachers for this class
+$query = "SELECT s.name as subject_name, s.code as subject_code, u.name as teacher_name 
+          FROM subjects s 
+          LEFT JOIN class_teachers ct ON s.id = ct.subject_id AND ct.class_id = :class_id 
+          LEFT JOIN users u ON ct.teacher_id = u.id 
+          WHERE s.class_id = :class_id 
           ORDER BY s.name ASC";
 $stmt = $db->prepare($query);
 $stmt->bindParam(':class_id', $id);
@@ -55,18 +65,18 @@ $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Dynamic width based on sidebar state) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-semibold text-gray-900 dark:text-white">Class Details</h1>
-                    <div class="space-x-4">
+                <div class="class-details-header">
+                    <h1 class="text-3xl font-semibold text-gray-900 dark:text-white mb-3">Class Details</h1>
+                    <div class="flex no-stack space-x-4">
                         <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])): ?>
                         <a href="edit.php?id=<?php echo $id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                             Edit Class
@@ -106,17 +116,21 @@ $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <div class="p-6">
                         <div class="space-y-4">
-                            <?php foreach ($class_teachers as $teacher): ?>
-                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                <div>
-                                    <h3 class="font-medium text-gray-900"><?php echo htmlspecialchars($teacher['subject_name']); ?></h3>
-                                    <p class="text-sm text-gray-500">
-                                        Teacher: <?php echo htmlspecialchars($teacher['teacher_name']); ?> |
-                                        Code: <?php echo htmlspecialchars($teacher['subject_code']); ?>
-                                    </p>
+                            <?php if (empty($class_teachers)): ?>
+                            <p class="text-gray-500 text-center py-4">No subjects are currently offered in this class.</p>
+                            <?php else: ?>
+                                <?php foreach ($class_teachers as $teacher): ?>
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <h3 class="font-medium text-gray-900"><?php echo htmlspecialchars($teacher['subject_name']); ?></h3>
+                                        <p class="text-sm text-gray-500">
+                                            Teacher: <?php echo $teacher['teacher_name'] ? htmlspecialchars($teacher['teacher_name']) : '<span class="text-red-500 italic font-medium">Not Assigned</span>'; ?> |
+                                            Code: <?php echo htmlspecialchars($teacher['subject_code']); ?>
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -211,23 +225,52 @@ $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     </td>
                                     <?php
                                     $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-                                    foreach ($days as $day):
-                                        $schedule = array_filter($schedules, function($s) use ($day, $time_slot) {
+                                    
+                                    // Check if this time slot is a break
+                                    $is_break_slot = false;
+                                    $break_title = 'Break';
+                                    foreach ($days as $day) {
+                                        $day_schedule = array_filter($schedules, function($s) use ($day, $time_slot) {
                                             return $s['day'] === $day && $s['time_slot'] === $time_slot;
                                         });
-                                        $schedule = reset($schedule);
+                                        $day_schedule = reset($day_schedule);
+                                        if ($day_schedule && isset($day_schedule['is_break']) && $day_schedule['is_break'] == 1) {
+                                            $is_break_slot = true;
+                                            if (!empty($day_schedule['break_name'])) {
+                                                $break_title = $day_schedule['break_name'];
+                                            }
+                                            break;
+                                        }
+                                    }
+
+                                    if ($is_break_slot):
                                     ?>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        <?php if ($schedule): ?>
-                                        <div class="font-medium text-gray-900 dark:text-white">
-                                            <?php echo htmlspecialchars($schedule['subject_name'] ?? 'Unknown Subject'); ?>
-                                            <br><span class="text-sm text-gray-500 dark:text-gray-400">
-                                                <?php echo htmlspecialchars($schedule['teacher_name'] ?? 'No Teacher Assigned'); ?>
-                                            </span>
+                                    <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300 rounded-md">
+                                        <div class="flex items-center justify-center space-x-2">
+                                            <i class="fas fa-coffee text-purple-500 animate-pulse"></i>
+                                            <span><?php echo htmlspecialchars($break_title); ?></span>
                                         </div>
-                                        <?php endif; ?>
                                     </td>
-                                    <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <?php
+                                        foreach ($days as $day):
+                                            $schedule = array_filter($schedules, function($s) use ($day, $time_slot) {
+                                                return $s['day'] === $day && $s['time_slot'] === $time_slot;
+                                            });
+                                            $schedule = reset($schedule);
+                                        ?>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <?php if ($schedule): ?>
+                                            <div class="font-medium text-gray-900 dark:text-white">
+                                                <?php echo htmlspecialchars($schedule['subject_name'] ?? 'Unknown Subject'); ?>
+                                                <br><span class="text-sm text-gray-500 dark:text-gray-400">
+                                                    <?php echo htmlspecialchars($schedule['teacher_name'] ?? 'No Teacher Assigned'); ?>
+                                                </span>
+                                            </div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>

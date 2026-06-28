@@ -12,6 +12,7 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS expiry_date DATE NULL;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'approved';
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS approved_by INT NULL;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS academic_year VARCHAR(9) NULL;
 
 -- Add foreign key constraints if they don't exist
 ALTER TABLE documents ADD CONSTRAINT fk_documents_parent 
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS document_shares (
     document_id INT NOT NULL,
     shared_by INT NOT NULL,
     shared_with_user_id INT,
-    shared_with_role ENUM('super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor'),
+    shared_with_role ENUM('super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor', 'hr'),
     shared_with_class_id INT,
     permission_level ENUM('view', 'download', 'edit', 'full') DEFAULT 'view',
     expiry_date DATETIME,

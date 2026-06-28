@@ -6,8 +6,13 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../../config/database.php';
+require_once '../../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
+
+// Heal older tenant DBs missing newer library_books columns (cover_image,
+// total_copies, publisher, etc.) before inserting a book.
+ensureLibraryBooksColumns($db);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -22,25 +27,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $language = filter_input(INPUT_POST, 'language', FILTER_SANITIZE_STRING);
     $location = filter_input(INPUT_POST, 'location', FILTER_SANITIZE_STRING);
     
+    // Handle cover image upload
+    $cover_image = null;
+    if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
+        $file_ext = strtolower(pathinfo($_FILES['cover_image']['name'], PATHINFO_EXTENSION));
+        $allowed_exts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+        if (!in_array($file_ext, $allowed_exts)) {
+            $error = "Cover image must be a PNG, JPG, GIF, or WEBP file.";
+        } elseif ($_FILES['cover_image']['size'] > 5 * 1024 * 1024) {
+            $error = "Cover image must be 5MB or smaller.";
+        } else {
+            $upload_dir = '../../uploads/book_covers/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            $new_file_name = 'cover_' . time() . '_' . mt_rand(1000, 9999) . '.' . $file_ext;
+            if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $upload_dir . $new_file_name)) {
+                $cover_image = $new_file_name;
+            } else {
+                $error = "Failed to upload cover image. Please try again.";
+            }
+        }
+    }
+
     if (empty($title) || empty($author) || $copies_available < 1) {
         $error = "Title, author, and at least 1 copy are required.";
-    } else {
+    } elseif (!isset($error)) {
         try {
-            $query = "INSERT INTO library_books (title, author, isbn, category, copies_available, description, publisher, publication_year, language, location) 
-                     VALUES (:title, :author, :isbn, :category, :copies_available, :description, :publisher, :publication_year, :language, :location)";
-            
+            $query = "INSERT INTO library_books (title, author, isbn, category, copies_available, total_copies, description, publisher, publication_year, language, location, cover_image)
+                     VALUES (:title, :author, :isbn, :category, :copies_available, :total_copies, :description, :publisher, :publication_year, :language, :location, :cover_image)";
+
             $stmt = $db->prepare($query);
             $stmt->bindParam(':title', $title);
             $stmt->bindParam(':author', $author);
             $stmt->bindParam(':isbn', $isbn);
             $stmt->bindParam(':category', $category);
             $stmt->bindParam(':copies_available', $copies_available);
+            $stmt->bindParam(':total_copies', $copies_available);
             $stmt->bindParam(':description', $description);
             $stmt->bindParam(':publisher', $publisher);
             $stmt->bindParam(':publication_year', $publication_year);
             $stmt->bindParam(':language', $language);
             $stmt->bindParam(':location', $location);
-            
+            $stmt->bindParam(':cover_image', $cover_image);
+
             if ($stmt->execute()) {
                 $success = "Book added successfully to the library.";
                 // Clear form data
@@ -72,12 +102,14 @@ $languages = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Arabic', 'Ot
 <?php include '../../includes/header.php'; ?>
 <?php include '../../includes/sidebar.php'; ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="w-full">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Add New Book</h1>
@@ -106,23 +138,42 @@ $languages = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Arabic', 'Ot
                     <p class="text-gray-600 text-sm mt-1">Enter the details of the new book to add to the library.</p>
                 </div>
 
-                <form action="" method="POST" class="p-6 space-y-6">
-                    <!-- Basic Information -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="title" class="block text-sm font-medium text-gray-700 mb-2">Book Title *</label>
-                            <input type="text" id="title" name="title" required
-                                value="<?php echo htmlspecialchars($title ?? ''); ?>"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Enter book title">
+                <form action="" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
+                    <!-- Basic Information + Cover -->
+                    <div class="flex flex-col sm:flex-row gap-6">
+                        <!-- Portrait Cover Uploader -->
+                        <div class="flex flex-col items-center sm:items-start flex-shrink-0">
+                            <label class="block text-sm font-medium text-gray-700 mb-2 self-center sm:self-start">Book Cover</label>
+                            <label for="cover_image" class="group cursor-pointer block">
+                                <div class="relative w-40 sm:w-44 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden flex items-center justify-center" style="aspect-ratio: 2 / 3;">
+                                    <img id="cover_preview" src="" alt="Cover preview" class="absolute inset-0 w-full h-full object-cover hidden">
+                                    <div id="cover_placeholder" class="text-center px-3">
+                                        <i class="fas fa-image text-3xl text-gray-400 group-hover:text-blue-400 transition-colors"></i>
+                                        <p class="text-xs text-gray-500 mt-2 font-medium">Click to upload</p>
+                                        <p class="text-[10px] text-gray-400 mt-1">Portrait · JPG/PNG · Max 5MB</p>
+                                    </div>
+                                </div>
+                            </label>
+                            <input type="file" id="cover_image" name="cover_image" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange="previewCover(this)">
                         </div>
 
-                        <div>
-                            <label for="author" class="block text-sm font-medium text-gray-700 mb-2">Author *</label>
-                            <input type="text" id="author" name="author" required
-                                value="<?php echo htmlspecialchars($author ?? ''); ?>"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Enter author name">
+                        <!-- Title & Author -->
+                        <div class="flex-1 grid grid-cols-1 gap-6 content-start">
+                            <div>
+                                <label for="title" class="block text-sm font-medium text-gray-700 mb-2">Book Title *</label>
+                                <input type="text" id="title" name="title" required
+                                    value="<?php echo htmlspecialchars($title ?? ''); ?>"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter book title">
+                            </div>
+
+                            <div>
+                                <label for="author" class="block text-sm font-medium text-gray-700 mb-2">Author *</label>
+                                <input type="text" id="author" name="author" required
+                                    value="<?php echo htmlspecialchars($author ?? ''); ?>"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter author name">
+                            </div>
                         </div>
                     </div>
 
@@ -231,9 +282,29 @@ $languages = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Arabic', 'Ot
                     <li><i class="fas fa-check mr-2"></i>Choose appropriate categories to improve search functionality</li>
                     <li><i class="fas fa-check mr-2"></i>For bulk additions, consider using the bulk import feature</li>
                 </ul>
-            </div>
+                    </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
 </div>
 
-<?php include '../../includes/footer.php'; ?>
+<script>
+function previewCover(input) {
+    const img = document.getElementById('cover_preview');
+    const placeholder = document.getElementById('cover_placeholder');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+

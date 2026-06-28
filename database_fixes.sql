@@ -145,20 +145,38 @@ INSERT INTO school_settings (
 -- Create inventory_requests table if missing (referenced in inventory pages)
 CREATE TABLE IF NOT EXISTS inventory_requests (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    item_name VARCHAR(255) NOT NULL,
-    quantity_requested INT NOT NULL,
+    item_id INT NOT NULL,
     requested_by INT NOT NULL,
-    department VARCHAR(100),
+    quantity_requested INT NOT NULL,
+    quantity_approved INT DEFAULT 0,
     purpose TEXT,
     priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
-    status ENUM('pending', 'approved', 'rejected', 'fulfilled') DEFAULT 'pending',
-    approved_by INT,
-    approved_at TIMESTAMP NULL,
+    request_date DATE NOT NULL,
+    required_date DATE,
     notes TEXT,
+    approved_by INT,
+    approval_date DATE,
+    status ENUM('pending', 'approved', 'rejected', 'fulfilled') DEFAULT 'pending',
+    remarks TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
     FOREIGN KEY (requested_by) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Create inventory_movements table if missing
+CREATE TABLE IF NOT EXISTS inventory_movements (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    item_id INT NOT NULL,
+    user_id INT NOT NULL,
+    movement_type ENUM('in', 'out') NOT NULL,
+    quantity INT NOT NULL,
+    reference_id INT,
+    reference_type VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Create communication_announcements table if missing

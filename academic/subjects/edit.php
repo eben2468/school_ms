@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])) {
-    header("Location: /school_ms/auth/login.php");
+    header("Location: /auth/login.php");
     exit();
 }
 
@@ -15,16 +15,23 @@ if (!$id) {
     exit();
 }
 
+// Fetch active classes
+$class_query = "SELECT id, name, grade_level FROM classes WHERE status = 'active' ORDER BY grade_level, name";
+$class_stmt = $db->query($class_query);
+$classes = $class_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'];
     $code = $_POST['code'];
     $description = $_POST['description'];
+    $class_id = isset($_POST['class_id']) ? (int)$_POST['class_id'] : null;
     
     // Validate input
     $errors = [];
     if (empty($name)) $errors[] = "Subject name is required.";
     if (empty($code)) $errors[] = "Subject code is required.";
+    if (empty($class_id)) $errors[] = "Class assignment is required.";
     
     // Check if subject code already exists for other subjects
     if (!empty($code)) {
@@ -41,11 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (empty($errors)) {
-        $query = "UPDATE subjects SET name = :name, code = :code, description = :description WHERE id = :id";
+        $query = "UPDATE subjects SET name = :name, code = :code, description = :description, class_id = :class_id WHERE id = :id";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':name', $name);
         $stmt->bindParam(':code', $code);
         $stmt->bindParam(':description', $description);
+        $stmt->bindParam(':class_id', $class_id, PDO::PARAM_INT);
         $stmt->bindParam(':id', $id);
         
         if ($stmt->execute()) {
@@ -75,12 +83,12 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -119,6 +127,20 @@ include '../../includes/sidebar.php';
                                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                                 value="<?php echo htmlspecialchars($subject['name']); ?>"
                                 placeholder="e.g., Mathematics">
+                        </div>
+
+                        <div>
+                            <label for="class_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign Class*</label>
+                            <select id="class_id" name="class_id" required
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                                <option value="">-- Select Class --</option>
+                                <?php foreach ($classes as $class): ?>
+                                <option value="<?php echo $class['id']; ?>" <?php echo (($subject['class_id'] ?? '') == $class['id'] || (isset($_POST['class_id']) && $_POST['class_id'] == $class['id'])) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($class['name'] . ' (' . $class['grade_level'] . ')'); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Each subject must be assigned to exactly one class and cannot be shared across other classes.</p>
                         </div>
 
                         <div>

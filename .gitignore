@@ -1,0 +1,16 @@
+# Deployment secrets — never commit real credentials
+config/secrets.php
+
+# Backups and SQL dumps
+backups/
+*.sql
+
+# Uploaded user content
+uploads/
+
+# Developer scratch scripts
+scratch/
+
+# OS / editor noise
+Thumbs.db
+.DS_Store

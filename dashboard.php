@@ -12,6 +12,12 @@ $db = $database->getConnection();
 
 // Add proper role check
 $role = isset($_SESSION['role']) ? $_SESSION['role'] : 'student';
+
+// Parents have a dedicated dashboard; route them there if they land here.
+if ($role === 'parent') {
+    header("Location: parent/dashboard.php");
+    exit();
+}
 $user_name = $_SESSION['user_name'] ?? 'Guest';
 $user_id = $_SESSION['user_id'];
 $title = "Dashboard";
@@ -57,15 +63,15 @@ try {
 
     } elseif ($role === 'teacher') {
         // Teacher dashboard statistics
-        $stats_query = "SELECT 
-            (SELECT COUNT(*) FROM student_classes sc 
-             JOIN classes c ON sc.class_id = c.id 
-             WHERE c.teacher_id = :user_id) as my_students,
-            (SELECT COUNT(*) FROM classes WHERE teacher_id = :user_id AND status = 'active') as my_classes,
+        $stats_query = "SELECT
+            (SELECT COUNT(DISTINCT sc.student_id) FROM student_classes sc
+             WHERE sc.status = 'active'
+               AND sc.class_id IN (SELECT class_id FROM class_teachers WHERE teacher_id = :user_id)) as my_students,
+            (SELECT COUNT(DISTINCT class_id) FROM class_teachers WHERE teacher_id = :user_id) as my_classes,
             (SELECT COUNT(*) FROM assignments WHERE teacher_id = :user_id AND status = 'active') as my_assignments,
-            (SELECT COUNT(*) FROM attendance a 
-             JOIN classes c ON a.class_id = c.id 
-             WHERE c.teacher_id = :user_id AND DATE(a.date) = CURDATE()) as today_attendance";
+            (SELECT COUNT(DISTINCT a.id) FROM attendance a
+             WHERE a.class_id IN (SELECT class_id FROM class_teachers WHERE teacher_id = :user_id)
+               AND DATE(a.date) = CURDATE()) as today_attendance";
         $stats_stmt = $db->prepare($stats_query);
         $stats_stmt->bindParam(':user_id', $user_id);
         $stats_stmt->execute();
@@ -95,12 +101,12 @@ include 'includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Dynamic width based on sidebar state) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">

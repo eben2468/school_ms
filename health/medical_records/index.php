@@ -61,9 +61,12 @@ if ($date_to) {
 $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
 // Fetch health records
-$query = "SELECT hr.*, u.name as student_name, u.student_id, u.class, u.section
+$query = "SELECT hr.*, u.name as student_name, sp.student_id, c.name as class_name
           FROM health_records hr
           JOIN users u ON hr.student_id = u.id
+          LEFT JOIN student_profiles sp ON u.id = sp.user_id
+          LEFT JOIN student_classes sc ON u.id = sc.student_id AND sc.status = 'active'
+          LEFT JOIN classes c ON sc.class_id = c.id
           $where_clause
           ORDER BY hr.visit_date DESC, hr.visit_time DESC";
 $stmt = $db->prepare($query);
@@ -88,12 +91,14 @@ include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="max-w-7xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Medical Records</h1>
@@ -225,9 +230,9 @@ include '../../includes/sidebar.php';
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($record['student_name']); ?></div>
-                                    <div class="text-sm text-gray-500">ID: <?php echo htmlspecialchars($record['student_id']); ?></div>
-                                    <?php if ($record['class'] && $record['section']): ?>
-                                    <div class="text-xs text-gray-400"><?php echo htmlspecialchars($record['class'] . ' - ' . $record['section']); ?></div>
+                                    <div class="text-sm text-gray-500">ID: <?php echo htmlspecialchars($record['student_id'] ?? ''); ?></div>
+                                    <?php if (!empty($record['class_name'])): ?>
+                                    <div class="text-xs text-gray-400"><?php echo htmlspecialchars($record['class_name']); ?></div>
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -296,8 +301,13 @@ include '../../includes/sidebar.php';
                 </a>
             </div>
             <?php endif; ?>
+                </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
 </div>
 
-<?php include '../../includes/footer.php'; ?>

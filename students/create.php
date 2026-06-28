@@ -27,7 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $parent_email = filter_input(INPUT_POST, 'parent_email', FILTER_SANITIZE_EMAIL);
     $admission_date = filter_input(INPUT_POST, 'admission_date', FILTER_SANITIZE_STRING);
 
-    if ($name && $email && $password && $class_id) {
+    // Enforce the school's subscription plan student capacity.
+    require_once '../includes/plan_limits.php';
+    $__cap = checkStudentCapacity($db, $_SESSION['school_id'] ?? 0, 1);
+
+    if (!$__cap['allowed']) {
+        $error_message = planCapacityMessage('student', $__cap);
+    } elseif ($name && $email && $password && $class_id) {
         try {
             $db->beginTransaction();
 
@@ -69,6 +75,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $class_stmt->execute();
 
             $db->commit();
+
+            // Mirror into the central login directory so the student can sign in.
+            require_once '../includes/user_directory.php';
+            syncUserToCentralDirectory([
+                'school_id'  => $_SESSION['school_id'] ?? null,
+                'name'       => $name,
+                'email'      => $email,
+                'password'   => $hashed_password,
+                'role'       => 'student',
+                'status'     => 'active',
+                'student_id' => $student_id,
+            ]);
+
             $success_message = "Student created successfully with ID: $student_id";
         } catch (PDOException $e) {
             $db->rollBack();
@@ -95,7 +114,7 @@ include '../includes/sidebar.php';
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-4xl mx-auto">
@@ -170,7 +189,7 @@ include '../includes/sidebar.php';
                                         Student ID
                                     </label>
                                     <div class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
-                                        Will be auto-generated (Format: STU20254927)
+                                        Will be auto-generated (e.g. <?php echo htmlspecialchars((new Database())->studentIdPrefix() . date('Y')); ?>0001)
                                     </div>
                                 </div>
 

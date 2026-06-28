@@ -102,20 +102,22 @@ include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="max-w-7xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Counseling Sessions</h1>
-                <div class="flex space-x-3">
-                    <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+                <div class="flex flex-row items-center gap-3">
+                    <a href="../index.php" class="text-blue-600 hover:text-blue-800 whitespace-nowrap flex-shrink-0 inline-flex items-center">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Health
                     </a>
-                    <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0 inline-flex items-center">
                         <i class="fas fa-calendar-plus mr-2"></i>Schedule Session
                     </a>
                 </div>
@@ -329,8 +331,13 @@ include '../../includes/sidebar.php';
                 </a>
             </div>
             <?php endif; ?>
+                </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
 </div>
 
-<?php include '../../includes/footer.php'; ?>

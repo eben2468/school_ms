@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 }
 
 require_once '../config/database.php';
+require_once '../includes/settings_helper.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -93,22 +94,14 @@ if ($student_id) {
             'total_marks' => $total_marks,
             'total_possible' => $total_possible,
             'average_percentage' => $average_percentage,
-            'grade_letter' => getGradeLetter($average_percentage)
+            'grade_letter' => formatGrade($average_percentage)
         ];
     }
 }
 
-function getGradeLetter($percentage) {
-    if ($percentage >= 90) return 'A+';
-    if ($percentage >= 80) return 'A';
-    if ($percentage >= 70) return 'B+';
-    if ($percentage >= 60) return 'B';
-    if ($percentage >= 50) return 'C+';
-    if ($percentage >= 40) return 'C';
-    if ($percentage >= 30) return 'D';
-    return 'F';
-}
-
+// Grade letters/values follow the school's configured grading system
+// (formatGrade() in settings_helper.php). getGradeColor() below only chooses a
+// text colour from the numeric percentage and is local to this view.
 function getGradeColor($percentage) {
     if ($percentage >= 80) return 'text-green-600 dark:text-green-400';
     if ($percentage >= 60) return 'text-blue-600 dark:text-blue-400';
@@ -122,12 +115,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
                 <!-- Header -->
@@ -270,7 +263,7 @@ include '../includes/sidebar.php';
                                 <?php foreach ($grades as $grade): ?>
                                 <?php 
                                 $percentage = $grade['total_marks'] > 0 ? ($grade['marks_obtained'] / $grade['total_marks']) * 100 : 0;
-                                $grade_letter = getGradeLetter($percentage);
+                                $grade_letter = formatGrade($percentage);
                                 ?>
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">

@@ -13,6 +13,8 @@ $db = $database->getConnection();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $student_id = filter_input(INPUT_POST, 'student_id', FILTER_SANITIZE_NUMBER_INT);
     $session_date = filter_input(INPUT_POST, 'session_date', FILTER_SANITIZE_STRING);
+    $session_time = filter_input(INPUT_POST, 'session_time', FILTER_SANITIZE_STRING) ?: date('H:i');
+    $duration = filter_input(INPUT_POST, 'duration', FILTER_SANITIZE_NUMBER_INT) ?: 60;
     $session_type = filter_input(INPUT_POST, 'session_type', FILTER_SANITIZE_STRING);
     $reason = filter_input(INPUT_POST, 'reason', FILTER_SANITIZE_STRING);
     $concerns = filter_input(INPUT_POST, 'concerns', FILTER_SANITIZE_STRING);
@@ -24,11 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($student_id && $session_date && $session_type) {
         try {
-            $query = "INSERT INTO counseling_sessions (student_id, session_date, session_type, reason, concerns, observations, recommendations, follow_up_required, follow_up_date, confidential_notes, counselor_id, created_at) 
-                     VALUES (:student_id, :session_date, :session_type, :reason, :concerns, :observations, :recommendations, :follow_up_required, :follow_up_date, :confidential_notes, :counselor_id, NOW())";
+            $query = "INSERT INTO counseling_sessions (student_id, session_date, session_time, duration, duration_minutes, session_type, reason, concerns, observations, recommendations, follow_up_required, follow_up_date, confidential_notes, counselor_id, created_at) 
+                      VALUES (:student_id, :session_date, :session_time, :duration, :duration_minutes, :session_type, :reason, :concerns, :observations, :recommendations, :follow_up_required, :follow_up_date, :confidential_notes, :counselor_id, NOW())";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':student_id', $student_id);
             $stmt->bindParam(':session_date', $session_date);
+            $stmt->bindParam(':session_time', $session_time);
+            $stmt->bindParam(':duration', $duration);
+            $stmt->bindParam(':duration_minutes', $duration);
             $stmt->bindParam(':session_type', $session_type);
             $stmt->bindParam(':reason', $reason);
             $stmt->bindParam(':concerns', $concerns);
@@ -70,12 +75,12 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -122,6 +127,18 @@ include '../../includes/sidebar.php';
                                 <div>
                                     <label for="session_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Session Date *</label>
                                     <input type="date" id="session_date" name="session_date" value="<?php echo date('Y-m-d'); ?>" required
+                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                </div>
+
+                                <div>
+                                    <label for="session_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Session Time *</label>
+                                    <input type="time" id="session_time" name="session_time" value="<?php echo date('H:i'); ?>" required
+                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                </div>
+
+                                <div>
+                                    <label for="duration" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Duration (minutes) *</label>
+                                    <input type="number" id="duration" name="duration" value="60" min="5" max="300" required
                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                                 </div>
 

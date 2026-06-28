@@ -1,330 +1,309 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'accountant'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('finance');
 
 require_once '../config/database.php';
+require_once 'includes/finance_functions.php';
+require_once '../includes/module_access.php';
+requireModule('finance'); // block access if disabled for this school
+
 $database = new Database();
 $db = $database->getConnection();
+
+// Heal tenant DBs that predate the finance module (idempotent, cheap fast-path).
+require_once '../includes/schema_helpers.php';
+ensureFinanceTables($db);
 
 $user_role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
 
-// Get current academic year (using default if settings table doesn't exist)
-try {
-    $current_year_query = "SELECT value as setting_value FROM settings WHERE key_name = 'academic_year' LIMIT 1";
-    $current_year_stmt = $db->query($current_year_query);
-    $current_year_result = $current_year_stmt->fetch(PDO::FETCH_ASSOC);
-    $current_academic_year = $current_year_result ? $current_year_result['setting_value'] : date('Y') . '-' . (date('Y') + 1);
-} catch (PDOException $e) {
-    // Fallback if settings table doesn't exist
-    $current_academic_year = date('Y') . '-' . (date('Y') + 1);
+// Get dynamic academic year and term
+$context = $database->getCurrentAcademicContext();
+$year_id = $context['year_id'];
+$term_id = $context['term_id'];
+
+// Fetch KPI 1: Total Revenue (all payments)
+$total_revenue = (float)$db->query("SELECT SUM(amount) FROM finance_payments")->fetchColumn();
+
+// Fetch KPI 2: Total Outstanding Fees (across active invoices)
+$outstanding_fees = (float)$db->query("SELECT SUM(total_amount + penalty_amount - discount_amount - amount_paid) 
+                                        FROM finance_invoices 
+                                        WHERE status != 'cancelled'")->fetchColumn();
+
+// Fetch KPI 3: Students Paid (paid in full this term/year)
+$students_paid = 0;
+if ($year_id) {
+    $stmt = $db->prepare("SELECT COUNT(DISTINCT student_id) FROM finance_invoices WHERE status = 'paid' AND academic_year_id = :year_id");
+    $stmt->execute([':year_id' => $year_id]);
+    $students_paid = (int)$stmt->fetchColumn();
 }
 
-// Get financial statistics
-$stats_query = "SELECT 
-    COUNT(DISTINCT fs.id) as total_fee_structures,
-    COUNT(DISTINCT sp.id) as total_students,
-    SUM(CASE WHEN sp.payment_status = 'paid' THEN fs.amount ELSE 0 END) as total_collected,
-    SUM(CASE WHEN sp.payment_status = 'pending' THEN fs.amount ELSE 0 END) as total_pending,
-    SUM(CASE WHEN sp.payment_status = 'overdue' THEN fs.amount ELSE 0 END) as total_overdue
-    FROM fee_structures fs
-    LEFT JOIN student_payments sp ON fs.id = sp.fee_structure_id
-    WHERE fs.academic_year = :academic_year";
-$stats_stmt = $db->prepare($stats_query);
-$stats_stmt->bindParam(':academic_year', $current_academic_year);
-$stats_stmt->execute();
-$stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
+// Fetch KPI 4: Students Owing (unpaid/partial/overdue this term/year)
+$students_owing = 0;
+if ($year_id) {
+    $stmt = $db->prepare("SELECT COUNT(DISTINCT student_id) FROM finance_invoices WHERE status IN ('pending', 'partially_paid', 'overdue') AND academic_year_id = :year_id");
+    $stmt->execute([':year_id' => $year_id]);
+    $students_owing = (int)$stmt->fetchColumn();
+}
 
-// Get recent payments
-$recent_payments_query = "SELECT sp.*, fs.fee_type, fs.amount, u.name as student_name, c.name as class_name
-    FROM student_payments sp
-    JOIN fee_structures fs ON sp.fee_structure_id = fs.id
-    JOIN users u ON sp.student_id = u.id
-    LEFT JOIN student_classes sc ON u.id = sc.student_id AND sc.status = 'active'
-    LEFT JOIN classes c ON sc.class_id = c.id
-    WHERE sp.payment_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    ORDER BY sp.payment_date DESC
-    LIMIT 10";
-$recent_payments_stmt = $db->query($recent_payments_query);
-$recent_payments = $recent_payments_stmt->fetchAll(PDO::FETCH_ASSOC);
+// Fetch KPI 5: Payments Received Today
+$payments_today = (float)$db->query("SELECT SUM(amount) FROM finance_payments WHERE DATE(payment_date) = CURDATE()")->fetchColumn();
 
-// Get overdue payments
-$overdue_payments_query = "SELECT sp.*, fs.fee_type, fs.amount, u.name as student_name, c.name as class_name,
-    DATEDIFF(CURDATE(), sp.due_date) as days_overdue
-    FROM student_payments sp
-    JOIN fee_structures fs ON sp.fee_structure_id = fs.id
-    JOIN users u ON sp.student_id = u.id
-    LEFT JOIN student_classes sc ON u.id = sc.student_id AND sc.status = 'active'
-    LEFT JOIN classes c ON sc.class_id = c.id
-    WHERE sp.payment_status = 'overdue'
-    ORDER BY sp.due_date ASC
-    LIMIT 10";
-$overdue_payments_stmt = $db->query($overdue_payments_query);
-$overdue_payments = $overdue_payments_stmt->fetchAll(PDO::FETCH_ASSOC);
+// Fetch KPI 6: Monthly Revenue (current calendar month)
+$current_month = date('Y-m');
+$stmt = $db->prepare("SELECT SUM(amount) FROM finance_payments WHERE DATE_FORMAT(payment_date, '%Y-%m') = :c_month");
+$stmt->execute([':c_month' => $current_month]);
+$monthly_revenue = (float)$stmt->fetchColumn();
 
-// Get monthly collection data for chart
-$monthly_data_query = "SELECT 
-    DATE_FORMAT(sp.payment_date, '%Y-%m') as month,
-    SUM(sp.amount_paid) as total_collected
-    FROM student_payments sp
-    WHERE sp.payment_status = 'paid' 
-    AND sp.payment_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-    GROUP BY DATE_FORMAT(sp.payment_date, '%Y-%m')
-    ORDER BY month";
-$monthly_data_stmt = $db->query($monthly_data_query);
-$monthly_data = $monthly_data_stmt->fetchAll(PDO::FETCH_ASSOC);
+// Fetch KPI 7: Active Invoices count
+$active_invoices = (int)$db->query("SELECT COUNT(*) FROM finance_invoices WHERE status != 'cancelled'")->fetchColumn();
+
+// Fetch KPI 8: Collection Rate (%)
+$total_invoiced = (float)$db->query("SELECT SUM(total_amount + penalty_amount - discount_amount) FROM finance_invoices WHERE status != 'cancelled'")->fetchColumn();
+$collection_rate = $total_invoiced > 0 ? round(($total_revenue / $total_invoiced) * 100, 1) : 0;
+
+// Chart 1: Revenue Trends (Last 12 months)
+$trend_data = $db->query("SELECT DATE_FORMAT(payment_date, '%b %Y') as month_label, SUM(amount) as total 
+                          FROM finance_payments 
+                          GROUP BY DATE_FORMAT(payment_date, '%Y-%m') 
+                          ORDER BY payment_date ASC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC);
+$trend_labels = json_encode(array_column($trend_data, 'month_label'));
+$trend_values = json_encode(array_column($trend_data, 'total'));
+
+// Chart 2: Fee Allocation by Category
+$cat_data = $db->query("SELECT fc.name, SUM(ii.amount) as total 
+                        FROM finance_invoice_items ii
+                        JOIN finance_fee_categories fc ON ii.category_id = fc.id
+                        GROUP BY ii.category_id")->fetchAll(PDO::FETCH_ASSOC);
+$cat_labels = json_encode(array_column($cat_data, 'name'));
+$cat_values = json_encode(array_column($cat_data, 'total'));
+
+// Chart 3: Payment Method Distribution
+$method_data = $db->query("SELECT payment_method, SUM(amount) as total 
+                           FROM finance_payments 
+                           GROUP BY payment_method")->fetchAll(PDO::FETCH_ASSOC);
+$method_labels = json_encode(array_map('ucfirst', array_column($method_data, 'payment_method')));
+$method_values = json_encode(array_column($method_data, 'total'));
+
+// Recent Transactions Table (latest 10)
+$recent_tx = $db->query("SELECT p.*, i.invoice_number, u.name as student_name, sp.student_id as student_reg_no
+                         FROM finance_payments p
+                         JOIN finance_invoices i ON p.invoice_id = i.id
+                         JOIN users u ON i.student_id = u.id
+                         JOIN student_profiles sp ON u.id = sp.user_id
+                         ORDER BY p.id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <?php include '../includes/header.php'; ?>
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
-    <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 56px;">
+    <!-- Sidebar Space -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
-        <!-- Content Wrapper -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-3xl font-semibold text-gray-800">Finance Management</h1>
-                <div class="flex space-x-3">
-                    <a href="reports.php" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-chart-line mr-2"></i>Reports
-                    </a>
-                    <a href="fee_structures.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-cog mr-2"></i>Fee Structures
-                    </a>
-                    <a href="payments.php" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-money-bill-wave mr-2"></i>Payments
-                    </a>
-                </div>
-            </div>
-
-            <!-- Financial Overview -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-green-100">
-                            <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total Collected</p>
-                            <p class="text-2xl font-semibold text-green-600">₵<?php echo number_format($stats['total_collected'] ?? 0, 2); ?></p>
-                        </div>
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                    <div>
+                        <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Finance Dashboard</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Real-time collections, outstanding balances, and analytics</p>
                     </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-yellow-100">
-                            <i class="fas fa-clock text-yellow-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Pending</p>
-                            <p class="text-2xl font-semibold text-yellow-600">₵<?php echo number_format($stats['total_pending'] ?? 0, 2); ?></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-red-100">
-                            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Overdue</p>
-                            <p class="text-2xl font-semibold text-red-600">₵<?php echo number_format($stats['total_overdue'] ?? 0, 2); ?></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-blue-100">
-                            <i class="fas fa-users text-blue-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total Students</p>
-                            <p class="text-2xl font-semibold text-blue-600"><?php echo number_format($stats['total_students'] ?? 0); ?></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Recent Payments -->
-                <div class="bg-white rounded-lg shadow">
-                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                        <h2 class="text-lg font-semibold text-gray-800">Recent Payments</h2>
-                        <a href="payments.php" class="text-blue-600 hover:text-blue-800 text-sm">View All</a>
-                    </div>
-                    <div class="p-6">
-                        <?php if (!empty($recent_payments)): ?>
-                        <div class="space-y-4">
-                            <?php foreach ($recent_payments as $payment): ?>
-                            <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0">
-                                <div>
-                                    <div class="font-medium text-gray-900"><?php echo htmlspecialchars($payment['student_name']); ?></div>
-                                    <div class="text-sm text-gray-500">
-                                        <?php echo htmlspecialchars($payment['fee_type']); ?> - <?php echo htmlspecialchars($payment['class_name'] ?? 'N/A'); ?>
-                                    </div>
-                                    <div class="text-xs text-gray-400">
-                                        <?php echo date('M j, Y', strtotime($payment['payment_date'])); ?>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="font-semibold text-green-600">₵<?php echo number_format($payment['amount_paid'], 2); ?></div>
-                                    <div class="text-xs text-gray-500"><?php echo ucfirst($payment['payment_method']); ?></div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php else: ?>
-                        <div class="text-center py-8">
-                            <i class="fas fa-receipt text-gray-400 text-3xl mb-2"></i>
-                            <p class="text-gray-500">No recent payments</p>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <!-- Overdue Payments -->
-                <div class="bg-white rounded-lg shadow">
-                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                        <h2 class="text-lg font-semibold text-gray-800">Overdue Payments</h2>
-                        <a href="payments.php?status=overdue" class="text-red-600 hover:text-red-800 text-sm">View All</a>
-                    </div>
-                    <div class="p-6">
-                        <?php if (!empty($overdue_payments)): ?>
-                        <div class="space-y-4">
-                            <?php foreach ($overdue_payments as $payment): ?>
-                            <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0">
-                                <div>
-                                    <div class="font-medium text-gray-900"><?php echo htmlspecialchars($payment['student_name']); ?></div>
-                                    <div class="text-sm text-gray-500">
-                                        <?php echo htmlspecialchars($payment['fee_type']); ?> - <?php echo htmlspecialchars($payment['class_name'] ?? 'N/A'); ?>
-                                    </div>
-                                    <div class="text-xs text-red-500">
-                                        <?php echo $payment['days_overdue']; ?> day(s) overdue
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="font-semibold text-red-600">₵<?php echo number_format($payment['amount'], 2); ?></div>
-                                    <div class="text-xs text-gray-500">Due: <?php echo date('M j', strtotime($payment['due_date'])); ?></div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php else: ?>
-                        <div class="text-center py-8">
-                            <i class="fas fa-check-circle text-green-400 text-3xl mb-2"></i>
-                            <p class="text-gray-500">No overdue payments</p>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Monthly Collection Chart -->
-            <?php if (!empty($monthly_data)): ?>
-            <div class="mt-8 bg-white rounded-lg shadow">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-800">Monthly Collection Trend</h2>
-                </div>
-                <div class="p-6">
-                    <canvas id="monthlyChart" width="400" height="200"></canvas>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <!-- Quick Actions -->
-            <div class="mt-8 bg-white rounded-lg shadow">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-800">Quick Actions</h2>
-                </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <a href="collect_payment.php" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                            <div class="p-2 bg-green-100 rounded-lg mr-3">
-                                <i class="fas fa-money-bill-wave text-green-600"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-gray-900">Collect Payment</div>
-                                <div class="text-sm text-gray-500">Record a new payment</div>
-                            </div>
+                    <div class="flex flex-wrap items-center gap-2 no-stack">
+                        <a href="collect_payment.php" class="inline-flex items-center whitespace-nowrap bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold px-4 py-2.5 rounded-xl shadow shadow-green-500/20 transition">
+                            <i class="fas fa-coins mr-2"></i> Collect Payment
                         </a>
-                        
-                        <a href="generate_invoice.php" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                            <div class="p-2 bg-blue-100 rounded-lg mr-3">
-                                <i class="fas fa-file-invoice text-blue-600"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-gray-900">Generate Invoice</div>
-                                <div class="text-sm text-gray-500">Create fee invoices</div>
-                            </div>
-                        </a>
-                        
-                        <a href="send_reminders.php" class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                            <div class="p-2 bg-yellow-100 rounded-lg mr-3">
-                                <i class="fas fa-bell text-yellow-600"></i>
-                            </div>
-                            <div>
-                                <div class="font-medium text-gray-900">Send Reminders</div>
-                                <div class="text-sm text-gray-500">Notify overdue payments</div>
-                            </div>
+                        <a href="invoices.php" class="inline-flex items-center whitespace-nowrap bg-gray-800 hover:bg-gray-900 text-white font-semibold px-4 py-2.5 rounded-xl transition">
+                            <i class="fas fa-file-invoice-dollar mr-2"></i> Invoices
                         </a>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<?php if (!empty($monthly_data)): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const ctx = document.getElementById('monthlyChart').getContext('2d');
-const monthlyChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: <?php echo json_encode(array_map(function($item) { return date('M Y', strtotime($item['month'] . '-01')); }, $monthly_data)); ?>,
-        datasets: [{
-            label: 'Monthly Collections ($)',
-            data: <?php echo json_encode(array_map(function($item) { return floatval($item['total_collected']); }, $monthly_data)); ?>,
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            tension: 0.1,
-            fill: true
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                display: false
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    callback: function(value) {
-                        return '₵' + value.toLocaleString();
-                    }
-                }
-            }
-        }
-    }
-});
-</script>
-<?php endif; ?>
+                <!-- 8 KPI Cards Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- KPI 1 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-450">
+                            <i class="fas fa-coins text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Total Revenue</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo formatFinanceCurrency($total_revenue, $db); ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 2 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-rose-100 dark:bg-rose-950/40 rounded-2xl flex items-center justify-center text-rose-600 dark:text-rose-455">
+                            <i class="fas fa-exclamation-circle text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Outstanding Fees</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo formatFinanceCurrency($outstanding_fees, $db); ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 3 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-teal-100 dark:bg-teal-950/40 rounded-2xl flex items-center justify-center text-teal-600 dark:text-teal-450">
+                            <i class="fas fa-user-check text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Students Paid</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo $students_paid; ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 4 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-amber-100 dark:bg-amber-950/40 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-450">
+                            <i class="fas fa-user-times text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Students Owing</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo $students_owing; ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 5 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-950/40 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-450">
+                            <i class="fas fa-hand-holding-usd text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Received Today</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo formatFinanceCurrency($payments_today, $db); ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 6 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-950/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-455">
+                            <i class="fas fa-calendar-alt text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Monthly Revenue</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo formatFinanceCurrency($monthly_revenue, $db); ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 7 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-950/40 rounded-2xl flex items-center justify-center text-purple-600 dark:text-purple-450">
+                            <i class="fas fa-file-invoice text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Active Invoices</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo $active_invoices; ?></span>
+                        </div>
+                    </div>
+                    <!-- KPI 8 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-950/40 rounded-2xl flex items-center justify-center text-yellow-600 dark:text-yellow-450">
+                            <i class="fas fa-percentage text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">Collection Rate</span>
+                            <span class="text-2xl font-extrabold text-gray-800 dark:text-white"><?php echo $collection_rate; ?>%</span>
+                        </div>
+                    </div>
+                </div>
 
+                <!-- Charts & Quick Actions -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                    <!-- Revenue Trend (Line Chart) -->
+                    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Revenue Collection Trend</h3>
+                        <div class="relative h-72">
+                            <canvas id="revenueTrendChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Quick Financial Actions</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <a href="collect_payment.php" class="p-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/40 dark:hover:bg-gray-900 rounded-xl flex flex-col items-center justify-center text-center transition">
+                                <i class="fas fa-coins text-2xl text-green-500 mb-2"></i>
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Collect Fee</span>
+                            </a>
+                            <a href="invoices.php" class="p-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/40 dark:hover:bg-gray-900 rounded-xl flex flex-col items-center justify-center text-center transition">
+                                <i class="fas fa-file-invoice-dollar text-2xl text-blue-500 mb-2"></i>
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Bill Students</span>
+                            </a>
+                            <a href="fee_categories.php" class="p-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/40 dark:hover:bg-gray-900 rounded-xl flex flex-col items-center justify-center text-center transition">
+                                <i class="fas fa-tags text-2xl text-purple-500 mb-2"></i>
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Fee Categories</span>
+                            </a>
+                            <a href="discounts.php" class="p-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/40 dark:hover:bg-gray-900 rounded-xl flex flex-col items-center justify-center text-center transition">
+                                <i class="fas fa-percent text-2xl text-yellow-500 mb-2"></i>
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Waivers/Schol.</span>
+                            </a>
+                            <a href="expenses.php" class="p-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/40 dark:hover:bg-gray-900 rounded-xl flex flex-col items-center justify-center text-center transition">
+                                <i class="fas fa-file-invoice text-2xl text-rose-500 mb-2"></i>
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Expenses</span>
+                            </a>
+                            <a href="reports.php" class="p-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/40 dark:hover:bg-gray-900 rounded-xl flex flex-col items-center justify-center text-center transition">
+                                <i class="fas fa-chart-bar text-2xl text-indigo-500 mb-2"></i>
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Reports</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary Charts Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <!-- Fee categories distribution (Doughnut Chart) -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Structural Allocation by Category</h3>
+                        <div class="relative h-72">
+                            <canvas id="categoryAllocationChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Methods (Bar Chart) -->
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Payment Method Distribution</h3>
+                        <div class="relative h-72">
+                            <canvas id="methodDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions Table -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-150 dark:border-gray-700/50 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white">Recent Transactions</h3>
+                        <a href="payments.php" class="text-xs font-bold text-blue-600 hover:underline">View Ledger Ledger</a>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                    <th class="p-4">Receipt #</th>
+                                    <th class="p-4">Student</th>
+                                    <th class="p-4">Invoice #</th>
+                                    <th class="p-4">Method</th>
+                                    <th class="p-4 text-right">Amount</th>
+                                    <th class="p-4">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                <?php foreach ($recent_tx as $tx): ?>
+                                <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/20">
+                                    <td class="p-4 font-bold text-gray-750 dark:text-gray-300"><?php echo htmlspecialchars($tx['receipt_number']); ?></td>
+                                    <td class="p-4">
+                                        <div class="font-semibold text-gray-800 dark:text-white"><?php echo htmlspecialchars($tx['student_name']); ?></div>
+                                        <div class="text-xs text-gray-400"><?php echo htmlspecialchars($tx['student_reg_no']); ?></div>
+                                    </td>
+                                    <td class="p-4 font-semibold text-blue-600"><?php echo htmlspecialchars($tx['invoice_number']); ?></td>
+                                    <td class="p-4 capitalize"><?php echo htmlspecialchars($tx['payment_method']); ?></td>
+                                    <td class="p-4 text-right font-bold text-emerald-600"><?php echo formatFinanceCurrency($tx['amount'], $db); ?></td>
+                                    <td class="p-4 text-gray-450"><?php echo date('M d, Y', strtotime($tx['payment_date'])); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -334,3 +313,71 @@ const monthlyChart = new Chart(ctx, {
         </div>
     </div>
 </div>
+
+<!-- Load Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Line Chart: Revenue Trends
+const trendCtx = document.getElementById('revenueTrendChart').getContext('2d');
+new Chart(trendCtx, {
+    type: 'line',
+    data: {
+        labels: <?php echo $trend_labels; ?>,
+        datasets: [{
+            label: 'Collection',
+            data: <?php echo $trend_values; ?>,
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5, 150, 105, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+
+// Doughnut Chart: Category Allocation
+const catCtx = document.getElementById('categoryAllocationChart').getContext('2d');
+new Chart(catCtx, {
+    type: 'doughnut',
+    data: {
+        labels: <?php echo $cat_labels; ?>,
+        datasets: [{
+            data: <?php echo $cat_values; ?>,
+            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6b7280', '#06b6d4', '#f97316', '#14b8a6']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'right' } }
+    }
+});
+
+// Bar Chart: Payment Methods
+const methodCtx = document.getElementById('methodDistributionChart').getContext('2d');
+new Chart(methodCtx, {
+    type: 'bar',
+    data: {
+        labels: <?php echo $method_labels; ?>,
+        datasets: [{
+            data: <?php echo $method_values; ?>,
+            backgroundColor: '#4f46e5',
+            borderRadius: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+</script>
+

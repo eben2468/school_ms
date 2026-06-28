@@ -10,12 +10,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -25,7 +25,7 @@ include '../includes/sidebar.php';
                         <h1 class="text-3xl font-semibold text-gray-800 dark:text-white">Borrow Books</h1>
                         <p class="text-gray-600 dark:text-gray-400 mt-1">Select a book to borrow from our library collection</p>
                     </div>
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    <a href="books/index.php" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Library
                     </a>
                 </div>
@@ -132,24 +132,26 @@ include '../includes/sidebar.php';
                                 <?php endif; ?>
                             </div>
                             
-                            <!-- Action Buttons -->
-                            <div class="flex space-x-2">
-                                <?php if ($current_loans < $max_books): ?>
-                                <a href="borrow.php?id=<?php echo $book['id']; ?>" 
-                                   class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-2 rounded-md text-center transition-colors duration-200">
-                                    <i class="fas fa-hand-holding mr-1"></i>Borrow
-                                </a>
-                                <?php else: ?>
-                                <button disabled 
-                                        class="flex-1 bg-gray-400 text-white text-sm px-3 py-2 rounded-md text-center cursor-not-allowed">
-                                    <i class="fas fa-ban mr-1"></i>Limit Reached
-                                </button>
-                                <?php endif; ?>
-                                <a href="books/view.php?id=<?php echo $book['id']; ?>" 
-                                   class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-md transition-colors duration-200">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                            </div>
+                             <!-- Action Buttons -->
+                             <div class="flex items-center gap-2">
+                                 <?php if ($current_loans < $max_books): ?>
+                                 <a href="borrow.php?id=<?php echo $book['id']; ?>" 
+                                    class="flex-1 bg-green-700 hover:bg-green-800 text-white text-sm px-4 py-2.5 rounded-lg text-center font-medium transition-colors duration-200 flex items-center justify-center">
+                                     <i class="fas fa-hand-holding mr-2"></i>Borrow
+                                 </a>
+                                 <?php else: ?>
+                                 <button disabled 
+                                         class="flex-1 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-sm px-4 py-2.5 rounded-lg text-center cursor-not-allowed">
+                                     <i class="fas fa-ban mr-2"></i>Limit Reached
+                                 </button>
+                                 <?php endif; ?>
+                                 
+                                 <a href="books/view.php?id=<?php echo $book['id']; ?>" 
+                                    class="bg-blue-600 hover:bg-blue-700 text-white text-sm p-2.5 rounded-lg transition-colors duration-200 flex items-center justify-center w-10 h-10 flex-shrink-0"
+                                    title="View Details">
+                                     <i class="fas fa-eye"></i>
+                                 </a>
+                             </div>
                         </div>
                     </div>
                     <?php endforeach; ?>

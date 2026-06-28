@@ -1,9 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('attendance');
 
 require_once '../config/database.php';
 $database = new Database();
@@ -77,9 +75,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -114,20 +112,23 @@ include '../includes/sidebar.php';
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="flex justify-between items-center mb-6">
-                    <div class="flex space-x-3">
+                <div class="attendance-action-buttons mb-6">
+                    <div class="flex flex-wrap items-center gap-2 no-stack">
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
-                        <a href="take.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
-                            <i class="fas fa-clipboard-check mr-2"></i>Take Attendance
+                        <a href="take.php" class="group inline-flex items-center gap-2 pl-2 pr-3.5 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" style="background-image: linear-gradient(135deg, #3b82f6, #2563eb);">
+                            <span class="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center text-xs group-hover:bg-white/30 transition-colors"><i class="fas fa-clipboard-check"></i></span>
+                            Take Attendance
                         </a>
                         <?php endif; ?>
-                        <a href="reports.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
-                            <i class="fas fa-chart-bar mr-2"></i>View Reports
+                        <a href="reports.php" class="group inline-flex items-center gap-2 pl-2 pr-3.5 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" style="background-image: linear-gradient(135deg, #10b981, #059669);">
+                            <span class="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center text-xs group-hover:bg-white/30 transition-colors"><i class="fas fa-chart-bar"></i></span>
+                            View Reports
                         </a>
                     </div>
-                    <div class="flex space-x-2">
-                        <button onclick="exportAttendance()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center">
-                            <i class="fas fa-download mr-2"></i>Export
+                    <div class="export-button-wrapper">
+                        <button onclick="exportAttendance()" class="group inline-flex items-center gap-2 pl-2 pr-3.5 py-1.5 rounded-lg text-sm font-semibold text-white whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" style="background-image: linear-gradient(135deg, #64748b, #475569);">
+                            <span class="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center text-xs group-hover:bg-white/30 transition-colors"><i class="fas fa-download"></i></span>
+                            Export
                         </button>
                     </div>
                 </div>

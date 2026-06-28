@@ -271,6 +271,25 @@ try {
             echo "✗ Error adding location column to library_books: " . $e->getMessage() . "\n";
         }
     }
+
+    try {
+        $db->exec("ALTER TABLE library_books ADD COLUMN total_copies INT DEFAULT 1 AFTER copies_available");
+        echo "✓ Added total_copies column to library_books table\n";
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), 'Duplicate column name') !== false) {
+            echo "✓ Total_copies column already exists in library_books table\n";
+        } else {
+            echo "✗ Error adding total_copies column to library_books: " . $e->getMessage() . "\n";
+        }
+    }
+
+    try {
+        // Backfill total_copies based on current copies_available + active borrowed loans
+        $db->exec("UPDATE library_books lb SET lb.total_copies = lb.copies_available + COALESCE((SELECT COUNT(*) FROM book_loans bl WHERE bl.book_id = lb.id AND bl.status = 'borrowed'), 0)");
+        echo "✓ Backfilled total_copies column values in library_books table\n";
+    } catch (PDOException $e) {
+        echo "✗ Error backfilling total_copies: " . $e->getMessage() . "\n";
+    }
     
     // Fix hostel_blocks table - ensure it has the correct columns
     try {

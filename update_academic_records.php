@@ -184,7 +184,7 @@ try {
     <h1>Academic Records Update</h1>
     <p>This script updates existing academic records to include proper academic year and term references.</p>
     
-    <div style="margin-top: 20px;">
+    <div style="margin-top: 80px;">
         <a href="academic/settings/" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
             Go to Academic Settings
         </a>

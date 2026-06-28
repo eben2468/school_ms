@@ -38,6 +38,10 @@ $stmt->bindParam(':student_id', $student_id);
 $stmt->execute();
 $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Heal older tenant DBs missing optional attendance time columns.
+require_once '../includes/schema_helpers.php';
+ensureAttendanceColumns($db);
+
 // Get attendance records for current month
 $current_month = date('Y-m');
 $attendance_sql = "SELECT 
@@ -51,11 +55,16 @@ WHERE a.student_id = :student_id
 AND DATE_FORMAT(a.date, '%Y-%m') = :current_month
 ORDER BY a.date DESC";
 
-$stmt = $db->prepare($attendance_sql);
-$stmt->bindParam(':student_id', $student_id);
-$stmt->bindParam(':current_month', $current_month);
-$stmt->execute();
-$attendance_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$attendance_records = [];
+try {
+    $stmt = $db->prepare($attendance_sql);
+    $stmt->bindParam(':student_id', $student_id);
+    $stmt->bindParam(':current_month', $current_month);
+    $stmt->execute();
+    $attendance_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("child_attendance query failed: " . $e->getMessage());
+}
 
 // Calculate attendance statistics
 $total_days = count($attendance_records);
@@ -82,10 +91,10 @@ include '../includes/sidebar.php';
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="page-header-gradient rounded-xl p-4 text-white shadow-lg">

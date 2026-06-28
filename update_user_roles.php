@@ -43,11 +43,12 @@
                 'hostel_warden', 
                 'canteen_manager', 
                 'nurse', 
-                'counselor'
+                'counselor',
+                'hr'
             ) NOT NULL";
             
             $db->exec($alter_query);
-            $messages[] = ['success', '✅ Successfully updated users table ENUM to include transport_officer and hostel_warden'];
+            $messages[] = ['success', '✅ Successfully updated users table ENUM to include transport_officer, hostel_warden, and hr'];
             
         } catch (PDOException $e) {
             $messages[] = ['error', '❌ Database error: ' . $e->getMessage()];
@@ -134,7 +135,8 @@
     'hostel_warden', 
     'canteen_manager', 
     'nurse', 
-    'counselor'
+    'counselor',
+    'hr'
 ) NOT NULL;</pre>
     </div>
     

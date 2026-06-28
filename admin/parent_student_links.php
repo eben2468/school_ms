@@ -1,10 +1,13 @@
 <?php
 session_start();
 require_once '../config/database.php';
+require_once '../includes/csrf.php';
+require_once '../includes/password_policy.php';
+require_once '../includes/user_directory.php';
 
 // Check if user is logged in and has admin privileges
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])) {
-    header('Location: ../login.php');
+    header('Location: ../index.php');
     exit();
 }
 
@@ -17,9 +20,81 @@ $error_message = '';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require('parent_student_links.php');
     $action = $_POST['action'] ?? '';
-    
+
     switch ($action) {
+        case 'create_parent':
+            $parent_name = trim(filter_input(INPUT_POST, 'parent_name', FILTER_SANITIZE_STRING) ?? '');
+            $parent_email = trim(filter_input(INPUT_POST, 'parent_email', FILTER_SANITIZE_EMAIL) ?? '');
+            $parent_password = $_POST['parent_password'] ?? '';
+            $link_student_ids = $_POST['link_student_ids'] ?? [];
+
+            $pw_err = passwordPolicyError($parent_password);
+            if ($parent_name === '' || $parent_email === '') {
+                $error_message = "Parent name and email are required.";
+            } elseif (!filter_var($parent_email, FILTER_VALIDATE_EMAIL)) {
+                $error_message = "Please enter a valid email address.";
+            } elseif ($pw_err !== '') {
+                $error_message = $pw_err;
+            } else {
+                try {
+                    // Email must be unique within this school.
+                    $dupe = $db->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
+                    $dupe->execute([':email' => $parent_email]);
+                    if ($dupe->fetchColumn()) {
+                        $error_message = "A user with that email already exists.";
+                        break;
+                    }
+
+                    $db->beginTransaction();
+
+                    $hashed = password_hash($parent_password, PASSWORD_DEFAULT);
+                    $ins = $db->prepare("INSERT INTO users (name, email, password, role, status, created_at)
+                                         VALUES (:name, :email, :password, 'parent', 'active', NOW())");
+                    $ins->execute([
+                        ':name' => $parent_name,
+                        ':email' => $parent_email,
+                        ':password' => $hashed,
+                    ]);
+                    $new_parent_id = $db->lastInsertId();
+
+                    // Link to any selected students.
+                    $linked = 0;
+                    if (!empty($link_student_ids) && is_array($link_student_ids)) {
+                        $link_stmt = $db->prepare("INSERT INTO parent_students (parent_id, student_id, relationship, is_primary)
+                                                   VALUES (:parent_id, :student_id, 'guardian', FALSE)
+                                                   ON DUPLICATE KEY UPDATE relationship = VALUES(relationship)");
+                        foreach ($link_student_ids as $sid) {
+                            $sid = (int)$sid;
+                            if ($sid > 0) {
+                                $link_stmt->execute([':parent_id' => $new_parent_id, ':student_id' => $sid]);
+                                $linked++;
+                            }
+                        }
+                    }
+
+                    $db->commit();
+
+                    // Mirror into the central login directory so the parent can sign in.
+                    syncUserToCentralDirectory([
+                        'school_id' => $_SESSION['school_id'] ?? null,
+                        'name'      => $parent_name,
+                        'email'     => $parent_email,
+                        'password'  => $hashed,
+                        'role'      => 'parent',
+                        'status'    => 'active',
+                    ]);
+
+                    $success_message = "Parent account created for {$parent_name}"
+                        . ($linked > 0 ? " and linked to {$linked} student(s)." : ".");
+                } catch (PDOException $e) {
+                    if ($db->inTransaction()) { $db->rollBack(); }
+                    error_log("Create parent failed: " . $e->getMessage());
+                    $error_message = "Could not create the parent account. Please try again.";
+                }
+            }
+            break;
         case 'create_link':
             $parent_id = filter_input(INPUT_POST, 'parent_id', FILTER_SANITIZE_NUMBER_INT);
             $student_id = filter_input(INPUT_POST, 'student_id', FILTER_SANITIZE_NUMBER_INT);
@@ -58,7 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success_message = "Parent-student relationship created successfully!";
                 }
             } catch (PDOException $e) {
-                $error_message = "Error creating relationship: " . $e->getMessage();
+                error_log("Create parent-student link failed: " . $e->getMessage());
+                $error_message = "Could not create the relationship. Please try again.";
             }
             break;
             
@@ -73,7 +149,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success_message = "Parent-student relationship deleted successfully!";
             } catch (PDOException $e) {
-                $error_message = "Error deleting relationship: " . $e->getMessage();
+                error_log("Delete parent-student link failed: " . $e->getMessage());
+                $error_message = "Could not delete the relationship. Please try again.";
             }
             break;
             
@@ -100,7 +177,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success_message = "Primary parent updated successfully!";
             } catch (PDOException $e) {
                 $db->rollBack();
-                $error_message = "Error updating primary parent: " . $e->getMessage();
+                error_log("Update primary parent failed: " . $e->getMessage());
+                $error_message = "Could not update the primary parent. Please try again.";
             }
             break;
     }
@@ -110,17 +188,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $parents_sql = "SELECT id, name, email FROM users WHERE role = 'parent' AND status = 'active' ORDER BY name";
 $parents = $db->query($parents_sql)->fetchAll(PDO::FETCH_ASSOC);
 
-// Get all students
+// Get all students (use subquery to get only the latest active class per student)
 $students_sql = "SELECT u.id, u.name, u.email, sp.student_id, c.name as class_name, c.grade_level
 FROM users u
 JOIN student_profiles sp ON u.id = sp.user_id
 LEFT JOIN student_classes sc ON u.id = sc.student_id AND sc.status = 'active'
+    AND sc.id = (SELECT MAX(sc2.id) FROM student_classes sc2 WHERE sc2.student_id = u.id AND sc2.status = 'active')
 LEFT JOIN classes c ON sc.class_id = c.id
 WHERE u.role = 'student' AND u.status = 'active'
 ORDER BY u.name";
 $students = $db->query($students_sql)->fetchAll(PDO::FETCH_ASSOC);
 
-// Get existing relationships
+// Get existing relationships (use subquery to get only the latest active class per student)
 $relationships_sql = "SELECT 
     ps.id,
     ps.relationship,
@@ -136,6 +215,7 @@ JOIN users p ON ps.parent_id = p.id
 JOIN users s ON ps.student_id = s.id
 JOIN student_profiles sp ON s.id = sp.user_id
 LEFT JOIN student_classes sc ON s.id = sc.student_id AND sc.status = 'active'
+    AND sc.id = (SELECT MAX(sc2.id) FROM student_classes sc2 WHERE sc2.student_id = s.id AND sc2.status = 'active')
 LEFT JOIN classes c ON sc.class_id = c.id
 ORDER BY s.name, ps.is_primary DESC";
 $relationships = $db->query($relationships_sql)->fetchAll(PDO::FETCH_ASSOC);
@@ -151,10 +231,10 @@ include '../includes/sidebar.php';
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="page-header-gradient rounded-xl p-4 text-white shadow-lg">
@@ -199,6 +279,14 @@ include '../includes/sidebar.php';
                     </div>
                 </div>
                 <?php endif; ?>
+
+                <!-- Action Bar -->
+                <div class="flex justify-end mb-6">
+                    <button type="button" onclick="document.getElementById('addParentModal').classList.remove('hidden')"
+                        class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-5 rounded-lg transition-colors duration-200 inline-flex items-center shadow">
+                        <i class="fas fa-user-plus mr-2"></i>Add Parent
+                    </button>
+                </div>
 
                 <!-- Create New Relationship -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-8">
@@ -361,3 +449,100 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<!-- Add Parent Modal -->
+<div id="addParentModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-[80] overflow-y-auto">
+    <div class="flex min-h-full items-start justify-center px-4 pt-20 pb-10">
+        <div class="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 rounded-t-2xl px-6 py-5 flex items-center justify-between">
+                <div class="flex items-center text-white">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-user-plus text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">Add Parent</h3>
+                        <p class="text-xs text-green-100">Create a parent account and link them to student(s)</p>
+                    </div>
+                </div>
+                <button type="button" onclick="document.getElementById('addParentModal').classList.add('hidden')" class="text-white/80 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form method="POST" class="p-6 space-y-5">
+                <input type="hidden" name="action" value="create_parent">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="parent_name" required
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email <span class="text-red-500">*</span></label>
+                        <input type="email" name="parent_email" required
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="password" name="parent_password" id="parent_password" required
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <button type="button" onclick="(function(b){var i=document.getElementById('parent_password');var on=i.type==='password';i.type=on?'text':'password';b.querySelector('i').className=on?'fas fa-eye-slash':'fas fa-eye';})(this)"
+                            class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600" aria-label="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">At least 8 characters, including a letter and a number.</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link to Student(s) <span class="text-gray-400 text-xs">(optional)</span></label>
+                    <input type="text" id="parentStudentSearch" onkeyup="filterParentStudents()" placeholder="Search students by name or ID..."
+                        class="w-full px-3 py-2 mb-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg max-h-48 overflow-y-auto p-2 space-y-1" id="parentStudentList">
+                        <?php if (!empty($students)): ?>
+                            <?php foreach ($students as $student): ?>
+                            <label class="parent-student-row flex items-center px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer text-sm"
+                                data-search="<?php echo htmlspecialchars(strtolower($student['name'] . ' ' . $student['student_id'])); ?>">
+                                <input type="checkbox" name="link_student_ids[]" value="<?php echo (int)$student['id']; ?>"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500 mr-2">
+                                <span class="text-gray-800 dark:text-gray-200">
+                                    <?php echo htmlspecialchars($student['name']); ?>
+                                    <span class="text-gray-400">(<?php echo htmlspecialchars($student['student_id']); ?><?php echo $student['class_name'] ? ' · Grade ' . htmlspecialchars($student['grade_level']) : ''; ?>)</span>
+                                </span>
+                            </label>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <p class="text-xs text-gray-400 text-center py-3">No students available yet.</p>
+                        <?php endif; ?>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">You can also link parents later from the form on this page.</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onclick="document.getElementById('addParentModal').classList.add('hidden')"
+                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg inline-flex items-center">
+                        <i class="fas fa-user-plus mr-2"></i>Create Parent
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterParentStudents() {
+    var q = document.getElementById('parentStudentSearch').value.toLowerCase().trim();
+    document.querySelectorAll('#parentStudentList .parent-student-row').forEach(function (row) {
+        row.style.display = row.getAttribute('data-search').indexOf(q) !== -1 ? '' : 'none';
+    });
+}
+<?php if (($_POST['action'] ?? '') === 'create_parent' && $error_message): ?>
+// Re-open the modal so the validation error is visible in context.
+document.getElementById('addParentModal').classList.remove('hidden');
+<?php endif; ?>
+</script>

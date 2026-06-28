@@ -11,6 +11,11 @@ $db = $database->getConnection();
 
 $user_role = $_SESSION['role'];
 
+// Retrieve GET parameters
+if (isset($_GET['success'])) {
+    $success = $_GET['success'];
+}
+
 // Handle assignment actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = filter_input(INPUT_POST, 'action', FILTER_SANITIZE_STRING);
@@ -18,17 +23,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create' && in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])) {
         $vehicle_id = filter_input(INPUT_POST, 'vehicle_id', FILTER_SANITIZE_NUMBER_INT);
         $route_id = filter_input(INPUT_POST, 'route_id', FILTER_SANITIZE_NUMBER_INT);
+        $driver_id = filter_input(INPUT_POST, 'driver_id', FILTER_SANITIZE_NUMBER_INT) ?: null;
         $departure_time = filter_input(INPUT_POST, 'departure_time', FILTER_SANITIZE_STRING);
         $return_time = filter_input(INPUT_POST, 'return_time', FILTER_SANITIZE_STRING);
         $effective_date = filter_input(INPUT_POST, 'effective_date', FILTER_SANITIZE_STRING);
         
         if ($vehicle_id && $route_id && $departure_time && $effective_date) {
             try {
-                $query = "INSERT INTO transport_assignments (vehicle_id, route_id, departure_time, return_time, effective_date) 
-                         VALUES (:vehicle_id, :route_id, :departure_time, :return_time, :effective_date)";
+                $query = "INSERT INTO transport_assignments (vehicle_id, route_id, driver_id, departure_time, return_time, effective_date) 
+                         VALUES (:vehicle_id, :route_id, :driver_id, :departure_time, :return_time, :effective_date)";
                 $stmt = $db->prepare($query);
                 $stmt->bindParam(':vehicle_id', $vehicle_id);
                 $stmt->bindParam(':route_id', $route_id);
+                if ($driver_id === null) {
+                    $stmt->bindValue(':driver_id', null, PDO::PARAM_NULL);
+                } else {
+                    $stmt->bindParam(':driver_id', $driver_id, PDO::PARAM_INT);
+                }
                 $stmt->bindParam(':departure_time', $departure_time);
                 $stmt->bindParam(':return_time', $return_time);
                 $stmt->bindParam(':effective_date', $effective_date);
@@ -37,6 +48,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success = "Transport assignment created successfully.";
                 } else {
                     $error = "Failed to create assignment.";
+                }
+            } catch (PDOException $e) {
+                $error = "Database error: " . $e->getMessage();
+            }
+        } else {
+            $error = "All required fields must be filled.";
+        }
+    } elseif ($action === 'edit' && in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])) {
+        $assignment_id = filter_input(INPUT_POST, 'assignment_id', FILTER_SANITIZE_NUMBER_INT);
+        $vehicle_id = filter_input(INPUT_POST, 'vehicle_id', FILTER_SANITIZE_NUMBER_INT);
+        $route_id = filter_input(INPUT_POST, 'route_id', FILTER_SANITIZE_NUMBER_INT);
+        $driver_id = filter_input(INPUT_POST, 'driver_id', FILTER_SANITIZE_NUMBER_INT) ?: null;
+        $departure_time = filter_input(INPUT_POST, 'departure_time', FILTER_SANITIZE_STRING);
+        $return_time = filter_input(INPUT_POST, 'return_time', FILTER_SANITIZE_STRING);
+        $effective_date = filter_input(INPUT_POST, 'effective_date', FILTER_SANITIZE_STRING);
+        
+        if ($assignment_id && $vehicle_id && $route_id && $departure_time && $effective_date) {
+            try {
+                $query = "UPDATE transport_assignments 
+                          SET vehicle_id = :vehicle_id, route_id = :route_id, driver_id = :driver_id, 
+                              departure_time = :departure_time, return_time = :return_time, effective_date = :effective_date 
+                          WHERE id = :assignment_id";
+                $stmt = $db->prepare($query);
+                $stmt->bindParam(':vehicle_id', $vehicle_id);
+                $stmt->bindParam(':route_id', $route_id);
+                if ($driver_id === null) {
+                    $stmt->bindValue(':driver_id', null, PDO::PARAM_NULL);
+                } else {
+                    $stmt->bindParam(':driver_id', $driver_id, PDO::PARAM_INT);
+                }
+                $stmt->bindParam(':departure_time', $departure_time);
+                $stmt->bindParam(':return_time', $return_time);
+                $stmt->bindParam(':effective_date', $effective_date);
+                $stmt->bindParam(':assignment_id', $assignment_id);
+                
+                if ($stmt->execute()) {
+                    $success = "Transport assignment updated successfully.";
+                    header("Location: index.php?success=" . urlencode($success));
+                    exit();
+                } else {
+                    $error = "Failed to update assignment.";
                 }
             } catch (PDOException $e) {
                 $error = "Database error: " . $e->getMessage();
@@ -65,6 +117,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Fetch assignment to edit
+$edit_assignment = null;
+if (isset($_GET['edit_id']) && in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])) {
+    $edit_id = filter_input(INPUT_GET, 'edit_id', FILTER_SANITIZE_NUMBER_INT);
+    if ($edit_id) {
+        $edit_stmt = $db->prepare("SELECT * FROM transport_assignments WHERE id = :id");
+        $edit_stmt->bindParam(':id', $edit_id);
+        $edit_stmt->execute();
+        $edit_assignment = $edit_stmt->fetch(PDO::FETCH_ASSOC);
+    }
+}
+
 // Get filter parameters
 $route_filter = filter_input(INPUT_GET, 'route', FILTER_SANITIZE_NUMBER_INT) ?: '';
 $vehicle_filter = filter_input(INPUT_GET, 'vehicle', FILTER_SANITIZE_NUMBER_INT) ?: '';
@@ -88,10 +152,12 @@ $where_clause = "WHERE " . implode(" AND ", $where_conditions);
 // Get transport assignments
 $query = "SELECT ta.*, 
           tr.route_name, tr.route_code, tr.start_point, tr.end_point,
-          tv.vehicle_number, tv.vehicle_type, tv.capacity, tv.driver_name
+          tv.vehicle_number, tv.vehicle_type, tv.capacity, tv.driver_name as vehicle_driver,
+          td.name as assigned_driver
           FROM transport_assignments ta
           JOIN transport_routes tr ON ta.route_id = tr.id
           JOIN transport_vehicles tv ON ta.vehicle_id = tv.id
+          LEFT JOIN transport_drivers td ON ta.driver_id = td.id
           $where_clause
           ORDER BY ta.departure_time";
 
@@ -110,18 +176,23 @@ $routes = $routes_stmt->fetchAll(PDO::FETCH_ASSOC);
 $vehicles_query = "SELECT id, vehicle_number, vehicle_type, capacity FROM transport_vehicles WHERE status = 'active' ORDER BY vehicle_number";
 $vehicles_stmt = $db->query($vehicles_query);
 $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get drivers for selection
+$drivers_query = "SELECT id, name FROM transport_drivers WHERE status = 'active' ORDER BY name";
+$drivers_stmt = $db->query($drivers_query);
+$drivers = $drivers_stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <?php include '../../includes/header.php'; ?>
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -144,22 +215,33 @@ $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
             <?php endif; ?>
 
-            <!-- Create Assignment Form (for authorized users) -->
+            <!-- Create/Edit Assignment Form (for authorized users) -->
             <?php if (in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])): ?>
             <div class="bg-white rounded-lg shadow mb-6">
-                <div class="p-6 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Create New Assignment</h3>
+                <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <?php echo $edit_assignment ? 'Edit Assignment #' . $edit_assignment['id'] : 'Create New Assignment'; ?>
+                    </h3>
+                    <?php if ($edit_assignment): ?>
+                        <a href="index.php" class="text-sm text-red-650 hover:text-red-800">
+                            Cancel Edit
+                        </a>
+                    <?php endif; ?>
                 </div>
                 <form action="" method="POST" class="p-6">
-                    <input type="hidden" name="action" value="create">
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <input type="hidden" name="action" value="<?php echo $edit_assignment ? 'edit' : 'create'; ?>">
+                    <?php if ($edit_assignment): ?>
+                        <input type="hidden" name="assignment_id" value="<?php echo $edit_assignment['id']; ?>">
+                    <?php endif; ?>
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                         <div>
                             <label for="vehicle_id" class="block text-sm font-medium text-gray-700 mb-2">Vehicle</label>
                             <select id="vehicle_id" name="vehicle_id" required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="">Select vehicle...</option>
                                 <?php foreach ($vehicles as $vehicle): ?>
-                                    <option value="<?php echo $vehicle['id']; ?>">
+                                    <option value="<?php echo $vehicle['id']; ?>"
+                                        <?php echo ($edit_assignment && $edit_assignment['vehicle_id'] == $vehicle['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($vehicle['vehicle_number'] . ' (' . $vehicle['vehicle_type'] . ')'); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -172,8 +254,23 @@ $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="">Select route...</option>
                                 <?php foreach ($routes as $route): ?>
-                                    <option value="<?php echo $route['id']; ?>">
+                                    <option value="<?php echo $route['id']; ?>"
+                                        <?php echo ($edit_assignment && $edit_assignment['route_id'] == $route['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($route['route_code'] . ' - ' . $route['route_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="driver_id" class="block text-sm font-medium text-gray-700 mb-2">Driver</label>
+                            <select id="driver_id" name="driver_id"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Default Vehicle Driver</option>
+                                <?php foreach ($drivers as $driver): ?>
+                                    <option value="<?php echo $driver['id']; ?>"
+                                        <?php echo ($edit_assignment && $edit_assignment['driver_id'] == $driver['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($driver['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -182,26 +279,34 @@ $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
                         <div>
                             <label for="departure_time" class="block text-sm font-medium text-gray-700 mb-2">Departure Time</label>
                             <input type="time" id="departure_time" name="departure_time" required
+                                value="<?php echo $edit_assignment ? htmlspecialchars($edit_assignment['departure_time']) : ''; ?>"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         
                         <div>
                             <label for="return_time" class="block text-sm font-medium text-gray-700 mb-2">Return Time</label>
                             <input type="time" id="return_time" name="return_time"
+                                value="<?php echo $edit_assignment ? htmlspecialchars($edit_assignment['return_time']) : ''; ?>"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         
                         <div>
                             <label for="effective_date" class="block text-sm font-medium text-gray-700 mb-2">Effective Date</label>
                             <input type="date" id="effective_date" name="effective_date" required
-                                value="<?php echo date('Y-m-d'); ?>"
+                                value="<?php echo $edit_assignment ? htmlspecialchars($edit_assignment['effective_date']) : date('Y-m-d'); ?>"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-                            <i class="fas fa-plus mr-2"></i>Create Assignment
+                    <div class="mt-4 flex space-x-2">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+                            <i class="fas <?php echo $edit_assignment ? 'fa-save' : 'fa-plus'; ?> mr-2"></i>
+                            <?php echo $edit_assignment ? 'Update Assignment' : 'Create Assignment'; ?>
                         </button>
+                        <?php if ($edit_assignment): ?>
+                            <a href="index.php" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-medium">
+                                Cancel
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </form>
             </div>
@@ -282,17 +387,26 @@ $vehicles = $vehicles_stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <?php echo htmlspecialchars($assignment['driver_name'] ?: 'Not assigned'); ?>
+                                    <?php 
+                                    if (!empty($assignment['assigned_driver'])) {
+                                        echo htmlspecialchars($assignment['assigned_driver']) . ' <span class="text-xs text-blue-500 font-semibold">(Assigned)</span>';
+                                    } else {
+                                        echo htmlspecialchars($assignment['vehicle_driver'] ?: 'Not assigned');
+                                    }
+                                    ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <?php echo date('M j, Y', strtotime($assignment['effective_date'])); ?>
                                 </td>
                                 <?php if (in_array($user_role, ['super_admin', 'school_admin', 'transport_officer'])): ?>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="?edit_id=<?php echo $assignment['id']; ?>" class="text-blue-650 hover:text-blue-900 mr-3 inline-block">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
                                     <form action="" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this assignment?')">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="assignment_id" value="<?php echo $assignment['id']; ?>">
-                                        <button type="submit" class="text-red-600 hover:text-red-900">
+                                        <button type="submit" class="text-red-650 hover:text-red-900">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>

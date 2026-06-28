@@ -1,11 +1,12 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher'])) {
     header("Location: ../../auth/login.php");
     exit();
 }
 
 require_once '../../config/database.php';
+require_once 'exam_access.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -16,11 +17,11 @@ if (!$exam_id) {
 }
 
 // Get exam details
-$query = "SELECT e.*, s.name as subject_name, s.code as subject_code, 
-          c.name as class_name, c.grade_level 
-          FROM exams e 
-          JOIN subjects s ON e.subject_id = s.id 
-          JOIN classes c ON e.class_id = c.id 
+$query = "SELECT e.*, s.name as subject_name, s.code as subject_code,
+          c.name as class_name, c.grade_level
+          FROM exams e
+          JOIN subjects s ON e.subject_id = s.id
+          JOIN classes c ON e.class_id = c.id
           WHERE e.id = :exam_id";
 $stmt = $db->prepare($query);
 $stmt->bindParam(':exam_id', $exam_id);
@@ -32,12 +33,13 @@ if (!$exam) {
     exit();
 }
 
-// Check if exam has started
-$exam_datetime = strtotime($exam['exam_date'] . ' ' . $exam['start_time']);
-if ($exam_datetime <= time()) {
-    header("Location: view.php?id=" . $exam_id);
+// Teachers may only edit exams for classes/subjects they teach
+if ($_SESSION['role'] === 'teacher' && !teacherOwnsExam($db, $_SESSION['user_id'], $exam_id)) {
+    header("Location: index.php?error=not_authorized");
     exit();
 }
+
+
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $start_time = $_POST['start_time'];
     $duration = $_POST['duration'];
     $max_marks = $_POST['max_marks'];
-    $passing_marks = $_POST['passing_marks'];
+    $passing_marks = isset($_POST['passing_marks']) && $_POST['passing_marks'] !== '' ? intval($_POST['passing_marks']) : null;
     
     // Validate input
     $errors = [];
@@ -56,7 +58,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($start_time)) $errors[] = "Start time is required.";
     if (empty($duration)) $errors[] = "Duration is required.";
     if (empty($max_marks)) $errors[] = "Maximum marks is required.";
-    if (empty($passing_marks)) $errors[] = "Passing marks is required.";
+    if ($passing_marks !== null) {
+        if ($passing_marks < 0) {
+            $errors[] = "Passing marks cannot be negative.";
+        }
+        if ($passing_marks > $max_marks) {
+            $errors[] = "Passing marks cannot be greater than maximum marks.";
+        }
+    }
     
     if (empty($errors)) {
         $query = "UPDATE exams SET
@@ -66,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     date = :exam_date,
                     start_time = :start_time,
                     duration = :duration,
-                    total_marks = :total_marks
+                    total_marks = :total_marks,
+                    passing_marks = :passing_marks
                  WHERE id = :exam_id";
 
         $stmt = $db->prepare($query);
@@ -76,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':start_time', $start_time);
         $stmt->bindParam(':duration', $duration);
         $stmt->bindParam(':total_marks', $max_marks);
+        $stmt->bindParam(':passing_marks', $passing_marks, PDO::PARAM_INT);
         $stmt->bindParam(':exam_id', $exam_id);
         
         if ($stmt->execute()) {
@@ -92,12 +103,14 @@ include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="max-w-3xl mx-auto">
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Edit Exam</h1>
@@ -194,7 +207,6 @@ include '../../includes/sidebar.php';
                                 <label for="exam_date" class="block text-sm font-medium text-gray-700 mb-1">Exam Date*</label>
                                 <input type="date" id="exam_date" name="exam_date" required
                                     class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    min="<?php echo date('Y-m-d'); ?>"
                                     value="<?php echo $exam['exam_date']; ?>">
                             </div>
 
@@ -222,13 +234,14 @@ include '../../includes/sidebar.php';
                                     value="<?php echo $exam['total_marks']; ?>">
                             </div>
 
-                            <!-- Passing Marks (Read-only, calculated as 40%) -->
+                            <!-- Passing Marks -->
                             <div>
-                                <label for="passing_marks_display" class="block text-sm font-medium text-gray-700 mb-1">Passing Marks (40%)</label>
-                                <input type="number" id="passing_marks_display" readonly
-                                    class="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-600"
-                                    value="<?php echo round($exam['total_marks'] * 0.4); ?>">
-                                <small class="text-gray-500">Automatically calculated as 40% of maximum marks</small>
+                                <label for="passing_marks" class="block text-sm font-medium text-gray-700 mb-1">Passing Marks (Optional)</label>
+                                <input type="number" id="passing_marks" name="passing_marks" min="0" max="100"
+                                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    value="<?php echo isset($exam['passing_marks']) ? htmlspecialchars($exam['passing_marks']) : ''; ?>"
+                                    placeholder="Leave empty for no pass/fail threshold">
+                                <small class="text-gray-500">Leave blank if no pass/fail threshold is required</small>
                             </div>
                         </div>
 
@@ -245,7 +258,11 @@ include '../../includes/sidebar.php';
                 </div>
             </div>
         </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
+        </div>
     </div>
 </div>
-
-<?php include '../../includes/footer.php'; ?>

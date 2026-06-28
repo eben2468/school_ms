@@ -121,7 +121,7 @@
         <div class="instructions">
             <h3>Manual Test Steps:</h3>
             <ol>
-                <li>Go to <a href="/school_ms/dashboard.php" target="_blank">Dashboard</a></li>
+                <li>Go to <a href="/dashboard.php" target="_blank">Dashboard</a></li>
                 <li>Click the hamburger menu (☰) to collapse sidebar</li>
                 <li>Verify content expands to full width</li>
                 <li>Click hamburger menu again to expand sidebar</li>
@@ -130,10 +130,10 @@
         </div>
 
         <div style="text-align: center; margin-top: 30px;">
-            <a href="/school_ms/dashboard.php" class="button">
+            <a href="/dashboard.php" class="button">
                 🏠 Go to Dashboard
             </a>
-            <a href="/school_ms/debug_sidebar.php" class="button">
+            <a href="/debug_sidebar.php" class="button">
                 🔍 Debug Page
             </a>
         </div>
@@ -171,7 +171,7 @@
             
             setTimeout(() => {
                 showResult('🔗 Opening dashboard in new tab...', 'info');
-                window.open('/school_ms/dashboard.php', '_blank');
+                window.open('/dashboard.php', '_blank');
             }, 1000);
         }
 
@@ -194,7 +194,7 @@
             
             setTimeout(() => {
                 showResult('🔗 Opening dashboard in new tab...', 'info');
-                window.open('/school_ms/dashboard.php', '_blank');
+                window.open('/dashboard.php', '_blank');
             }, 1000);
         }
 
@@ -221,7 +221,7 @@
                 setTimeout(() => {
                     showResult('✅ Full test complete! Check dashboard for visual verification.', 'success');
                     showResult('🔗 Opening dashboard for manual verification...', 'info');
-                    window.open('/school_ms/dashboard.php', '_blank');
+                    window.open('/dashboard.php', '_blank');
                 }, 1000);
             }, 2000);
         }

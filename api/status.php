@@ -4,11 +4,13 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
 header('Access-Control-Allow-Headers: Content-Type');
 
+require_once __DIR__ . '/../config/version.php';
+
 // Simple system status check
 $status = [
     'status' => 'online',
     'timestamp' => date('Y-m-d H:i:s'),
-    'version' => '2.0.1',
+    'version' => APP_VERSION,
     'uptime' => '99.9%',
     'database' => 'connected',
     'services' => [

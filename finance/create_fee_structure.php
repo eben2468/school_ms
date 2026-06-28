@@ -1,166 +1,221 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'accountant'])) {
     header("Location: ../index.php");
     exit();
 }
 
 require_once '../config/database.php';
+require_once 'includes/finance_functions.php';
+
 $database = new Database();
 $db = $database->getConnection();
 
+$user_role = $_SESSION['role'];
+$user_id = $_SESSION['user_id'];
+
+$success = '';
+$error = '';
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
-    $class_id = filter_input(INPUT_POST, 'class_id', FILTER_SANITIZE_NUMBER_INT);
-    $academic_year = filter_input(INPUT_POST, 'academic_year', FILTER_SANITIZE_STRING);
-    $fee_type = filter_input(INPUT_POST, 'fee_type', FILTER_SANITIZE_STRING);
+    $academic_year_id = filter_input(INPUT_POST, 'academic_year_id', FILTER_SANITIZE_NUMBER_INT);
+    $term_id = filter_input(INPUT_POST, 'term_id', FILTER_SANITIZE_NUMBER_INT);
+    $class_ids = $_POST['class_ids'] ?? [];
+    $category_id = filter_input(INPUT_POST, 'category_id', FILTER_SANITIZE_NUMBER_INT);
+    $student_type = filter_input(INPUT_POST, 'student_type', FILTER_SANITIZE_STRING) ?: 'all';
     $amount = filter_input(INPUT_POST, 'amount', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $due_date = filter_input(INPUT_POST, 'due_date', FILTER_SANITIZE_STRING);
-    $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_STRING);
+    $is_mandatory = isset($_POST['is_mandatory']) ? 1 : 0;
 
-    if ($name && $fee_type && $amount !== false && $academic_year) {
+    if ($academic_year_id && $term_id && !empty($class_ids) && $category_id && $amount !== false) {
         try {
-            $query = "INSERT INTO fee_structures (name, class_id, academic_year, fee_type, amount, due_date, description, status, created_at)
-                     VALUES (:name, :class_id, :academic_year, :fee_type, :amount, :due_date, :description, 'active', NOW())";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':class_id', $class_id);
-            $stmt->bindParam(':academic_year', $academic_year);
-            $stmt->bindParam(':fee_type', $fee_type);
-            $stmt->bindParam(':amount', $amount);
-            $stmt->bindParam(':due_date', $due_date);
-            $stmt->bindParam(':description', $description);
-            $stmt->execute();
-
-            $success = "Fee structure created successfully!";
+            $db->beginTransaction();
+            
+            $stmt = $db->prepare("INSERT INTO finance_fee_structures (academic_year_id, term_id, class_id, category_id, student_type, amount, is_mandatory) 
+                                  VALUES (:academic_year_id, :term_id, :class_id, :category_id, :student_type, :amount, :is_mandatory)");
+            
+            $count = 0;
+            foreach ($class_ids as $class_id) {
+                // Check if already exists to prevent duplicate category charges
+                $check = $db->prepare("SELECT id FROM finance_fee_structures 
+                                       WHERE academic_year_id = :academic_year_id 
+                                         AND term_id = :term_id 
+                                         AND class_id = :class_id 
+                                         AND category_id = :category_id 
+                                         AND student_type = :student_type");
+                $check->execute([
+                    ':academic_year_id' => $academic_year_id,
+                    ':term_id' => $term_id,
+                    ':class_id' => $class_id,
+                    ':category_id' => $category_id,
+                    ':student_type' => $student_type
+                ]);
+                
+                if (!$check->fetch()) {
+                    $stmt->execute([
+                        ':academic_year_id' => $academic_year_id,
+                        ':term_id' => $term_id,
+                        ':class_id' => $class_id,
+                        ':category_id' => $category_id,
+                        ':student_type' => $student_type,
+                        ':amount' => $amount,
+                        ':is_mandatory' => $is_mandatory
+                    ]);
+                    $count++;
+                }
+            }
+            
+            $db->commit();
+            logFinanceAudit('Create Fee Structure', 'Fee Structures', 0, "Created fee structures for $count classes of category ID: $category_id", $db);
+            $success = "Successfully created fee structures for $count classes!";
         } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             $error = "Error creating fee structure: " . $e->getMessage();
         }
     } else {
-        $error = "Please fill in all required fields.";
+        $error = "Please fill in all required fields and select at least one class.";
     }
 }
 
-// Get classes for dropdown
-$classes_query = "SELECT id, name FROM classes ORDER BY name";
-$classes_stmt = $db->query($classes_query);
-$classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$title = "Create Fee Structure";
-$breadcrumbs = [
-    ['title' => 'Dashboard', 'url' => '../dashboard.php'],
-    ['title' => 'Finance', 'url' => 'index.php'],
-    ['title' => 'Create Fee Structure']
-];
-
-include '../includes/header.php';
-include '../includes/sidebar.php';
+// Fetch drop-down data
+$academic_years = $db->query("SELECT * FROM academic_years ORDER BY year_name DESC")->fetchAll(PDO::FETCH_ASSOC);
+$academic_terms = $db->query("SELECT * FROM academic_terms ORDER BY term_number")->fetchAll(PDO::FETCH_ASSOC);
+$classes = $db->query("SELECT id, name, grade_level FROM classes WHERE status = 'active' ORDER BY grade_level, name")->fetchAll(PDO::FETCH_ASSOC);
+$categories = $db->query("SELECT id, name FROM finance_fee_categories WHERE status = 'active' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
+<?php include '../includes/header.php'; ?>
+<?php include '../includes/sidebar.php'; ?>
+
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 64px;">
-    <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 56px;">
+    <!-- Sidebar Space -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
-        <!-- Content Wrapper -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-semibold text-gray-900 dark:text-white">Create Fee Structure</h1>
-                    <a href="index.php" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-arrow-left mr-2"></i>Back
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Create Fee Structure</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Add new termly structural charges for classes</p>
+                    </div>
+                    <a href="fee_structures.php" class="inline-flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-semibold px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 transition">
+                        <i class="fas fa-arrow-left mr-2"></i> Back
                     </a>
                 </div>
 
-                <?php if (isset($success)): ?>
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                    <?php echo htmlspecialchars($success); ?>
+                <?php if ($success): ?>
+                <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 p-4 rounded-xl shadow-sm mb-6 dark:bg-emerald-950/20 dark:text-emerald-300 flex items-center gap-3">
+                    <i class="fas fa-check-circle text-emerald-500 text-lg"></i>
+                    <span class="font-medium"><?php echo htmlspecialchars($success); ?></span>
                 </div>
                 <?php endif; ?>
 
-                <?php if (isset($error)): ?>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    <?php echo htmlspecialchars($error); ?>
+                <?php if ($error): ?>
+                <div class="bg-rose-50 border-l-4 border-rose-500 text-rose-800 p-4 rounded-xl shadow-sm mb-6 dark:bg-rose-950/20 dark:text-rose-300 flex items-center gap-3">
+                    <i class="fas fa-exclamation-circle text-rose-500 text-lg"></i>
+                    <span class="font-medium"><?php echo htmlspecialchars($error); ?></span>
                 </div>
                 <?php endif; ?>
 
-                <!-- Create Form -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                    <div class="p-6">
+                <!-- Form Card -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="p-6 md:p-8">
                         <form method="POST" class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fee Structure Name *</label>
-                                    <input type="text" id="name" name="name" required
-                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                                           placeholder="e.g., Term 1 Fees 2024">
-                                </div>
-
-                                <div>
-                                    <label for="academic_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Academic Year *</label>
-                                    <input type="text" id="academic_year" name="academic_year" required
-                                           value="<?php echo date('Y') . '-' . (date('Y') + 1); ?>"
-                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                                           placeholder="2024-2025">
-                                </div>
-
-                                <div>
-                                    <label for="class_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Class (Optional)</label>
-                                    <select id="class_id" name="class_id"
-                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="">All Classes</option>
-                                        <?php foreach ($classes as $class): ?>
-                                            <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['name']); ?></option>
+                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Academic Year *</label>
+                                    <select name="academic_year_id" id="fee_year" required onchange="filterTerms()" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white transition">
+                                        <option value="">Select Academic Year</option>
+                                        <?php foreach ($academic_years as $year): ?>
+                                        <option value="<?php echo $year['id']; ?>">
+                                            <?php echo htmlspecialchars($year['year_name']); ?>
+                                        </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label for="fee_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fee Type *</label>
-                                    <select id="fee_type" name="fee_type" required
-                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="">Select Fee Type</option>
-                                        <option value="tuition">Tuition Fee</option>
-                                        <option value="hostel">Hostel Fee</option>
-                                        <option value="transport">Transport Fee</option>
-                                        <option value="library">Library Fee</option>
-                                        <option value="laboratory">Laboratory Fee</option>
-                                        <option value="sports">Sports Fee</option>
-                                        <option value="examination">Examination Fee</option>
-                                        <option value="development">Development Fee</option>
-                                        <option value="other">Other</option>
+                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Term *</label>
+                                    <select name="term_id" id="fee_term" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white transition">
+                                        <option value="">Select Term</option>
+                                        <?php foreach ($academic_terms as $term): ?>
+                                        <option value="<?php echo $term['id']; ?>" data-year-id="<?php echo $term['academic_year_id']; ?>">
+                                            <?php echo htmlspecialchars($term['term_name']); ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Target Classes * (Select all that apply)</label>
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                                        <?php foreach ($classes as $class): ?>
+                                        <label class="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:text-green-600 dark:hover:text-green-400">
+                                            <input type="checkbox" name="class_ids[]" value="<?php echo $class['id']; ?>" class="rounded text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                                            <span><?php echo htmlspecialchars($class['grade_level'] . ' - ' . $class['name']); ?></span>
+                                        </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <div class="mt-2 flex space-x-4">
+                                        <button type="button" onclick="toggleClasses(true)" class="text-xs text-green-600 dark:text-green-400 font-semibold hover:underline">Select All</button>
+                                        <button type="button" onclick="toggleClasses(false)" class="text-xs text-gray-500 font-semibold hover:underline">Deselect All</button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Fee Category *</label>
+                                    <select name="category_id" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white transition">
+                                        <option value="">Select Fee Category</option>
+                                        <?php foreach ($categories as $cat): ?>
+                                        <option value="<?php echo $cat['id']; ?>">
+                                            <?php echo htmlspecialchars($cat['name']); ?>
+                                        </option>
+                                        <?php endforeach; ?>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (₵) *</label>
-                                    <input type="number" id="amount" name="amount" step="0.01" min="0" required
-                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Student Type Scope *</label>
+                                    <select name="student_type" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white transition">
+                                        <option value="all">Applicable to All Students</option>
+                                        <option value="day">Day Students Only</option>
+                                        <option value="boarding">Boarding Students Only</option>
+                                    </select>
                                 </div>
 
                                 <div>
-                                    <label for="due_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Due Date</label>
-                                    <input type="date" id="due_date" name="due_date"
-                                           class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Amount *</label>
+                                    <div class="relative rounded-xl shadow-sm">
+                                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 dark:text-gray-400 text-sm">₵</span>
+                                        </div>
+                                        <input type="number" step="0.01" min="0.00" name="amount" required class="w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white transition" placeholder="0.00">
+                                    </div>
                                 </div>
 
-                                <div class="md:col-span-2">
-                                    <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                                    <textarea id="description" name="description" rows="3"
-                                              class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                                              placeholder="Enter fee description, payment terms, etc."></textarea>
+                                <div class="flex items-center pt-8">
+                                    <label class="flex items-center space-x-3 cursor-pointer">
+                                        <input type="checkbox" name="is_mandatory" value="1" checked class="rounded w-5 h-5 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                                        <div>
+                                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 block">Mandatory Charge</span>
+                                            <span class="text-xs text-gray-400">If unchecked, this charge will be optional for student invoices.</span>
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
 
-                            <div class="flex justify-end space-x-3">
-                                <a href="index.php" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg">
+                            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-100 dark:border-gray-700">
+                                <a href="fee_structures.php" class="px-5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition font-semibold">
                                     Cancel
                                 </a>
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-                                    <i class="fas fa-save mr-2"></i>Create Fee Structure
+                                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold rounded-xl shadow-lg transition">
+                                    <i class="fas fa-save mr-2"></i> Save Fee Structure
                                 </button>
                             </div>
                         </form>
@@ -175,3 +230,49 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<script>
+function toggleClasses(source) {
+    const checkboxes = document.getElementsByName('class_ids[]');
+    for (let i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = source;
+    }
+}
+
+function filterTerms() {
+    const yearSelect = document.getElementById('fee_year');
+    const termSelect = document.getElementById('fee_term');
+    if (!yearSelect || !termSelect) return;
+
+    const selectedYearId = yearSelect.value;
+    const options = termSelect.options;
+    let firstVisible = null;
+    const prevValue = termSelect.value;
+    let prevStillVisible = false;
+
+    for (let i = 0; i < options.length; i++) {
+        const opt = options[i];
+        const yid = opt.getAttribute('data-year-id');
+        if (!yid) {
+            // Placeholder "Select Term" option - show only when no year chosen
+            opt.style.display = selectedYearId ? 'none' : '';
+            continue;
+        }
+        if (yid === selectedYearId) {
+            opt.style.display = '';
+            if (opt.value === prevValue) prevStillVisible = true;
+            if (!firstVisible) firstVisible = opt;
+        } else {
+            opt.style.display = 'none';
+        }
+    }
+
+    if (!prevStillVisible) {
+        termSelect.value = firstVisible ? firstVisible.value : '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    filterTerms();
+});
+</script>

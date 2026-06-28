@@ -1,9 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('students');
 
 require_once '../config/database.php';
 $database = new Database();
@@ -39,7 +37,7 @@ $where_conditions = ["u.role = 'student'"];
 $params = [];
 
 if ($search) {
-    $where_conditions[] = "(u.name LIKE :search OR u.email LIKE :search OR sp.student_id LIKE :search)";
+    $where_conditions[] = "(u.name LIKE :search OR u.email LIKE :search OR u.student_id LIKE :search OR sp.student_id LIKE :search)";
     $params[':search'] = "%$search%";
 }
 
@@ -70,8 +68,8 @@ $total_students = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
 $total_pages = ceil($total_students / $limit);
 
 // Fetch students with their details
-$query = "SELECT DISTINCT u.id, u.name, u.email, u.status, u.created_at,
-          sp.student_id, sp.admission_date, sp.phone, sp.date_of_birth,
+$query = "SELECT DISTINCT u.id, u.name, u.email, u.status, u.created_at, u.profile_picture,
+          COALESCE(u.student_id, sp.student_id) as student_id, sp.admission_date, sp.phone, sp.date_of_birth,
           c.name as class_name, c.grade_level,
           p.name as parent_name
           FROM users u 
@@ -108,12 +106,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
-    <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -212,8 +210,12 @@ include '../includes/sidebar.php';
                     <div class="p-6">
                         <div class="flex justify-between items-start mb-4">
                             <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <i class="fas fa-user text-blue-600 text-lg"></i>
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden border border-gray-200">
+                                    <?php if (!empty($student['profile_picture'])): ?>
+                                        <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
+                                    <?php else: ?>
+                                        <i class="fas fa-user text-blue-600 text-lg"></i>
+                                    <?php endif; ?>
                                 </div>
                                 <div>
                                     <h3 class="text-lg font-semibold text-gray-800"><?php echo htmlspecialchars($student['name']); ?></h3>
@@ -300,18 +302,20 @@ include '../includes/sidebar.php';
 
             <!-- Pagination -->
             <?php if ($total_pages > 1): ?>
-            <div class="mt-8 flex justify-center">
-                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <a href="?page=<?php echo $i; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $class_filter ? "&class_id=$class_filter" : ''; ?><?php echo $status_filter ? "&status=$status_filter" : ''; ?>" 
-                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 
-                        <?php echo $i === $page ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : ''; ?>">
-                        <?php echo $i; ?>
-                    </a>
-                    <?php endfor; ?>
-                </nav>
+            <div class="mt-8 flex justify-center w-full">
+                <div class="max-w-full overflow-x-auto pb-3 px-2 flex justify-start scrollbar-thin">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px whitespace-nowrap flex-nowrap min-w-max" aria-label="Pagination">
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <a href="?page=<?php echo $i; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $class_filter ? "&class_id=$class_filter" : ''; ?><?php echo $status_filter ? "&status=$status_filter" : ''; ?>" 
+                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 
+                            <?php echo $i === $page ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                        <?php endfor; ?>
+                    </nav>
+                </div>
             </div>
-                <?php endif; ?>
+            <?php endif; ?>
             </div>
         </main>
 

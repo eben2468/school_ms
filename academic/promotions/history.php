@@ -42,10 +42,10 @@ include '../../includes/sidebar.php';
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 rounded-xl p-4 text-white shadow-lg">

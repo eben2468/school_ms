@@ -58,6 +58,26 @@ if (!$student) {
     exit();
 }
 
+$first_name = !empty($student['first_name']) ? $student['first_name'] : '';
+$other_names = !empty($student['other_names']) ? $student['other_names'] : '';
+$last_name = !empty($student['last_name']) ? $student['last_name'] : '';
+
+if (empty($first_name) && empty($last_name) && !empty($student['name'])) {
+    $fullName = trim($student['name']);
+    $parts = preg_split('/\s+/', $fullName);
+    $num_parts = count($parts);
+    if ($num_parts === 1) {
+        $first_name = $parts[0];
+    } elseif ($num_parts === 2) {
+        $first_name = $parts[0];
+        $last_name = $parts[1];
+    } else {
+        $first_name = $parts[0];
+        $last_name = $parts[$num_parts - 1];
+        $other_names = implode(' ', array_slice($parts, 1, $num_parts - 2));
+    }
+}
+
 // Fetch recent assignments for this student
 $assignments_query = "SELECT a.*, s.name as subject_name, u.name as teacher_name,
                      sa.submitted_at, sa.grade, sa.feedback
@@ -120,28 +140,28 @@ $exam_results = $exam_results_stmt->fetchAll(PDO::FETCH_ASSOC);
 <?php include '../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-semibold text-gray-900 dark:text-white">Student Profile</h1>
-                <div class="flex space-x-3">
-                    <?php if (in_array($user_role, ['super_admin', 'school_admin'])): ?>
-                    <a href="edit.php?id=<?php echo $student_id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-edit mr-2"></i>Edit Profile
-                    </a>
-                    <?php endif; ?>
-                    <a href="<?php echo $user_role === 'student' ? '../dashboard.php' : 'index.php'; ?>" class="text-blue-600 hover:text-blue-800">
-                        <i class="fas fa-arrow-left mr-2"></i>Back
-                    </a>
+                <div class="mb-6">
+                    <h1 class="text-3xl font-semibold text-gray-900 dark:text-white mb-4">Student Profile</h1>
+                    <div class="flex gap-3">
+                        <?php if (in_array($user_role, ['super_admin', 'school_admin'])): ?>
+                        <a href="edit.php?id=<?php echo $student_id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
+                            <i class="fas fa-edit mr-2"></i>Edit Profile
+                        </a>
+                        <?php endif; ?>
+                        <a href="<?php echo $user_role === 'student' ? '../dashboard.php' : 'index.php'; ?>" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap">
+                            <i class="fas fa-arrow-left mr-2"></i>Back
+                        </a>
+                    </div>
                 </div>
-            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Student Information Card -->
@@ -149,8 +169,12 @@ $exam_results = $exam_results_stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                         <div class="p-6">
                             <div class="text-center mb-6">
-                                <div class="w-24 h-24 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <i class="fas fa-user text-blue-600 dark:text-blue-400 text-3xl"></i>
+                                <div class="w-24 h-24 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-4 border-white shadow-lg">
+                                    <?php if(!empty($student['profile_picture'])): ?>
+                                        <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" class="w-full h-full object-cover">
+                                    <?php else: ?>
+                                        <i class="fas fa-user text-blue-600 dark:text-blue-400 text-3xl"></i>
+                                    <?php endif; ?>
                                 </div>
                                 <h2 class="text-xl font-semibold text-gray-800 dark:text-white"><?php echo htmlspecialchars($student['name']); ?></h2>
                                 <p class="text-gray-600 dark:text-gray-400"><?php echo htmlspecialchars($student['student_id'] ?? 'No ID'); ?></p>
@@ -164,6 +188,20 @@ $exam_results = $exam_results_stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div>
                                     <h3 class="text-sm font-medium text-gray-500">Basic Information</h3>
                                     <div class="mt-2 space-y-2 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">First Name:</span>
+                                            <span class="text-gray-900 font-semibold"><?php echo htmlspecialchars($first_name); ?></span>
+                                        </div>
+                                        <?php if (!empty($other_names)): ?>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Other Name(s):</span>
+                                            <span class="text-gray-900 font-semibold"><?php echo htmlspecialchars($other_names); ?></span>
+                                        </div>
+                                        <?php endif; ?>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Last Name:</span>
+                                            <span class="text-gray-900 font-semibold"><?php echo htmlspecialchars($last_name); ?></span>
+                                        </div>
                                         <div class="flex justify-between">
                                             <span class="text-gray-600">Email:</span>
                                             <span class="text-gray-900"><?php echo htmlspecialchars($student['email']); ?></span>
@@ -307,7 +345,7 @@ $exam_results = $exam_results_stmt->fetchAll(PDO::FETCH_ASSOC);
                             <h2 class="text-xl font-semibold text-gray-800">Attendance Summary (Last 30 Days)</h2>
                         </div>
                         <div class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="grid grid-cols-4 gap-2 md:gap-4 mb-6">
                                 <div class="text-center">
                                     <div class="text-2xl font-bold text-green-600"><?php echo $attendance_percentage; ?>%</div>
                                     <div class="text-sm text-gray-600">Attendance Rate</div>

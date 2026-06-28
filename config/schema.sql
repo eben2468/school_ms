@@ -6,10 +6,16 @@ USE school_ms;
 CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
+    first_name VARCHAR(50) DEFAULT NULL,
+    other_names VARCHAR(100) DEFAULT NULL,
+    last_name VARCHAR(50) DEFAULT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor') NOT NULL,
+    role ENUM('super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor', 'hr') NOT NULL,
     status ENUM('active', 'inactive') DEFAULT 'active',
+    profile_picture VARCHAR(255) DEFAULT NULL,
+    student_id VARCHAR(50) DEFAULT NULL,
+    class_id INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -29,9 +35,12 @@ CREATE TABLE IF NOT EXISTS classes (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(50) NOT NULL,
     grade_level VARCHAR(20) NOT NULL,
+    section VARCHAR(10) DEFAULT NULL,
+    main_teacher_id INT DEFAULT NULL,
     academic_year VARCHAR(9) NOT NULL,
     status ENUM('active', 'inactive') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (main_teacher_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Subjects table
@@ -39,8 +48,10 @@ CREATE TABLE IF NOT EXISTS subjects (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
     code VARCHAR(20) NOT NULL,
+    class_id INT DEFAULT NULL,
     description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE SET NULL
 );
 
 -- Class teachers table (mapping teachers to classes and subjects)
@@ -76,6 +87,8 @@ CREATE TABLE IF NOT EXISTS assignments (
     teacher_id INT NOT NULL,
     due_date TIMESTAMP NOT NULL,
     status ENUM('active', 'inactive', 'completed') DEFAULT 'active',
+    attachment_path VARCHAR(500) NULL,
+    attachment_name VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
     FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
@@ -104,9 +117,12 @@ CREATE TABLE IF NOT EXISTS attendance (
     date DATE NOT NULL,
     status ENUM('present', 'absent', 'late') NOT NULL,
     notes TEXT,
+    remarks TEXT DEFAULT NULL,
+    created_by INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Library books table
@@ -175,6 +191,7 @@ CREATE TABLE IF NOT EXISTS exams (
     exam_type ENUM('midterm', 'final', 'quiz', 'assignment', 'project') NOT NULL,
     class_id INT NOT NULL,
     subject_id INT NOT NULL,
+    teacher_id INT DEFAULT NULL,
     date DATE NOT NULL,
     exam_date DATE NOT NULL,
     start_time TIME NOT NULL,
@@ -186,7 +203,8 @@ CREATE TABLE IF NOT EXISTS exams (
     status ENUM('scheduled', 'ongoing', 'completed', 'cancelled') DEFAULT 'scheduled',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
-    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Exam results table
@@ -319,6 +337,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     message TEXT NOT NULL,
     type ENUM('info', 'warning', 'success', 'error') DEFAULT 'info',
     is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -368,6 +387,7 @@ CREATE TABLE IF NOT EXISTS hostel_blocks (
     description TEXT,
     total_floors INT NOT NULL DEFAULT 1,
     warden_id INT,
+    block_type ENUM('boys', 'girls', 'mixed', 'staff') DEFAULT 'boys',
     status ENUM('active', 'inactive', 'maintenance') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (warden_id) REFERENCES users(id) ON DELETE SET NULL
@@ -492,6 +512,9 @@ CREATE TABLE IF NOT EXISTS inventory_items (
     unit_price DECIMAL(10,2),
     location VARCHAR(100),
     status ENUM('available', 'out_of_stock', 'discontinued') DEFAULT 'available',
+    item_type VARCHAR(50) DEFAULT 'general',
+    unit VARCHAR(50) DEFAULT 'pcs',
+    supplier VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES inventory_categories(id) ON DELETE CASCADE
@@ -505,7 +528,10 @@ CREATE TABLE IF NOT EXISTS inventory_requests (
     quantity_requested INT NOT NULL,
     quantity_approved INT DEFAULT 0,
     purpose TEXT,
+    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
     request_date DATE NOT NULL,
+    required_date DATE,
+    notes TEXT,
     approved_by INT,
     approval_date DATE,
     status ENUM('pending', 'approved', 'rejected', 'fulfilled') DEFAULT 'pending',
@@ -516,17 +542,67 @@ CREATE TABLE IF NOT EXISTS inventory_requests (
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Inventory movements table
+CREATE TABLE IF NOT EXISTS inventory_movements (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    item_id INT NOT NULL,
+    user_id INT NOT NULL,
+    movement_type ENUM('in', 'out') NOT NULL,
+    quantity INT NOT NULL,
+    reference_id INT,
+    reference_type VARCHAR(50),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- School settings table
 CREATE TABLE IF NOT EXISTS school_settings (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value TEXT,
-    setting_type ENUM('text', 'number', 'boolean', 'json') DEFAULT 'text',
-    description TEXT,
-    updated_by INT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
-);
+  id int(11) NOT NULL AUTO_INCREMENT,
+  school_name varchar(255) NOT NULL DEFAULT 'Greenwood Academy',
+  school_address text,
+  school_phone varchar(50),
+  school_email varchar(255),
+  school_website varchar(255),
+  school_logo varchar(255),
+  principal_name varchar(255),
+  academic_year_start date,
+  academic_year_end date,
+  currency varchar(10) DEFAULT 'GHS',
+  currency_symbol varchar(10) DEFAULT '₵',
+  timezone varchar(100) DEFAULT 'Africa/Accra',
+  terms_per_year int(11) DEFAULT 3,
+  grading_system enum('percentage','letter','gpa','points') DEFAULT 'percentage',
+  theme_color varchar(50) DEFAULT 'blue',
+  default_language varchar(10) DEFAULT 'en',
+  date_format varchar(20) DEFAULT 'Y-m-d',
+  time_format varchar(20) DEFAULT 'H:i',
+  office_hours varchar(255) DEFAULT NULL,
+  sms_gateway enum('disabled','twilio','nexmo','local') DEFAULT 'disabled',
+  email_notifications enum('enabled','disabled','admin_only') DEFAULT 'enabled',
+  parent_portal enum('enabled','disabled','restricted') DEFAULT 'enabled',
+  student_portal enum('enabled','disabled','restricted') DEFAULT 'enabled',
+  maintenance_mode enum('enabled','disabled') DEFAULT 'disabled',
+  registration_enabled enum('enabled','disabled','admin_only') DEFAULT 'enabled',
+  max_file_upload_size varchar(10) DEFAULT '10MB',
+  session_timeout int(11) DEFAULT 30,
+  backup_frequency enum('daily','weekly','monthly','manual') DEFAULT 'weekly',
+  auto_backup enum('enabled','disabled') DEFAULT 'enabled',
+  footer_tagline varchar(150) DEFAULT NULL,
+  footer_description varchar(500) DEFAULT NULL,
+  social_facebook varchar(255) DEFAULT NULL,
+  social_twitter varchar(255) DEFAULT NULL,
+  social_linkedin varchar(255) DEFAULT NULL,
+  social_instagram varchar(255) DEFAULT NULL,
+  social_youtube varchar(255) DEFAULT NULL,
+  social_tiktok varchar(255) DEFAULT NULL,
+  social_whatsapp varchar(255) DEFAULT NULL,
+  social_telegram varchar(255) DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert default users
 INSERT INTO users (name, email, password, role) VALUES
@@ -795,42 +871,7 @@ CREATE TABLE IF NOT EXISTS health_records (
     FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Inventory items table
-CREATE TABLE IF NOT EXISTS inventory_items (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    item_name VARCHAR(255) NOT NULL,
-    item_code VARCHAR(50) UNIQUE NOT NULL,
-    category ENUM('furniture', 'electronics', 'books', 'sports', 'stationery', 'maintenance', 'other') NOT NULL,
-    description TEXT,
-    quantity_available INT DEFAULT 0,
-    unit_price DECIMAL(10,2),
-    location VARCHAR(255),
-    condition_status ENUM('new', 'good', 'fair', 'poor', 'damaged') DEFAULT 'new',
-    purchase_date DATE,
-    warranty_expiry DATE,
-    supplier VARCHAR(255),
-    status ENUM('active', 'inactive', 'disposed') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Inventory requests table
-CREATE TABLE IF NOT EXISTS inventory_requests (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    requested_by INT NOT NULL,
-    item_id INT NOT NULL,
-    quantity_requested INT NOT NULL,
-    purpose TEXT,
-    request_date DATE NOT NULL,
-    required_date DATE,
-    status ENUM('pending', 'approved', 'rejected', 'fulfilled') DEFAULT 'pending',
-    approved_by INT,
-    approved_date DATE,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (requested_by) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
-    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
-);
+-- Legacy duplicate inventory declarations removed (now declared earlier with relational schema integration)
 
 -- System logs table
 CREATE TABLE IF NOT EXISTS system_logs (
@@ -848,20 +889,64 @@ CREATE TABLE IF NOT EXISTS system_logs (
 );
 
 -- Insert default school settings
-INSERT INTO school_settings (setting_key, setting_value, setting_type, description) VALUES
-('school_name', 'Greenwood Academy', 'text', 'Name of the school'),
-('school_address', '123 Education Street, Learning City', 'text', 'School physical address'),
-('school_phone', '+1-234-567-8900', 'text', 'School contact phone number'),
-('school_email', 'info@greenwoodacademy.edu', 'text', 'School official email address'),
-('academic_year', '2024-2025', 'text', 'Current academic year'),
-('current_term', 'first', 'text', 'Current academic term'),
-('timezone', 'America/New_York', 'text', 'School timezone'),
-('currency', 'GHS', 'text', 'Currency for fee management'),
-('late_fee_per_day', '5.00', 'number', 'Late fee charged per day for overdue library books'),
-('max_books_per_student', '3', 'number', 'Maximum books a student can borrow'),
-('attendance_grace_minutes', '15', 'number', 'Grace period in minutes for late attendance'),
-('canteen_enabled', 'true', 'boolean', 'Enable canteen management module'),
-('transport_enabled', 'true', 'boolean', 'Enable transport management module'),
-('hostel_enabled', 'true', 'boolean', 'Enable hostel management module'),
-('health_module_enabled', 'true', 'boolean', 'Enable health and counseling module'),
-('inventory_enabled', 'true', 'boolean', 'Enable inventory management module');
+INSERT INTO school_settings (
+  id, school_name, school_address, school_phone, school_email, school_website, principal_name,
+  academic_year_start, academic_year_end, currency, currency_symbol, timezone, terms_per_year, grading_system,
+  theme_color, default_language, date_format, time_format, sms_gateway, email_notifications,
+  parent_portal, student_portal, maintenance_mode, registration_enabled, max_file_upload_size,
+  session_timeout, backup_frequency, auto_backup
+) VALUES (
+  1, 'Greenwood Academy', '123 Education Street, Learning City', '+1-234-567-8900', 'info@greenwoodacademy.edu',
+  'https://www.greenwoodacademy.edu', 'Dr. Jane Smith', '2024-09-01', '2025-06-30', 'GHS', '₵', 'Africa/Accra', 3, 'percentage', 'blue', 'en', 'Y-m-d', 'H:i',
+  'disabled', 'enabled', 'enabled', 'enabled', 'disabled', 'enabled', '10MB', 30, 'weekly', 'enabled'
+);
+
+-- Create students view for compatibility (many queries expect a 'students' table)
+-- This view will show users with role 'student' and their profile information
+CREATE OR REPLACE VIEW students AS
+SELECT
+    u.id,
+    u.name,
+    u.email,
+    u.status,
+    u.created_at,
+    sp.student_id,
+    sp.phone,
+    sp.date_of_birth,
+    sp.address,
+    sp.emergency_contact_name,
+    sp.emergency_contact_phone,
+    sp.admission_date,
+    sp.guardian_name,
+    sp.guardian_phone,
+    sp.guardian_email
+FROM users u
+LEFT JOIN student_profiles sp ON u.id = sp.user_id
+WHERE u.role = 'student';
+
+-- Transport Drivers table
+CREATE TABLE IF NOT EXISTS transport_drivers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    license_number VARCHAR(50) NOT NULL,
+    license_expiry DATE NOT NULL,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transport Maintenance table
+CREATE TABLE IF NOT EXISTS transport_maintenance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    vehicle_id INT NOT NULL,
+    maintenance_type ENUM('routine', 'repair', 'inspection', 'other') NOT NULL,
+    cost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    maintenance_date DATE NOT NULL,
+    description TEXT NOT NULL,
+    performed_by VARCHAR(150) NOT NULL,
+    status ENUM('scheduled', 'in_progress', 'completed', 'cancelled') DEFAULT 'scheduled',
+    next_due_date DATE NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (vehicle_id) REFERENCES transport_vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

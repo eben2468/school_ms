@@ -6,8 +6,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 }
 
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
+
+// Heal tenant DBs that predate the finance module.
+ensureFinanceTables($db);
 
 $parent_id = $_SESSION['user_id'];
 $student_id = $_GET['student_id'] ?? null;
@@ -66,20 +70,52 @@ if ($student_id) {
     $student_info = $student_stmt->fetch(PDO::FETCH_ASSOC);
     
     // Get fee records for the student
-    $academic_year = $_GET['year'] ?? date('Y') . '-' . (date('Y') + 1);
-    
+    $current_context = $database->getCurrentAcademicContext();
+
+    // Years that actually exist for this school (newest first).
+    try {
+        $valid_years = $db->query("SELECT year_name FROM academic_years ORDER BY year_name DESC")->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        $valid_years = [];
+    }
+
+    $academic_year = $_GET['year'] ?? ($current_context['year_name'] ?? '');
+    // getCurrentAcademicContext() can return a date-based fallback year that the
+    // school has not actually created. If the chosen year isn't a real one,
+    // default to the most recent year that exists (the one holding invoices).
+    if (!empty($valid_years) && !in_array($academic_year, $valid_years, true)) {
+        $academic_year = $valid_years[0];
+    }
+
     $fees_query = "
-        SELECT * FROM fees 
-        WHERE student_id = :student_id 
-        AND academic_year = :academic_year
-        ORDER BY due_date ASC, fee_type
+        SELECT i.id, 
+               CONCAT('Invoice #', i.invoice_number) as fee_type,
+               CONCAT(t.term_name, ' School Fees') as description,
+               (i.total_amount + i.penalty_amount - i.discount_amount) as amount,
+               i.amount_paid as paid_amount,
+               i.due_date,
+               i.status,
+               (SELECT MAX(payment_date) FROM finance_payments WHERE invoice_id = i.id) as payment_date
+        FROM finance_invoices i
+        JOIN academic_years ay ON i.academic_year_id = ay.id
+        JOIN academic_terms t ON i.term_id = t.id
+        WHERE i.student_id = :student_id 
+        AND ay.year_name = :academic_year
+        AND i.status != 'cancelled'
+        ORDER BY i.due_date ASC, i.invoice_number ASC
     ";
-    $fees_stmt = $db->prepare($fees_query);
-    $fees_stmt->bindParam(':student_id', $student_id);
-    $fees_stmt->bindParam(':academic_year', $academic_year);
-    $fees_stmt->execute();
-    $fees = $fees_stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+    $fees = [];
+    try {
+        $fees_stmt = $db->prepare($fees_query);
+        $fees_stmt->bindParam(':student_id', $student_id);
+        $fees_stmt->bindParam(':academic_year', $academic_year);
+        $fees_stmt->execute();
+        $fees = $fees_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Finance module/tables may not be provisioned for this tenant yet.
+        error_log("parent fees query failed: " . $e->getMessage());
+    }
+
     // Calculate fee summary
     if (!empty($fees)) {
         $total_amount = array_sum(array_column($fees, 'amount'));
@@ -92,7 +128,7 @@ if ($student_id) {
             'total_paid' => $total_paid,
             'total_pending' => $total_pending,
             'paid_count' => count(array_filter($fees, function($fee) { return $fee['status'] === 'paid'; })),
-            'pending_count' => count(array_filter($fees, function($fee) { return $fee['status'] === 'pending'; })),
+            'pending_count' => count(array_filter($fees, function($fee) { return in_array($fee['status'], ['pending', 'partial', 'partially_paid']); })),
             'overdue_count' => count(array_filter($fees, function($fee) { return $fee['status'] === 'overdue'; }))
         ];
     }
@@ -101,7 +137,8 @@ if ($student_id) {
 function getStatusColor($status) {
     switch($status) {
         case 'paid': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-        case 'partial': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        case 'partial':
+        case 'partially_paid': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
         case 'overdue': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
         default: return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
     }
@@ -110,7 +147,8 @@ function getStatusColor($status) {
 function getStatusIcon($status) {
     switch($status) {
         case 'paid': return 'check-circle';
-        case 'partial': return 'clock';
+        case 'partial':
+        case 'partially_paid': return 'clock';
         case 'overdue': return 'exclamation-triangle';
         default: return 'hourglass-half';
     }
@@ -122,12 +160,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
                 <!-- Header -->
@@ -147,12 +185,20 @@ include '../includes/sidebar.php';
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Child</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <?php foreach ($children as $child): ?>
-                        <a href="?student_id=<?php echo $child['id']; ?>" class="p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <div class="flex items-center">
+                        <div class="p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+                            <div class="flex items-center mb-3">
                                 <i class="fas fa-user-graduate text-blue-500 mr-3"></i>
                                 <span class="font-medium text-gray-900 dark:text-white"><?php echo htmlspecialchars($child['name']); ?></span>
                             </div>
-                        </a>
+                            <div class="flex flex-wrap gap-2">
+                                <a href="?student_id=<?php echo $child['id']; ?>" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                                    <i class="fas fa-money-bill-wave"></i> View Fees
+                                </a>
+                                <a href="/finance/student_balances.php?student_id=<?php echo $child['id']; ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                                    <i class="fas fa-file-invoice"></i> Statement
+                                </a>
+                            </div>
+                        </div>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -177,18 +223,32 @@ include '../includes/sidebar.php';
                             </div>
                         </div>
                         
-                        <!-- Academic Year Selector -->
-                        <div>
+                        <!-- Actions: Statement + Academic Year Selector -->
+                        <div class="flex flex-col items-end gap-3">
+                            <a href="/finance/student_balances.php?student_id=<?php echo $student_id; ?>" target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition">
+                                <i class="fas fa-file-invoice"></i> View / Download Statement
+                            </a>
                             <form method="GET" class="flex items-center space-x-2">
                                 <input type="hidden" name="student_id" value="<?php echo $student_id; ?>">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Academic Year:</label>
                                 <select name="year" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                                     <?php
-                                    $current_year = date('Y');
-                                    for ($i = -2; $i <= 1; $i++) {
-                                        $year = ($current_year + $i) . '-' . ($current_year + $i + 1);
-                                        $selected = ($year === $academic_year) ? 'selected' : '';
-                                        echo "<option value=\"$year\" $selected>$year</option>";
+                                    try {
+                                        $years_stmt = $db->query("SELECT year_name FROM academic_years ORDER BY year_name DESC");
+                                        $db_years = $years_stmt->fetchAll(PDO::FETCH_COLUMN);
+                                    } catch (Exception $e) {
+                                        $db_years = [];
+                                    }
+                                    if (empty($db_years)) {
+                                        $current_year = date('Y');
+                                        for ($i = -2; $i <= 1; $i++) {
+                                            $db_years[] = ($current_year + $i) . '-' . ($current_year + $i + 1);
+                                        }
+                                    }
+                                    foreach ($db_years as $yr) {
+                                        $selected = ($yr === $academic_year) ? 'selected' : '';
+                                        echo "<option value=\"" . htmlspecialchars($yr) . "\" $selected>" . htmlspecialchars($yr) . "</option>";
                                     }
                                     ?>
                                 </select>
@@ -308,7 +368,11 @@ include '../includes/sidebar.php';
                                         ₵<?php echo number_format($fee['paid_amount'], 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium <?php echo $balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'; ?>">
-                                        ₵<?php echo number_format($balance, 2); ?>
+                                        <?php if ($balance < 0): ?>
+                                            ₵<?php echo number_format(abs($balance), 2); ?> (Credit)
+                                        <?php else: ?>
+                                            ₵<?php echo number_format($balance, 2); ?>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         <?php echo date('M j, Y', strtotime($fee['due_date'])); ?>

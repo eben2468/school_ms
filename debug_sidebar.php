@@ -16,7 +16,7 @@ include 'includes/sidebar.php';
 <!-- Main Layout Container -->
 <div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden transition-all duration-300" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">

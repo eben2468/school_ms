@@ -388,6 +388,120 @@ $theme_configs = [
         'light' => '#faf8f5',
         'gradient' => 'linear-gradient(135deg, #b87333 0%, #d2691e 50%, #cd853f 100%)',
         'sidebar_gradient' => 'linear-gradient(180deg, #b87333 0%, #d2691e 50%, #cd853f 100%)'
+    ],
+    'graphite' => [
+        'primary' => '#283048',
+        'secondary' => '#1f242e',
+        'light' => '#eef0f3',
+        'gradient' => 'linear-gradient(135deg, #424b5a 0%, #283048 50%, #1f242e 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #424b5a 0%, #283048 50%, #1f242e 100%)'
+    ],
+
+    // Multi-hue Gradient Blends
+    'sunset' => [
+        'primary' => '#ff6a00',
+        'secondary' => '#ee0979',
+        'light' => '#ffe8d6',
+        'gradient' => 'linear-gradient(135deg, #ff6a00 0%, #ee0979 50%, #b5179e 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #ff6a00 0%, #ee0979 50%, #b5179e 100%)'
+    ],
+    'ocean' => [
+        'primary' => '#2193b0',
+        'secondary' => '#1c92d2',
+        'light' => '#e0f7fa',
+        'gradient' => 'linear-gradient(135deg, #2193b0 0%, #1c92d2 50%, #6dd5ed 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #2193b0 0%, #1c92d2 50%, #6dd5ed 100%)'
+    ],
+    'aurora' => [
+        'primary' => '#00c9a7',
+        'secondary' => '#845ec2',
+        'light' => '#e6fff7',
+        'gradient' => 'linear-gradient(135deg, #00c9a7 0%, #4d8076 50%, #845ec2 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #00c9a7 0%, #4d8076 50%, #845ec2 100%)'
+    ],
+    'twilight' => [
+        'primary' => '#6a0dad',
+        'secondary' => '#4b0082',
+        'light' => '#f3e8ff',
+        'gradient' => 'linear-gradient(135deg, #9d4edd 0%, #6a0dad 50%, #4b0082 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #9d4edd 0%, #6a0dad 50%, #4b0082 100%)'
+    ],
+    'flamingo' => [
+        'primary' => '#fc466b',
+        'secondary' => '#f6416c',
+        'light' => '#ffe6ec',
+        'gradient' => 'linear-gradient(135deg, #fc466b 0%, #f6416c 50%, #ff6b6b 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #fc466b 0%, #f6416c 50%, #ff6b6b 100%)'
+    ],
+    'sapphire' => [
+        'primary' => '#2c5364',
+        'secondary' => '#203a43',
+        'light' => '#e6eef2',
+        'gradient' => 'linear-gradient(135deg, #2c5364 0%, #203a43 50%, #0f2027 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #2c5364 0%, #203a43 50%, #0f2027 100%)'
+    ],
+    'amethyst' => [
+        'primary' => '#9d50bb',
+        'secondary' => '#6e48aa',
+        'light' => '#f5e6ff',
+        'gradient' => 'linear-gradient(135deg, #9d50bb 0%, #6e48aa 50%, #4a148c 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #9d50bb 0%, #6e48aa 50%, #4a148c 100%)'
+    ],
+    'ruby' => [
+        'primary' => '#e0245e',
+        'secondary' => '#c2185b',
+        'light' => '#ffe6ef',
+        'gradient' => 'linear-gradient(135deg, #e0245e 0%, #c2185b 50%, #880e4f 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #e0245e 0%, #c2185b 50%, #880e4f 100%)'
+    ],
+    'peach' => [
+        'primary' => '#ff9a76',
+        'secondary' => '#ff7e5f',
+        'light' => '#fff3ed',
+        'gradient' => 'linear-gradient(135deg, #ffc1a6 0%, #ff9a76 50%, #ff7e5f 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #ffc1a6 0%, #ff9a76 50%, #ff7e5f 100%)'
+    ],
+    'periwinkle' => [
+        'primary' => '#6c63ff',
+        'secondary' => '#5a55e0',
+        'light' => '#eef0ff',
+        'gradient' => 'linear-gradient(135deg, #8e9efc 0%, #6c63ff 50%, #5a55e0 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #8e9efc 0%, #6c63ff 50%, #5a55e0 100%)'
+    ],
+    'seagreen' => [
+        'primary' => '#3cb371',
+        'secondary' => '#2e8b57',
+        'light' => '#e8fff3',
+        'gradient' => 'linear-gradient(135deg, #43cea2 0%, #3cb371 50%, #2e8b57 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #43cea2 0%, #3cb371 50%, #2e8b57 100%)'
+    ],
+    'midnight' => [
+        'primary' => '#302b63',
+        'secondary' => '#24243e',
+        'light' => '#e6e6f0',
+        'gradient' => 'linear-gradient(135deg, #302b63 0%, #24243e 50%, #0f0c29 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #302b63 0%, #24243e 50%, #0f0c29 100%)'
+    ],
+    'cobalt' => [
+        'primary' => '#0047ab',
+        'secondary' => '#0066cc',
+        'light' => '#e6f0ff',
+        'gradient' => 'linear-gradient(135deg, #3b82f6 0%, #0066cc 50%, #0047ab 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #3b82f6 0%, #0066cc 50%, #0047ab 100%)'
+    ],
+    'maroon' => [
+        'primary' => '#800000',
+        'secondary' => '#a52a2a',
+        'light' => '#f5e6e6',
+        'gradient' => 'linear-gradient(135deg, #a52a2a 0%, #800000 50%, #5e1414 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #a52a2a 0%, #800000 50%, #5e1414 100%)'
+    ],
+    'sand' => [
+        'primary' => '#d2b48c',
+        'secondary' => '#c2a06b',
+        'light' => '#fdf8ee',
+        'gradient' => 'linear-gradient(135deg, #e4c590 0%, #d2b48c 50%, #c2a06b 100%)',
+        'sidebar_gradient' => 'linear-gradient(180deg, #e4c590 0%, #d2b48c 50%, #c2a06b 100%)'
     ]
 ];
 

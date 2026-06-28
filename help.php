@@ -45,9 +45,9 @@ include 'includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -135,7 +135,7 @@ include 'includes/sidebar.php';
                     </div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">System Settings</h3>
                     <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Configure system preferences and user permissions</p>
-                    <a href="settings.php" class="text-blue-600 dark:text-blue-400 text-sm font-medium hover:text-blue-800 dark:hover:text-blue-300">View Settings →</a>
+                    <a href="settings/school.php" class="text-blue-600 dark:text-blue-400 text-sm font-medium hover:text-blue-800 dark:hover:text-blue-300">View Settings →</a>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow duration-200">
@@ -343,7 +343,7 @@ let typingTimeout = null;
 document.addEventListener('DOMContentLoaded', function() {
     // Register service worker for offline support
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/school_ms/chat/chat-sw.js')
+        navigator.serviceWorker.register('/chat/chat-sw.js')
             .then(registration => {
                 console.log('Chat service worker registered:', registration);
             })
@@ -857,7 +857,7 @@ document.addEventListener('keydown', function(e) {
     // Alt + H for Help
     if (e.altKey && e.key === 'h') {
         e.preventDefault();
-        window.location.href = '/school_ms/help.php';
+        window.location.href = '/help.php';
     }
 
     // Escape to close chat

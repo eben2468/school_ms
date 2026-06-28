@@ -38,8 +38,12 @@ $stmt->bindParam(':student_id', $student_id);
 $stmt->execute();
 $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Heal older tenant DBs missing the assignments total_marks column.
+require_once '../includes/schema_helpers.php';
+ensureAssignmentColumns($db);
+
 // Get assignments
-$assignments_sql = "SELECT 
+$assignments_sql = "SELECT
     a.id,
     a.title,
     a.description,
@@ -63,10 +67,15 @@ JOIN student_classes sc ON c.id = sc.class_id AND sc.student_id = :student_id AN
 WHERE a.status = 'active'
 ORDER BY a.due_date DESC";
 
-$stmt = $db->prepare($assignments_sql);
-$stmt->bindParam(':student_id', $student_id);
-$stmt->execute();
-$assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$assignments = [];
+try {
+    $stmt = $db->prepare($assignments_sql);
+    $stmt->bindParam(':student_id', $student_id);
+    $stmt->execute();
+    $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("child_assignments query failed: " . $e->getMessage());
+}
 
 // Calculate assignment statistics
 $total_assignments = count($assignments);
@@ -85,10 +94,10 @@ include '../includes/sidebar.php';
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="page-header-gradient rounded-xl p-4 text-white shadow-lg">

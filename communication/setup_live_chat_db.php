@@ -3,7 +3,7 @@
 session_start();
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin'])) {
-    header('Location: /school_ms/login.php');
+    header('Location: /login.php');
     exit();
 }
 

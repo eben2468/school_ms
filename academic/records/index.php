@@ -131,10 +131,10 @@ include '../../includes/sidebar.php';
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full" style="margin-top: 80px;">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-4 text-white shadow-lg">
@@ -297,10 +297,15 @@ include '../../includes/sidebar.php';
                                 <p class="text-gray-600 dark:text-gray-400 mt-1">Detailed academic performance records</p>
                             </div>
                             <div class="flex space-x-2">
-                                <button onclick="window.print()"
+                                <a href="print.php?<?php echo htmlspecialchars(http_build_query([
+                                        'year_id' => $selected_year_id,
+                                        'term_id' => $selected_term_id,
+                                        'class_id' => $selected_class_id,
+                                        'student_id' => $selected_student_id,
+                                    ])); ?>" target="_blank"
                                     class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200">
                                     <i class="fas fa-print mr-2"></i>Print
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>

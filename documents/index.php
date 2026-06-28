@@ -1,17 +1,18 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('documents');
 
 require_once '../config/database.php';
+require_once '../includes/module_access.php';
+requireModule('documents'); // block access if disabled for this school
 $database = new Database();
 $db = $database->getConnection();
 
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
 $user_name = $_SESSION['name'] ?? 'User';
+$is_parent = ($role === 'parent');
 
 // Debug: Ensure variables are set
 error_reporting(E_ALL);
@@ -23,17 +24,17 @@ $stats = [];
 try {
     if (in_array($role, ['super_admin', 'school_admin', 'principal'])) {
         // Admin statistics
-        $recent_uploads_query = "SELECT COUNT(*) as count FROM document_uploads WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        $recent_uploads_query = "SELECT COUNT(*) as count FROM documents WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
         $recent_uploads_stmt = $db->prepare($recent_uploads_query);
         $recent_uploads_stmt->execute();
         $recent_uploads = $recent_uploads_stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
-        $certificates_query = "SELECT COUNT(*) as count FROM document_uploads WHERE document_type = 'certificate'";
+        $certificates_query = "SELECT COUNT(*) as count FROM documents WHERE document_type = 'certificate'";
         $certificates_stmt = $db->prepare($certificates_query);
         $certificates_stmt->execute();
         $certificates = $certificates_stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
-        $shared_files_query = "SELECT COUNT(DISTINCT document_id) as count FROM shared_documents";
+        $shared_files_query = "SELECT COUNT(DISTINCT document_id) as count FROM document_shares";
         $shared_files_stmt = $db->prepare($shared_files_query);
         $shared_files_stmt->execute();
         $shared_files = $shared_files_stmt->fetch(PDO::FETCH_ASSOC)['count'];
@@ -46,19 +47,19 @@ try {
         ];
     } elseif ($role === 'teacher') {
         // Teacher statistics
-        $my_uploads_query = "SELECT COUNT(*) as count FROM document_uploads WHERE uploaded_by = :user_id";
+        $my_uploads_query = "SELECT COUNT(*) as count FROM documents WHERE uploaded_by = :user_id";
         $my_uploads_stmt = $db->prepare($my_uploads_query);
         $my_uploads_stmt->bindParam(':user_id', $user_id);
         $my_uploads_stmt->execute();
         $my_uploads = $my_uploads_stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
-        $my_shares_query = "SELECT COUNT(*) as count FROM shared_documents WHERE shared_by = :user_id";
+        $my_shares_query = "SELECT COUNT(*) as count FROM document_shares WHERE shared_by = :user_id";
         $my_shares_stmt = $db->prepare($my_shares_query);
         $my_shares_stmt->bindParam(':user_id', $user_id);
         $my_shares_stmt->execute();
         $my_shares = $my_shares_stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
-        $total_downloads_query = "SELECT SUM(download_count) as total FROM document_uploads WHERE uploaded_by = :user_id";
+        $total_downloads_query = "SELECT SUM(download_count) as total FROM documents WHERE uploaded_by = :user_id";
         $total_downloads_stmt = $db->prepare($total_downloads_query);
         $total_downloads_stmt->bindParam(':user_id', $user_id);
         $total_downloads_stmt->execute();
@@ -73,11 +74,11 @@ try {
     } else {
         // Student/Parent statistics
         $accessible_docs_query = "
-            SELECT COUNT(*) as count FROM document_uploads du
-            LEFT JOIN shared_documents sd ON du.id = sd.document_id
+            SELECT COUNT(*) as count FROM documents du
+            LEFT JOIN document_shares sd ON du.id = sd.document_id
             WHERE du.access_level IN ('public', 'students', 'parents')
-            OR sd.shared_with = :user_id
-            OR (sd.shared_with_role = :role AND sd.shared_with IS NULL)
+            OR sd.shared_with_user_id = :user_id
+            OR (sd.shared_with_role = :role AND sd.shared_with_user_id IS NULL)
         ";
         $accessible_docs_stmt = $db->prepare($accessible_docs_query);
         $accessible_docs_stmt->bindParam(':user_id', $user_id);
@@ -85,7 +86,7 @@ try {
         $accessible_docs_stmt->execute();
         $accessible_docs = $accessible_docs_stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
-        $my_certificates_query = "SELECT COUNT(*) as count FROM document_uploads WHERE document_type = 'certificate' AND title LIKE :name";
+        $my_certificates_query = "SELECT COUNT(*) as count FROM documents WHERE document_type = 'certificate' AND title LIKE :name";
         $my_certificates_stmt = $db->prepare($my_certificates_query);
         $search_name = '%' . $user_name . '%';
         $my_certificates_stmt->bindParam(':name', $search_name);
@@ -126,16 +127,19 @@ try {
 $recent_documents = [];
 
 try {
+    // Parents only see documents meant for them (public/parents) or explicitly
+    // shared with them; never staff- or student-restricted files.
+    $allowed_levels = $is_parent ? "('public', 'parents')" : "('public', 'staff', 'students', 'parents')";
     $recent_docs_query = "
         SELECT du.*, u.name as uploader_name
-        FROM document_uploads du
+        FROM documents du
         LEFT JOIN users u ON du.uploaded_by = u.id
-        WHERE du.access_level IN ('public', 'staff', 'students', 'parents')
-        OR du.uploaded_by = :user_id
+        WHERE du.access_level IN $allowed_levels
+        " . ($is_parent ? "" : "OR du.uploaded_by = :user_id") . "
         OR EXISTS (
-            SELECT 1 FROM shared_documents sd
+            SELECT 1 FROM document_shares sd
             WHERE sd.document_id = du.id
-            AND (sd.shared_with = :user_id OR sd.shared_with_role = :role)
+            AND (sd.shared_with_user_id = :user_id OR sd.shared_with_role = :role)
         )
         ORDER BY du.created_at DESC
         LIMIT 10
@@ -175,10 +179,10 @@ if (document.title === "0" || document.title === "0 - School Management System" 
 <!-- Main Layout Container -->
 <div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen documents-container">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -187,6 +191,24 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                     <div class="page-header-gradient rounded-xl p-4 text-white shadow-lg">
                         <div class="flex items-center justify-between">
                             <div>
+                                <?php if ($is_parent): ?>
+                                <h1 class="text-3xl font-bold mb-2">My Documents</h1>
+                                <p class="text-blue-100 text-lg">Access and download your children's certificates, transcripts and shared files</p>
+                                <div class="mt-4 flex items-center space-x-4 text-sm text-blue-100">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-download mr-2"></i>
+                                        <span>View &amp; Download</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <i class="fas fa-certificate mr-2"></i>
+                                        <span>Certificates &amp; Transcripts</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <i class="fas fa-share-alt mr-2"></i>
+                                        <span>Shared Files</span>
+                                    </div>
+                                </div>
+                                <?php else: ?>
                                 <h1 class="text-3xl font-bold mb-2">Document & File Management</h1>
                                 <p class="text-blue-100 text-lg">Manage, share, and organize all your documents securely</p>
                                 <div class="mt-4 flex items-center space-x-4 text-sm text-blue-100">
@@ -203,6 +225,7 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                                         <span>Secure Sharing</span>
                                     </div>
                                 </div>
+                                <?php endif; ?>
                             </div>
                             <div class="hidden md:block">
                                 <div class="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -417,6 +440,73 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                 </div>
 
                 <!-- Quick Actions Grid -->
+                <?php if ($is_parent): ?>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Certificates & IDs -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-certificate text-green-600 dark:text-green-400 text-xl"></i>
+                            </div>
+                            <span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full">View</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Certificates &amp; IDs</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">View and download your children's certificates and ID cards.</p>
+                        <a href="certificates.php" class="inline-flex items-center text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium text-sm">
+                            <span>View Certificates</span>
+                            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
+                        </a>
+                    </div>
+
+                    <!-- Transcripts -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-scroll text-purple-600 dark:text-purple-400 text-xl"></i>
+                            </div>
+                            <span class="text-xs bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full">Academic</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Transcripts</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">View and download your children's official academic transcripts.</p>
+                        <a href="transcripts.php" class="inline-flex items-center text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium text-sm">
+                            <span>View Transcripts</span>
+                            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
+                        </a>
+                    </div>
+
+                    <!-- Shared Files -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-share-alt text-orange-600 dark:text-orange-400 text-xl"></i>
+                            </div>
+                            <span class="text-xs bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-2 py-1 rounded-full">Shared</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Shared Files</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Documents and files the school has shared with you.</p>
+                        <a href="shared.php" class="inline-flex items-center text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 font-medium text-sm">
+                            <span>View Shared Files</span>
+                            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
+                        </a>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-search text-red-600 dark:text-red-400 text-xl"></i>
+                            </div>
+                            <span class="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full">Find</span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Search Documents</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Search the documents that are available to you.</p>
+                        <button data-action="show-search-modal" class="inline-flex items-center text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm">
+                            <span>Search</span>
+                            <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform duration-300"></i>
+                        </button>
+                    </div>
+                </div>
+                <?php else: ?>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     <!-- Upload Documents -->
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 group">
@@ -514,15 +604,18 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                         </button>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <!-- Recent Documents -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-8">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Recent Documents</h2>
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><?php echo $is_parent ? 'Documents Available to You' : 'Recent Documents'; ?></h2>
+                            <?php if (!$is_parent): ?>
                             <a href="upload.php" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
                                 Upload New
                             </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="p-6">
@@ -563,12 +656,14 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                                         <?php echo date('M j, Y', strtotime($doc['created_at'])); ?>
                                     </div>
                                     <div class="flex space-x-1">
-                                        <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title="Download">
+                                        <a href="download.php?id=<?php echo $doc['id']; ?>" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title="Download">
                                             <i class="fas fa-download"></i>
-                                        </button>
-                                        <button class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 p-1" title="Share">
+                                        </a>
+                                        <?php if (!$is_parent): ?>
+                                        <a href="shared.php" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 p-1" title="Share">
                                             <i class="fas fa-share-alt"></i>
-                                        </button>
+                                        </a>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -577,17 +672,90 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                         <?php else: ?>
                         <div class="text-center py-8">
                             <i class="fas fa-file-alt text-gray-400 text-4xl mb-4"></i>
+                            <?php if ($is_parent): ?>
+                            <p class="text-gray-600 dark:text-gray-400">No documents are available to you yet. Your children's certificates, transcripts and any files the school shares with you will appear here.</p>
+                            <a href="certificates.php" class="inline-flex items-center mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+                                <i class="fas fa-certificate mr-2"></i>
+                                View Certificates
+                            </a>
+                            <?php else: ?>
                             <p class="text-gray-600 dark:text-gray-400">No documents found. Start by uploading your first document.</p>
                             <a href="upload.php" class="inline-flex items-center mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
                                 <i class="fas fa-upload mr-2"></i>
                                 Upload Document
                             </a>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </div>
                 </div>
 
                 <!-- Document Management Features -->
+                <?php if ($is_parent): ?>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">What You Can Do Here</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-certificate text-green-600 dark:text-green-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-white">Certificates &amp; IDs</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">View and download your children's certificates and ID cards.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-scroll text-purple-600 dark:text-purple-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-white">Academic Transcripts</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Access official academic transcripts and records.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-share-alt text-orange-600 dark:text-orange-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-white">Shared Files</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Open documents the school has shared with you.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-download text-blue-600 dark:text-blue-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-white">Easy Downloads</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Download any available document with a single click.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-shield-alt text-red-600 dark:text-red-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-white">Private &amp; Secure</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">You only see documents for your children or shared with you.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-headset text-indigo-600 dark:text-indigo-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-white">Need a Document?</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Contact the school office to request additional records.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php else: ?>
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Document Management Features</h2>
@@ -651,6 +819,7 @@ if (document.title === "0" || document.title === "0 - School Management System" 
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
         </main>
 

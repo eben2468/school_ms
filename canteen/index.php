@@ -1,11 +1,12 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'canteen_manager'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('canteen');
 
 require_once '../config/database.php';
+require_once '../includes/settings_helper.php';
+require_once '../includes/module_access.php';
+requireModule('canteen'); // block access if disabled for this school
 $database = new Database();
 $db = $database->getConnection();
 
@@ -80,9 +81,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -117,12 +118,12 @@ include '../includes/sidebar.php';
                 </div>
                 <!-- Action Buttons -->
                 <div class="flex justify-between items-center mb-6">
-                    <div class="flex space-x-3">
+                    <div class="flex flex-wrap items-center gap-3 no-stack">
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'canteen_manager'])): ?>
-                        <a href="menu/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
+                        <a href="menu/create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 inline-flex items-center whitespace-nowrap">
                             <i class="fas fa-plus mr-2"></i>Add Menu Item
                         </a>
-                        <a href="orders/create.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
+                        <a href="orders/create.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 inline-flex items-center whitespace-nowrap">
                             <i class="fas fa-shopping-cart mr-2"></i>New Order
                         </a>
                         <?php endif; ?>
@@ -263,7 +264,7 @@ include '../includes/sidebar.php';
                     <div class="p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800">Inventory</h3>
-                            <a href="inventory/create.php" class="text-orange-500 hover:text-orange-600">
+                            <a href="inventory/add_item.php" class="text-orange-500 hover:text-orange-600">
                                 <i class="fas fa-plus"></i>
                             </a>
                         </div>
@@ -280,7 +281,7 @@ include '../includes/sidebar.php';
                     <div class="p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-800">Reports</h3>
-                            <a href="reports/generate.php" class="text-indigo-500 hover:text-indigo-600">
+                            <a href="reports/index.php" class="text-indigo-500 hover:text-indigo-600">
                                 <i class="fas fa-chart-bar"></i>
                             </a>
                         </div>
@@ -423,3 +424,31 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<script>
+function exportCanteenData() {
+    // Generate a CSV from today's menu and recent orders
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Canteen Management Export - " + new Date().toLocaleDateString() + "\r\n\r\n";
+    
+    csvContent += "TODAY'S MENU\r\n";
+    csvContent += "Item Name,Meal Type,Price,Available Qty,Orders\r\n";
+    <?php foreach ($todays_menu as $item): ?>
+    csvContent += `"${<?php echo json_encode($item['item_name']); ?>}","${<?php echo json_encode($item['meal_type']); ?>}",${<?php echo json_encode($item['price']); ?>},${<?php echo json_encode($item['available_quantity']); ?>},${<?php echo json_encode($item['order_count']); ?>}\r\n`;
+    <?php endforeach; ?>
+    
+    csvContent += "\r\nRECENT ORDERS\r\n";
+    csvContent += "Item Name,Meal Type,Customer,Qty,Total Price,Status,Time\r\n";
+    <?php foreach ($recent_orders as $order): ?>
+    csvContent += `"${<?php echo json_encode($order['item_name']); ?>}","${<?php echo json_encode($order['meal_type']); ?>}","${<?php echo json_encode($order['staff_name']); ?>}",${<?php echo json_encode($order['quantity']); ?>},${<?php echo json_encode($order['total_price']); ?>},"${<?php echo json_encode($order['status']); ?>}","${<?php echo json_encode(date('g:i A', strtotime($order['order_time']))); ?>}"\r\n`;
+    <?php endforeach; ?>
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "canteen_summary_" + new Date().toISOString().slice(0,10) + ".csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>

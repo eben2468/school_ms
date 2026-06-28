@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher', 'student'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent'])) {
     header("Location: ../../index.php");
     exit();
 }
@@ -32,21 +32,23 @@ $report_sql = "SELECT
     generator.name as generated_by_name
 FROM term_reports tr
 JOIN users u ON tr.student_id = u.id
-JOIN student_profiles sp ON u.id = sp.user_id
+LEFT JOIN student_profiles sp ON u.id = sp.user_id
 JOIN classes c ON tr.class_id = c.id
 JOIN academic_years ay ON tr.academic_year_id = ay.id
 JOIN academic_terms at ON tr.academic_term_id = at.id
 LEFT JOIN users generator ON tr.generated_by = generator.id
 WHERE tr.id = :report_id";
 
-// Add access control for students
+// Add access control for students and parents
 if ($user_role === 'student') {
     $report_sql .= " AND tr.student_id = :user_id";
+} elseif ($user_role === 'parent') {
+    $report_sql .= " AND tr.student_id IN (SELECT student_id FROM parent_students WHERE parent_id = :user_id)";
 }
 
 $stmt = $db->prepare($report_sql);
 $stmt->bindParam(':report_id', $report_id);
-if ($user_role === 'student') {
+if (in_array($user_role, ['student', 'parent'])) {
     $stmt->bindParam(':user_id', $user_id);
 }
 $stmt->execute();
@@ -55,6 +57,20 @@ $report = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$report) {
     header("Location: index.php?error=Report not found");
     exit();
+}
+
+// Get school details from settings
+require_once '../../includes/settings_helper.php';
+$school_name = getSchoolSetting('school_name', 'Greenwood Academy');
+
+$school_motto = '';
+try {
+    $motto_stmt = $db->prepare("SELECT setting_value FROM academic_settings WHERE setting_key = 'school_motto'");
+    $motto_stmt->execute();
+    $motto_val = $motto_stmt->fetchColumn();
+    if ($motto_val) $school_motto = $motto_val;
+} catch (PDOException $e) {
+    $school_motto = 'Excellence in Character and Knowledge';
 }
 
 // Get detailed academic records for this report
@@ -77,13 +93,12 @@ $stmt->bindParam(':term_id', $report['academic_term_id']);
 $stmt->execute();
 $academic_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Function to get grade from score
+// Function to get grade from score. Delegates to the centralised, scale-aware
+// helper (settings_helper.php, loaded via header.php) so report-card grades stay
+// consistent with the school's configured grading scales. Used only as a
+// fallback when a record has no stored grade.
 function getGrade($score) {
-    if ($score >= 80) return 'A';
-    elseif ($score >= 70) return 'B';
-    elseif ($score >= 60) return 'C';
-    elseif ($score >= 50) return 'D';
-    else return 'F';
+    return getGradeLetter($score);
 }
 
 $title = "Term Report - " . $report['student_name'];
@@ -92,15 +107,15 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-4 text-white shadow-lg">
@@ -131,10 +146,10 @@ include '../../includes/sidebar.php';
                         <span class="text-gray-900 dark:text-white font-medium">View Report</span>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="window.print()" 
+                        <a href="print.php?id=<?php echo $report_id; ?>" target="_blank"
                             class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200">
                             <i class="fas fa-print mr-2"></i>Print
-                        </button>
+                        </a>
                         <a href="pdf.php?id=<?php echo $report_id; ?>" 
                             class="inline-flex items-center px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200">
                             <i class="fas fa-download mr-2"></i>Download PDF
@@ -146,8 +161,11 @@ include '../../includes/sidebar.php';
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 print:shadow-none print:border-0">
                     <!-- School Header -->
                     <div class="p-8 border-b border-gray-200 dark:border-gray-700 text-center">
-                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Greenwood Academy</h2>
-                        <p class="text-gray-600 dark:text-gray-400">School Management System</p>
+                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1"><?php echo htmlspecialchars($school_name); ?></h2>
+                        <?php if ($school_motto): ?>
+                        <p class="text-gray-500 dark:text-gray-400 italic text-sm mb-2">"<?php echo htmlspecialchars($school_motto); ?>"</p>
+                        <?php endif; ?>
+                        <p class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">School Management System</p>
                         <h3 class="text-xl font-semibold text-gray-900 dark:text-white mt-4">TERMINAL REPORT</h3>
                     </div>
 
@@ -161,7 +179,7 @@ include '../../includes/sidebar.php';
                                 </div>
                                 <div class="flex">
                                     <span class="font-medium text-gray-700 dark:text-gray-300 w-32">Student ID:</span>
-                                    <span class="text-gray-900 dark:text-white"><?php echo htmlspecialchars($report['profile_student_id']); ?></span>
+                                    <span class="text-gray-900 dark:text-white"><?php echo htmlspecialchars($report['profile_student_id'] ?? 'N/A'); ?></span>
                                 </div>
                                 <div class="flex">
                                     <span class="font-medium text-gray-700 dark:text-gray-300 w-32">Class:</span>
@@ -169,7 +187,7 @@ include '../../includes/sidebar.php';
                                 </div>
                                 <div class="flex">
                                     <span class="font-medium text-gray-700 dark:text-gray-300 w-32">Gender:</span>
-                                    <span class="text-gray-900 dark:text-white"><?php echo htmlspecialchars(ucfirst($report['gender'])); ?></span>
+                                    <span class="text-gray-900 dark:text-white"><?php echo htmlspecialchars(ucfirst($report['gender'] ?? 'N/A')); ?></span>
                                 </div>
                             </div>
                             <div class="space-y-3">
@@ -225,18 +243,20 @@ include '../../includes/sidebar.php';
                                             <?php echo number_format($record['total_score'], 1); ?>
                                         </td>
                                         <td class="px-4 py-3 text-center">
-                                            <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full 
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
                                                 <?php 
-                                                $grade = getGrade($record['total_score']);
-                                                switch($grade) {
-                                                    case 'A': echo 'bg-green-100 text-green-800'; break;
-                                                    case 'B': echo 'bg-blue-100 text-blue-800'; break;
-                                                    case 'C': echo 'bg-yellow-100 text-yellow-800'; break;
-                                                    case 'D': echo 'bg-orange-100 text-orange-800'; break;
-                                                    case 'F': echo 'bg-red-100 text-red-800'; break;
+                                                $grade = $record['grade'] ?: getGrade($record['total_score']);
+                                                $first_char = substr($grade, 0, 1);
+                                                switch($first_char) {
+                                                    case 'A': echo 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'; break;
+                                                    case 'B': echo 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'; break;
+                                                    case 'C': echo 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'; break;
+                                                    case 'D': echo 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'; break;
+                                                    case 'E': echo 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'; break;
+                                                    default: echo 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'; break;
                                                 }
                                                 ?>">
-                                                <?php echo $grade; ?>
+                                                <?php echo htmlspecialchars($grade); ?>
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
@@ -317,7 +337,7 @@ include '../../includes/sidebar.php';
                             </div>
                             <?php if ($report['principal_remarks']): ?>
                             <div>
-                                <h5 class="font-medium text-gray-700 dark:text-gray-300 mb-2">Principal's Remarks:</h5>
+                                <h5 class="font-medium text-gray-700 dark:text-gray-300 mb-2">Headmaster/Headmistress's Remarks:</h5>
                                 <p class="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                                     <?php echo htmlspecialchars($report['principal_remarks']); ?>
                                 </p>

@@ -38,7 +38,7 @@ $where_conditions = [];
 $params = [];
 
 if ($search) {
-    $where_conditions[] = "(u.name LIKE :search OR hr.room_number LIKE :search)";
+    $where_conditions[] = "(s.name LIKE :search OR hr.room_number LIKE :search)";
     $params[':search'] = "%$search%";
 }
 
@@ -57,9 +57,10 @@ $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_c
 // Fetch allocations
 $query = "SELECT ha.*, s.name as student_name, hr.room_number,
           hb.name as block_name,
-          s.student_id as student_number
+          sp.student_id as student_number
           FROM hostel_allocations ha
-          JOIN students s ON ha.student_id = s.id
+          JOIN users s ON ha.student_id = s.id
+          LEFT JOIN student_profiles sp ON s.id = sp.user_id
           JOIN hostel_rooms hr ON ha.room_id = hr.id
           JOIN hostel_blocks hb ON hr.block_id = hb.id
           $where_clause
@@ -93,7 +94,7 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
@@ -131,12 +132,12 @@ include '../../includes/sidebar.php';
 
                 <!-- Action Buttons -->
                 <div class="flex justify-between items-center mb-6">
-                    <div class="flex space-x-3">
-                        <a href="../index.php" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    <div class="flex flex-wrap items-center gap-3 no-stack">
+                        <a href="../index.php" class="inline-flex items-center whitespace-nowrap bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
                             <i class="fas fa-arrow-left mr-2"></i>Back to Hostel
                         </a>
                         <?php if (in_array($user_role, ['super_admin', 'school_admin', 'hostel_warden'])): ?>
-                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
+                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 inline-flex items-center whitespace-nowrap">
                             <i class="fas fa-plus mr-2"></i>New Allocation
                         </a>
                         <?php endif; ?>

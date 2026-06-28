@@ -6,8 +6,10 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../config/database.php';
+require_once '../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
+ensureChatTables($db); // heal tenants that predate the chat module
 
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
@@ -74,12 +76,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -202,7 +204,7 @@ include '../includes/sidebar.php';
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
                                             <div class="text-sm font-medium text-gray-900 dark:text-white"><?php echo htmlspecialchars($conv['user_name']); ?></div>
-                                            <div class="text-sm text-gray-500 dark:text-gray-400"><?php echo ucfirst($conv['user_role']); ?></div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars(formatRoleName($conv['user_role'])); ?></div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">

@@ -1,20 +1,20 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'inventory_manager'])) {
-    header("Location: ../auth/login.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('inventory');
 
 require_once '../config/database.php';
+require_once '../includes/module_access.php';
+requireModule('inventory'); // block access if disabled for this school
 
 // Get inventory statistics
 $stats_query = "SELECT
     COUNT(*) as total_items,
     SUM(quantity_available) as total_quantity,
-    COUNT(CASE WHEN quantity_available <= 10 THEN 1 END) as low_stock_items,
+    COUNT(CASE WHEN quantity_available <= minimum_stock_level THEN 1 END) as low_stock_items,
     SUM(quantity_available * unit_price) as total_value
     FROM inventory_items
-    WHERE status = 'active'";
+    WHERE status IN ('available', 'out_of_stock')";
 $stmt = $conn->prepare($stats_query);
 $stmt->execute();
 $stats = $stmt->get_result()->fetch_assoc();
@@ -28,26 +28,20 @@ if (!$stats) {
     ];
 }
 
-// Get recent inventory items (since we don't have movements table yet)
-$recent_items_query = "SELECT ii.*, 'system' as user_name
-    FROM inventory_items ii
-    WHERE ii.status = 'active'
-    ORDER BY ii.created_at DESC
+// Get recent inventory movements from the movements table
+$recent_movements_query = "SELECT im.*, ii.item_name, u.name as user_name
+    FROM inventory_movements im
+    JOIN inventory_items ii ON im.item_id = ii.id
+    JOIN users u ON im.user_id = u.id
+    ORDER BY im.created_at DESC
     LIMIT 10";
-$stmt = $conn->prepare($recent_items_query);
+$stmt = $conn->prepare($recent_movements_query);
 $stmt->execute();
 $recent_movements = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Transform to look like movements
-foreach ($recent_movements as &$item) {
-    $item['movement_type'] = 'in';
-    $item['quantity'] = $item['quantity_available'];
-    $item['item_name'] = $item['item_name'];
-}
-
-// Get low stock items
+// Get low stock items based on minimum_stock_level
 $low_stock_query = "SELECT * FROM inventory_items
-    WHERE quantity_available <= 10 AND status = 'active'
+    WHERE quantity_available <= minimum_stock_level AND status = 'available'
     ORDER BY quantity_available ASC
     LIMIT 10";
 $stmt = $conn->prepare($low_stock_query);
@@ -60,9 +54,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -98,11 +92,11 @@ include '../includes/sidebar.php';
 
                 <div class="flex justify-between items-center mb-6">
                     <div></div>
-                    <div class="flex space-x-3">
-                        <a href="items/" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <div class="flex flex-row items-center gap-3">
+                        <a href="items/" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0 inline-flex items-center">
                             <i class="fas fa-boxes mr-2"></i>Manage Items
                         </a>
-                        <a href="requests/" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                        <a href="requests/" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0 inline-flex items-center">
                             <i class="fas fa-clipboard-list mr-2"></i>Requests
                         </a>
                     </div>

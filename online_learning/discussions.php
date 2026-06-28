@@ -9,19 +9,34 @@ require_once '../config/database.php';
 $database = new Database();
 $db = $database->getConnection();
 
+$user_id = $_SESSION['user_id'];
+$role = $_SESSION['role'];
+
+// Determine a student's own active class so their view is scoped to it.
+$student_class_id = null;
+if ($role === 'student') {
+    try {
+        $class_stmt = $db->prepare("SELECT class_id FROM student_classes WHERE student_id = :student_id AND status = 'active' LIMIT 1");
+        $class_stmt->execute([':student_id' => $user_id]);
+        $student_class_id = $class_stmt->fetchColumn() ?: null;
+    } catch (PDOException $e) {
+        // Ignore
+    }
+}
+
 // Handle form submission for creating new discussion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_discussion') {
-    $title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_STRING);
+    $disc_title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_STRING);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_STRING);
     $class_id = filter_input(INPUT_POST, 'class_id', FILTER_SANITIZE_NUMBER_INT);
     $subject_id = filter_input(INPUT_POST, 'subject_id', FILTER_SANITIZE_NUMBER_INT);
 
-    if ($title && $description) {
+    if ($disc_title && $description) {
         try {
             $query = "INSERT INTO discussion_boards (title, description, class_id, subject_id, created_by, created_at)
                      VALUES (:title, :description, :class_id, :subject_id, :created_by, NOW())";
             $stmt = $db->prepare($query);
-            $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':title', $disc_title);
             $stmt->bindParam(':description', $description);
             $stmt->bindParam(':class_id', $class_id);
             $stmt->bindParam(':subject_id', $subject_id);
@@ -84,6 +99,17 @@ if ($search) {
     $params[':search'] = "%$search%";
 }
 
+// Students only see discussions for their own active class, plus
+// general discussions that are not tied to any class.
+if ($role === 'student') {
+    if ($student_class_id) {
+        $where_conditions[] = "(d.class_id = :student_class_id OR d.class_id IS NULL)";
+        $params[':student_class_id'] = $student_class_id;
+    } else {
+        $where_conditions[] = "d.class_id IS NULL";
+    }
+}
+
 $where_clause = implode(' AND ', $where_conditions);
 
 // Get discussions
@@ -103,14 +129,27 @@ foreach ($params as $key => $value) {
 $discussions_stmt->execute();
 $discussions = $discussions_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get classes and subjects for filters
-$classes_query = "SELECT id, name FROM classes ORDER BY name";
-$classes_stmt = $db->query($classes_query);
-$classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+// Get classes and subjects for filter/modal dropdowns
+$classes = [];
+$subjects = [];
+try {
+    if ($role === 'student') {
+        // Students only get their own active class (and its subjects) in the
+        // dropdowns, so no other class names are exposed in the UI.
+        $cls_stmt = $db->prepare("SELECT id, name FROM classes WHERE id = :cid ORDER BY name");
+        $cls_stmt->execute([':cid' => $student_class_id ?: 0]);
+        $classes = $cls_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$subjects_query = "SELECT id, name FROM subjects ORDER BY name";
-$subjects_stmt = $db->query($subjects_query);
-$subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+        $subj_stmt = $db->prepare("SELECT id, name, class_id FROM subjects WHERE class_id = :cid ORDER BY name");
+        $subj_stmt->execute([':cid' => $student_class_id ?: 0]);
+        $subjects = $subj_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $classes = $db->query("SELECT id, name FROM classes ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+        $subjects = $db->query("SELECT id, name, class_id FROM subjects ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (PDOException $e) {
+    // Ignore
+}
 
 $title = "Online Discussions";
 $breadcrumbs = [
@@ -124,12 +163,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -168,7 +207,7 @@ include '../includes/sidebar.php';
                                 <label for="class_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Class</label>
                                 <select id="class_id" name="class_id"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                                    <option value="">All Classes</option>
+                                    <option value=""><?php echo $role === 'student' ? 'My Class' : 'All Classes'; ?></option>
                                     <?php foreach ($classes as $class): ?>
                                         <option value="<?php echo $class['id']; ?>" <?php echo $class_filter == $class['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($class['name']); ?>
@@ -180,7 +219,7 @@ include '../includes/sidebar.php';
                                 <label for="subject_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Subject</label>
                                 <select id="subject_id" name="subject_id"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                                    <option value="">All Subjects</option>
+                                    <option value=""><?php echo $role === 'student' ? 'My Subjects' : 'All Subjects'; ?></option>
                                     <?php foreach ($subjects as $subject): ?>
                                         <option value="<?php echo $subject['id']; ?>" <?php echo $subject_filter == $subject['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($subject['name']); ?>

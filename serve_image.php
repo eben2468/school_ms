@@ -10,8 +10,13 @@ if (!isset($_SESSION['user_id'])) {
 // Get the requested image path
 $image_path = $_GET['path'] ?? '';
 
-// Security: Only allow profile pictures and validate path
-if (empty($image_path) || !preg_match('/^profile_pictures\/[a-zA-Z0-9_-]+\.(jpg|jpeg|png|gif)$/i', $image_path)) {
+// Security: only allow known image sub-folders and validate the filename.
+if (empty($image_path) || !preg_match('/^(profile_pictures|signatures|logos|book_covers)\/[a-zA-Z0-9_.-]+\.(jpg|jpeg|png|gif)$/i', $image_path)) {
+    header("HTTP/1.0 404 Not Found");
+    exit();
+}
+// Disallow any path traversal that slipped past the pattern.
+if (strpos($image_path, '..') !== false) {
     header("HTTP/1.0 404 Not Found");
     exit();
 }

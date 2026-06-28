@@ -82,22 +82,22 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
     <div class="w-72 flex-shrink-0 lg:block hidden"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-7xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Vehicles Management</h1>
-                <div class="flex space-x-3">
-                    <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+                <div class="flex flex-wrap items-center gap-3 no-stack">
+                    <a href="../index.php" class="inline-flex items-center whitespace-nowrap text-blue-600 hover:text-blue-800">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Transport
                     </a>
-                    <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <a href="create.php" class="inline-flex items-center whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                         <i class="fas fa-plus mr-2"></i>Add Vehicle
                     </a>
                 </div>
@@ -269,22 +269,24 @@ include '../../includes/sidebar.php';
                             </div>
                         </div>
 
-                        <div class="flex justify-between items-center">
-                            <a href="view.php?id=<?php echo $vehicle['id']; ?>" 
-                                class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                View Details
+                        <div class="flex justify-between items-center gap-2">
+                            <a href="view.php?id=<?php echo $vehicle['id']; ?>"
+                                class="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap">
+                                <i class="fas fa-eye"></i> View Details
                             </a>
-                            <div class="flex space-x-2">
-                                <a href="edit.php?id=<?php echo $vehicle['id']; ?>" 
-                                    class="text-gray-600 hover:text-gray-800">
-                                    <i class="fas fa-edit"></i>
+                            <div class="flex items-center gap-2 no-stack">
+                                <a href="edit.php?id=<?php echo $vehicle['id']; ?>"
+                                    class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors duration-200"
+                                    title="Edit Vehicle">
+                                    <i class="fas fa-edit text-sm"></i>
                                 </a>
-                                <form action="" method="POST" class="inline">
+                                <form action="" method="POST" class="inline-flex">
                                     <input type="hidden" name="vehicle_id" value="<?php echo $vehicle['id']; ?>">
-                                    <button type="submit" name="toggle_status" 
-                                        class="text-<?php echo $vehicle['status'] === 'active' ? 'red' : 'green'; ?>-600 hover:text-<?php echo $vehicle['status'] === 'active' ? 'red' : 'green'; ?>-800"
-                                        title="<?php echo $vehicle['status'] === 'active' ? 'Deactivate' : 'Activate'; ?> Vehicle">
-                                        <i class="fas fa-<?php echo $vehicle['status'] === 'active' ? 'ban' : 'check'; ?>"></i>
+                                    <?php $is_active = $vehicle['status'] === 'active'; ?>
+                                    <button type="submit" name="toggle_status"
+                                        class="inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors duration-200 <?php echo $is_active ? 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'; ?>"
+                                        title="<?php echo $is_active ? 'Deactivate' : 'Activate'; ?> Vehicle">
+                                        <i class="fas fa-<?php echo $is_active ? 'ban' : 'check'; ?> text-sm"></i>
                                     </button>
                                 </form>
                             </div>

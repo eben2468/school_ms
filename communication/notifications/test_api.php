@@ -2,7 +2,7 @@
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /school_ms/login.php');
+    header('Location: /login.php');
     exit();
 }
 
@@ -24,7 +24,7 @@ try {
         'type' => 'system',
         'priority' => 'medium',
         'icon' => 'fas fa-test-tube',
-        'action_url' => '/school_ms/notifications.php',
+        'action_url' => '/notifications.php',
         'action_text' => 'View All',
         'created_by' => $_SESSION['user_id']
     ]);
@@ -36,7 +36,7 @@ try {
 
 // Test 2: Fetch notifications
 try {
-    $url = 'http://localhost/school_ms/communication/notifications/get_notifications.php?limit=5';
+    $url = 'http://localhost/communication/notifications/get_notifications.php?limit=5';
     $context = stream_context_create([
         'http' => [
             'method' => 'GET',
@@ -133,10 +133,10 @@ try {
         <div class="mt-8 bg-white rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold mb-4">Navigation</h2>
             <div class="flex flex-wrap gap-3">
-                <a href="/school_ms/notifications.php" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <a href="/notifications.php" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                     View Notifications Page
                 </a>
-                <a href="/school_ms/dashboard.php" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                <a href="/dashboard.php" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                     Test Dashboard Notifications
                 </a>
                 <a href="integration_examples.php" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
@@ -170,7 +170,7 @@ try {
     
     <script>
     function testGetNotifications() {
-        fetch('/school_ms/communication/notifications/get_notifications.php?limit=3')
+        fetch('/communication/notifications/get_notifications.php?limit=3')
             .then(response => response.json())
             .then(data => {
                 document.getElementById('apiResults').innerHTML = 
@@ -185,12 +185,12 @@ try {
     
     function testMarkRead() {
         // First get a notification ID
-        fetch('/school_ms/communication/notifications/get_notifications.php?limit=1')
+        fetch('/communication/notifications/get_notifications.php?limit=1')
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.notifications.length > 0) {
                     const notificationId = data.notifications[0].id;
-                    return fetch('/school_ms/communication/notifications/mark_read.php', {
+                    return fetch('/communication/notifications/mark_read.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ notification_id: notificationId })
@@ -212,7 +212,7 @@ try {
     }
     
     function testMarkAllRead() {
-        fetch('/school_ms/communication/notifications/mark_all_read.php', {
+        fetch('/communication/notifications/mark_all_read.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
@@ -230,7 +230,7 @@ try {
     }
     
     function testCreateNotification() {
-        fetch('/school_ms/communication/notifications/create_notification.php', {
+        fetch('/communication/notifications/create_notification.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

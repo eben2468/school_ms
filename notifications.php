@@ -34,13 +34,22 @@ $params[':user_id'] = $user_id;
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
 // Get total count for pagination (exclude dismissed and expired)
-$count_query = "SELECT COUNT(*) as total FROM notifications $where_clause AND is_dismissed = FALSE AND (expires_at IS NULL OR expires_at > NOW())";
-$count_stmt = $db->prepare($count_query);
-foreach ($params as $key => $value) {
-    $count_stmt->bindValue($key, $value);
+try {
+    $count_query = "SELECT COUNT(*) as total FROM notifications $where_clause AND is_dismissed = FALSE AND (expires_at IS NULL OR expires_at > NOW())";
+    $count_stmt = $db->prepare($count_query);
+    foreach ($params as $key => $value) {
+        $count_stmt->bindValue($key, $value);
+    }
+    $count_stmt->execute();
+    $total_notifications = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
+} catch (PDOException $e) {
+    // If columns don't exist, redirect to setup
+    if ($e->getCode() == '42S22') {
+        header("Location: setup_all_missing_tables.php");
+        exit();
+    }
+    $total_notifications = 0;
 }
-$count_stmt->execute();
-$total_notifications = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
 // Get notifications with enhanced query
 $notifications_query = "
@@ -97,6 +106,35 @@ foreach ($type_counts as $count) {
 $total_count = array_sum(array_column($type_counts, 'count'));
 $total_unread = array_sum(array_column($type_counts, 'unread_count'));
 
+// Determine if current user can send notifications
+$can_send = in_array($role, ['super_admin', 'school_admin', 'principal']);
+
+// Load user list for the recipient picker (admins only)
+$user_list = [];
+if ($can_send) {
+    try {
+        $users_stmt = $db->query("SELECT id, name, role FROM users WHERE (status = 'active' OR status IS NULL) ORDER BY name ASC");
+        $user_list = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $user_list = [];
+    }
+}
+
+$role_options = [
+    'student' => 'Students',
+    'parent' => 'Parents',
+    'teacher' => 'Teachers',
+    'school_admin' => 'School Admins',
+    'principal' => 'Headmasters/Headmistresses',
+    'accountant' => 'Accountants',
+    'librarian' => 'Librarians',
+    'counselor' => 'Counselors',
+    'nurse' => 'Nurses',
+    'canteen_manager' => 'Canteen Managers',
+    'transport_officer' => 'Transport Officers',
+    'hostel_warden' => 'Hostel Wardens',
+];
+
 $title = "Notifications";
 $breadcrumbs = [
     ['title' => 'Notifications']
@@ -107,9 +145,9 @@ include 'includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
@@ -146,6 +184,11 @@ include 'includes/sidebar.php';
                 <!-- Action Buttons -->
                 <div class="flex justify-end items-center mb-6">
                     <div class="flex space-x-3">
+                        <?php if ($can_send): ?>
+                        <button id="sendNotificationBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+                            <i class="fas fa-paper-plane mr-2"></i>Send Notification
+                        </button>
+                        <?php endif; ?>
                         <button id="markAllReadBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
                             <i class="fas fa-check-double mr-2"></i>Mark All Read
                         </button>
@@ -312,6 +355,119 @@ include 'includes/sidebar.php';
     </div>
 </div>
 
+<?php if ($can_send): ?>
+<!-- Compose / Send Notification Modal -->
+<div id="composeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        <i class="fas fa-paper-plane mr-2 text-green-600"></i>Send Notification
+                    </h3>
+                    <button onclick="closeComposeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="composeForm" class="space-y-4">
+                    <!-- Audience -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Send To</label>
+                        <select id="composeAudience" name="audience" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none">
+                            <option value="all">Everyone</option>
+                            <option value="role">A specific role</option>
+                            <option value="user">A specific user</option>
+                        </select>
+                    </div>
+
+                    <!-- Role picker -->
+                    <div id="composeRoleWrap" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
+                        <select id="composeRole" name="role" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none">
+                            <?php foreach ($role_options as $rkey => $rlabel): ?>
+                            <option value="<?php echo $rkey; ?>"><?php echo htmlspecialchars($rlabel); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- User picker -->
+                    <div id="composeUserWrap" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User</label>
+                        <select id="composeUser" name="user_id" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none">
+                            <option value="">Select a user...</option>
+                            <?php foreach ($user_list as $u): ?>
+                            <option value="<?php echo (int)$u['id']; ?>"><?php echo htmlspecialchars($u['name'] . ' (' . str_replace('_', ' ', $u['role']) . ')'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Type & Priority -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                            <select id="composeType" name="type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none">
+                                <option value="announcement">Announcement</option>
+                                <option value="academic">Academic</option>
+                                <option value="finance">Finance</option>
+                                <option value="system">System</option>
+                                <option value="attendance">Attendance</option>
+                                <option value="grades">Grades</option>
+                                <option value="events">Events</option>
+                                <option value="library">Library</option>
+                                <option value="general">General</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                            <select id="composePriority" name="priority" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Title -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                        <input type="text" id="composeTitle" name="title" maxlength="255" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none" placeholder="Notification title">
+                    </div>
+
+                    <!-- Message -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
+                        <textarea id="composeMessage" name="message" rows="4" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none" placeholder="Write your message..."></textarea>
+                    </div>
+
+                    <!-- Optional action link -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Action Link <span class="text-gray-400">(optional)</span></label>
+                            <input type="text" id="composeActionUrl" name="action_url" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none" placeholder="/...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link Text <span class="text-gray-400">(optional)</span></label>
+                            <input type="text" id="composeActionText" name="action_text" maxlength="100" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none" placeholder="View Details">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" onclick="closeComposeModal()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
+                        <button type="submit" id="composeSubmitBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            <i class="fas fa-paper-plane mr-2"></i>Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Toast container -->
+<div id="toastContainer" class="fixed top-20 right-4 z-[60] space-y-2"></div>
+
 <!-- Settings Modal -->
 <div id="settingsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
@@ -321,19 +477,19 @@ include 'includes/sidebar.php';
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Email Notifications</label>
-                        <input type="checkbox" class="toggle-switch" checked>
+                        <input type="checkbox" id="prefEmail" class="toggle-switch h-5 w-5">
                     </div>
                     <div class="flex items-center justify-between">
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Push Notifications</label>
-                        <input type="checkbox" class="toggle-switch" checked>
+                        <input type="checkbox" id="prefPush" class="toggle-switch h-5 w-5">
                     </div>
                     <div class="flex items-center justify-between">
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">SMS Notifications</label>
-                        <input type="checkbox" class="toggle-switch">
+                        <input type="checkbox" id="prefSms" class="toggle-switch h-5 w-5">
                     </div>
                     <div class="flex items-center justify-between">
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">High Priority Only</label>
-                        <input type="checkbox" class="toggle-switch">
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">In-App Notifications</label>
+                        <input type="checkbox" id="prefInApp" class="toggle-switch h-5 w-5">
                     </div>
                 </div>
                 <div class="flex justify-end space-x-3 mt-6">
@@ -440,9 +596,47 @@ function dismissNotification(notificationId) {
     }
 }
 
-// Settings modal functions
+// ----- Toast notifications -----
+function showToast(message, type = 'success') {
+    const colors = {
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        info: 'bg-blue-600'
+    };
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        info: 'fas fa-info-circle'
+    };
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 transform transition-all duration-300 translate-x-full opacity-0 max-w-sm`;
+    toast.innerHTML = `<i class="${icons[type] || icons.info}"></i><span class="text-sm">${message}</span>`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+    });
+    setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// ----- Settings modal -----
 document.getElementById('settingsBtn').addEventListener('click', function() {
     document.getElementById('settingsModal').classList.remove('hidden');
+    // Load saved preferences
+    fetch('communication/notifications/preferences.php')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('prefEmail').checked = data.preferences.email_enabled;
+                document.getElementById('prefPush').checked = data.preferences.push_enabled;
+                document.getElementById('prefSms').checked = data.preferences.sms_enabled;
+                document.getElementById('prefInApp').checked = data.preferences.in_app_enabled;
+            }
+        })
+        .catch(err => console.error('Error loading preferences:', err));
 });
 
 function closeSettingsModal() {
@@ -450,8 +644,108 @@ function closeSettingsModal() {
 }
 
 function saveSettings() {
-    // Here you would save the settings to the database
-    alert('Settings saved successfully!');
-    closeSettingsModal();
+    const payload = {
+        email_enabled: document.getElementById('prefEmail').checked,
+        push_enabled: document.getElementById('prefPush').checked,
+        sms_enabled: document.getElementById('prefSms').checked,
+        in_app_enabled: document.getElementById('prefInApp').checked
+    };
+    fetch('communication/notifications/preferences.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Notification settings saved', 'success');
+            closeSettingsModal();
+        } else {
+            showToast(data.message || 'Failed to save settings', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error saving preferences:', err);
+        showToast('An error occurred while saving settings', 'error');
+    });
 }
+
+<?php if ($can_send): ?>
+// ----- Compose / Send Notification -----
+const sendBtn = document.getElementById('sendNotificationBtn');
+if (sendBtn) {
+    sendBtn.addEventListener('click', function() {
+        document.getElementById('composeModal').classList.remove('hidden');
+    });
+}
+
+function closeComposeModal() {
+    document.getElementById('composeModal').classList.add('hidden');
+}
+
+// Toggle role/user pickers based on audience
+document.getElementById('composeAudience').addEventListener('change', function() {
+    const roleWrap = document.getElementById('composeRoleWrap');
+    const userWrap = document.getElementById('composeUserWrap');
+    roleWrap.classList.toggle('hidden', this.value !== 'role');
+    userWrap.classList.toggle('hidden', this.value !== 'user');
+});
+
+document.getElementById('composeForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const audience = document.getElementById('composeAudience').value;
+    const payload = {
+        audience: audience,
+        role: document.getElementById('composeRole').value,
+        user_id: document.getElementById('composeUser').value,
+        type: document.getElementById('composeType').value,
+        priority: document.getElementById('composePriority').value,
+        title: document.getElementById('composeTitle').value.trim(),
+        message: document.getElementById('composeMessage').value.trim(),
+        action_url: document.getElementById('composeActionUrl').value.trim(),
+        action_text: document.getElementById('composeActionText').value.trim()
+    };
+
+    if (!payload.title || !payload.message) {
+        showToast('Title and message are required', 'error');
+        return;
+    }
+    if (audience === 'user' && !payload.user_id) {
+        showToast('Please select a recipient', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('composeSubmitBtn');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+
+    fetch('communication/notifications/send_notification.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message + (data.recipients ? ` (${data.recipients} recipient${data.recipients > 1 ? 's' : ''})` : ''), 'success');
+            document.getElementById('composeForm').reset();
+            document.getElementById('composeRoleWrap').classList.add('hidden');
+            document.getElementById('composeUserWrap').classList.add('hidden');
+            closeComposeModal();
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            showToast(data.message || 'Failed to send notification', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error sending notification:', err);
+        showToast('An error occurred while sending the notification', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = original;
+    });
+});
+<?php endif; ?>
 </script>

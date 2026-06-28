@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../../config/database.php';
+require_once '../../includes/settings_helper.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -33,13 +34,14 @@ if (!$exam) {
 }
 
 // Get students and their results
-$query = "SELECT u.name, u.roll_number, er.marks_obtained as marks, er.remarks,
+$query = "SELECT u.name, sp.student_id as roll_number, er.marks_obtained as marks, er.remarks,
         er.created_at as updated_at
         FROM users u
         JOIN student_classes sc ON u.id = sc.student_id
+        LEFT JOIN student_profiles sp ON u.id = sp.user_id
         LEFT JOIN exam_results er ON u.id = er.student_id AND er.exam_id = :exam_id
-        WHERE sc.class_id = :class_id AND u.role = 'student'
-        ORDER BY u.roll_number, u.name";
+        WHERE sc.class_id = :class_id AND u.role = 'student' AND sc.status = 'active'
+        ORDER BY sp.student_id, u.name";
 $stmt = $db->prepare($query);
 $stmt->bindParam(':exam_id', $exam_id);
 $stmt->bindParam(':class_id', $exam['class_id']);
@@ -69,34 +71,51 @@ fputcsv($output, ['Class', 'Grade ' . $exam['grade_level'] . ' - ' . $exam['clas
 fputcsv($output, ['Date', date('F j, Y', strtotime($exam['exam_date']))]);
 fputcsv($output, ['Time', date('g:i A', strtotime($exam['start_time']))]);
 fputcsv($output, ['Maximum Marks', $exam['total_marks']]);
-fputcsv($output, ['Passing Marks (40%)', round($exam['total_marks'] * 0.4)]);
+fputcsv($output, ['Passing Marks', $exam['passing_marks'] !== null ? $exam['passing_marks'] : 'N/A']);
 fputcsv($output, []); // Empty line for spacing
 
 // Write headers
+// "Grade" header reflects the school's configured grading system
+// (percentage / letter / GPA / points) — see getGradingSystemLabel().
 fputcsv($output, [
     'Roll Number',
     'Student Name',
     'Marks',
+    'Grade (' . getGradingSystemLabel() . ')',
     'Status',
     'Remarks',
     'Last Updated',
     'Updated By'
 ]);
 
+$total_marks = (float)($exam['total_marks'] ?? 0);
+
 // Write data rows
 foreach ($results as $result) {
     $status = '';
-    $passing_marks = round($exam['total_marks'] * 0.4);
     if (isset($result['marks'])) {
-        $status = $result['marks'] >= $passing_marks ? 'Pass' : 'Fail';
+        if ($exam['passing_marks'] !== null) {
+            $status = $result['marks'] >= $exam['passing_marks'] ? 'Pass' : 'Fail';
+        } else {
+            $status = 'Submitted';
+        }
     } else {
         $status = 'Not Attempted';
     }
-    
+
+    // Convert the raw mark to a percentage of the exam total, then format it in
+    // the school's chosen grading style. Blank when no mark was recorded.
+    if (isset($result['marks']) && $total_marks > 0) {
+        $grade_display = formatGrade(((float)$result['marks'] / $total_marks) * 100);
+    } else {
+        $grade_display = 'N/A';
+    }
+
     fputcsv($output, [
         $result['roll_number'],
         $result['name'],
         $result['marks'] ?? 'N/A',
+        $grade_display,
         $status,
         $result['remarks'] ?? '',
         isset($result['updated_at']) ? date('Y-m-d H:i:s', strtotime($result['updated_at'])) : 'N/A',

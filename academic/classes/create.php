@@ -19,6 +19,11 @@ $query = "SELECT id, name, code FROM subjects ORDER BY name ASC";
 $stmt = $db->query($query);
 $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch academic years
+$query = "SELECT id, year_name, status FROM academic_years ORDER BY year_name DESC";
+$stmt = $db->query($query);
+$academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $grade_level = trim($_POST['grade_level'] ?? '');
@@ -88,12 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -128,18 +133,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div>
                         <label for="academic_year" class="block text-sm font-medium text-gray-700">Academic Year</label>
-                        <input type="text" id="academic_year" name="academic_year" required
-                            placeholder="e.g., 2025-2026"
-                            pattern="\d{4}-\d{4}"
-                            value="<?php
-                                if (isset($_POST['academic_year'])) {
-                                    echo htmlspecialchars($_POST['academic_year']);
-                                } else {
-                                    $academic_context = $database->getCurrentAcademicContext();
-                                    echo htmlspecialchars($academic_context['year_name']);
-                                }
-                            ?>"
+                        <select id="academic_year" name="academic_year" required
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Select Academic Year</option>
+                            <?php 
+                            $default_year = '';
+                            if (isset($_POST['academic_year'])) {
+                                $default_year = $_POST['academic_year'];
+                            } else {
+                                $academic_context = $database->getCurrentAcademicContext();
+                                $default_year = $academic_context['year_name'] ?? '';
+                            }
+                            ?>
+                            <?php foreach ($academic_years as $year): ?>
+                            <option value="<?php echo htmlspecialchars($year['year_name']); ?>"
+                                <?php echo ($default_year === $year['year_name']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($year['year_name']); ?> (<?php echo ucfirst($year['status']); ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div>

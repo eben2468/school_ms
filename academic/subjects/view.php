@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /school_ms/auth/login.php");
+    header("Location: /auth/login.php");
     exit();
 }
 
@@ -16,7 +16,10 @@ if (!$id) {
 }
 
 // Get subject data
-$query = "SELECT * FROM subjects WHERE id = :id";
+$query = "SELECT s.*, c.name as class_name, c.grade_level as class_grade 
+          FROM subjects s 
+          LEFT JOIN classes c ON s.class_id = c.id 
+          WHERE s.id = :id";
 $stmt = $db->prepare($query);
 $stmt->bindParam(':id', $id);
 $stmt->execute();
@@ -27,26 +30,38 @@ if (!$subject) {
     exit();
 }
 
+// Teachers may only view subjects they are assigned to teach.
+if ($_SESSION['role'] === 'teacher') {
+    $access_stmt = $db->prepare("SELECT COUNT(*) FROM class_teachers WHERE subject_id = :subject_id AND teacher_id = :teacher_id");
+    $access_stmt->execute([':subject_id' => $id, ':teacher_id' => $_SESSION['user_id']]);
+    if ($access_stmt->fetchColumn() == 0) {
+        header("Location: index.php?error=" . urlencode("You can only view subjects you teach."));
+        exit();
+    }
+}
+
 $title = "View Subject";
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="max-w-7xl mx-auto">
-            <div class="flex items-center justify-between mb-6">
-                <h1 class="text-3xl font-semibold text-gray-800"><?php echo htmlspecialchars($subject['name']); ?></h1>
-                <div class="space-x-2">
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 class="text-2xl sm:text-3xl font-semibold text-gray-800"><?php echo htmlspecialchars($subject['name']); ?></h1>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <a href="index.php" class="inline-flex items-center whitespace-nowrap text-blue-600 hover:text-blue-800">
                         <i class="fas fa-arrow-left mr-2"></i> Back to Subjects
                     </a>
                     <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])): ?>
-                    <a href="edit.php?id=<?php echo $id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <a href="edit.php?id=<?php echo $id; ?>" class="inline-flex items-center whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                         <i class="fas fa-edit mr-2"></i> Edit Subject
                     </a>
                     <?php endif; ?>
@@ -60,6 +75,12 @@ include '../../includes/sidebar.php';
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Subject Code</dt>
                             <dd class="mt-1 text-lg text-gray-900"><?php echo htmlspecialchars($subject['code']); ?></dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Assigned Class</dt>
+                            <dd class="mt-1 text-lg text-gray-900">
+                                <?php echo $subject['class_name'] ? htmlspecialchars($subject['class_name'] . ' (' . $subject['class_grade'] . ')') : '<span class="text-red-500 font-medium">Unassigned</span>'; ?>
+                            </dd>
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Created At</dt>
@@ -182,10 +203,12 @@ include '../../includes/sidebar.php';
                         <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
-                </div>
-            </div>
+                        </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
 </div>
-
-<?php include '../../includes/footer.php'; ?>

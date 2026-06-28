@@ -12,22 +12,78 @@ $db = $database->getConnection();
 $user_role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
 
+$success = '';
+$error = '';
+
 // Handle request status updates (for admins)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status']) && in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status']) && in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager', 'principal'])) {
     $request_id = filter_input(INPUT_POST, 'request_id', FILTER_SANITIZE_NUMBER_INT);
     $status = filter_input(INPUT_POST, 'status', FILTER_SANITIZE_STRING);
     $notes = filter_input(INPUT_POST, 'notes', FILTER_SANITIZE_STRING);
 
     try {
-        $query = "UPDATE inventory_requests SET status = :status, admin_notes = :notes, processed_at = NOW() WHERE id = :id";
+        $db->beginTransaction();
+
+        // Get request details first
+        $req_stmt = $db->prepare("SELECT * FROM inventory_requests WHERE id = :id");
+        $req_stmt->execute([':id' => $request_id]);
+        $request = $req_stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$request) {
+            throw new Exception("Request not found.");
+        }
+
+        // If transitioning to approved or fulfilled from pending, decrement quantity
+        if ($request['status'] === 'pending' && in_array($status, ['approved', 'fulfilled'])) {
+            // Fetch item details
+            $item_stmt = $db->prepare("SELECT quantity_available, item_name FROM inventory_items WHERE id = :item_id");
+            $item_stmt->execute([':item_id' => $request['item_id']]);
+            $item = $item_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$item) {
+                throw new Exception("Item not found in inventory.");
+            }
+
+            if ($item['quantity_available'] < $request['quantity_requested']) {
+                throw new Exception("Cannot approve request. Requested quantity ({$request['quantity_requested']}) exceeds available stock ({$item['quantity_available']}).");
+            }
+
+            // Decrement quantity
+            $new_qty = $item['quantity_available'] - $request['quantity_requested'];
+            $dec_stmt = $db->prepare("UPDATE inventory_items SET quantity_available = :qty, status = :status WHERE id = :item_id");
+            $new_status = $new_qty == 0 ? 'out_of_stock' : 'available';
+            $dec_stmt->execute([
+                ':qty' => $new_qty,
+                ':status' => $new_status,
+                ':item_id' => $request['item_id']
+            ]);
+
+            // Log movement
+            $move_notes = "Disbursed for Request #" . $request_id . ". Purpose: " . $request['purpose'] . ". " . ($notes ? "Remarks: " . $notes : "");
+            $move_stmt = $db->prepare("INSERT INTO inventory_movements (item_id, user_id, movement_type, quantity, reference_id, reference_type, notes) 
+                                      VALUES (:item_id, :user_id, 'out', :quantity, :ref_id, 'request', :notes)");
+            $move_stmt->execute([
+                ':item_id' => $request['item_id'],
+                ':user_id' => $_SESSION['user_id'],
+                ':quantity' => $request['quantity_requested'],
+                ':ref_id' => $request_id,
+                ':notes' => $move_notes
+            ]);
+        }
+
+        $query = "UPDATE inventory_requests SET status = :status, remarks = :notes, approved_by = :approved_by, approval_date = CURDATE() WHERE id = :id";
         $stmt = $db->prepare($query);
-        $stmt->bindParam(':status', $status);
-        $stmt->bindParam(':notes', $notes);
-        $stmt->bindParam(':id', $request_id);
-        $stmt->execute();
+        $stmt->execute([
+            ':status' => $status,
+            ':notes' => $notes,
+            ':approved_by' => $user_id,
+            ':id' => $request_id
+        ]);
         
+        $db->commit();
         $success = "Request status updated successfully!";
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
+        $db->rollBack();
         $error = "Error updating request: " . $e->getMessage();
     }
 }
@@ -41,13 +97,13 @@ $where_conditions = ["1=1"];
 $params = [];
 
 // If not admin, only show user's own requests
-if (!in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager'])) {
+if (!in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager', 'principal'])) {
     $where_conditions[] = "ir.requested_by = :user_id";
     $params[':user_id'] = $user_id;
 }
 
 if ($search) {
-    $where_conditions[] = "(ir.item_description LIKE :search OR u.name LIKE :search)";
+    $where_conditions[] = "(ii.item_name LIKE :search OR u.name LIKE :search OR ir.purpose LIKE :search)";
     $params[':search'] = "%$search%";
 }
 
@@ -69,8 +125,10 @@ $per_page = 20;
 $offset = ($page - 1) * $per_page;
 
 // Get total count
-$count_query = "SELECT COUNT(*) FROM inventory_requests ir 
+$count_query = "SELECT COUNT(*) 
+                FROM inventory_requests ir 
                 JOIN users u ON ir.requested_by = u.id 
+                JOIN inventory_items ii ON ir.item_id = ii.id
                 $where_clause";
 $count_stmt = $db->prepare($count_query);
 foreach ($params as $key => $value) {
@@ -81,9 +139,10 @@ $total_requests = $count_stmt->fetchColumn();
 $total_pages = ceil($total_requests / $per_page);
 
 // Fetch requests
-$query = "SELECT ir.*, u.name as requester_name
+$query = "SELECT ir.*, u.name as requester_name, ii.item_name, ii.item_code
           FROM inventory_requests ir
           JOIN users u ON ir.requested_by = u.id
+          JOIN inventory_items ii ON ir.item_id = ii.id
           $where_clause
           ORDER BY ir.created_at DESC
           LIMIT :limit OFFSET :offset";
@@ -102,51 +161,51 @@ include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 56px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-7xl mx-auto">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-semibold text-gray-800">Inventory Requests</h1>
-                    <div class="flex space-x-3">
-                        <a href="../index.php" class="text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-arrow-left mr-2"></i>Back to Inventory
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                    <h1 class="text-3xl font-semibold text-gray-800 dark:text-white">Inventory Requests</h1>
+                    <div class="flex flex-row items-center gap-3">
+                        <a href="../index.php" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0 inline-flex items-center">
+                            <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
                         </a>
-                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0 inline-flex items-center">
                             <i class="fas fa-plus mr-2"></i>New Request
                         </a>
                     </div>
                 </div>
 
-                <?php if (isset($success)): ?>
+                <?php if ($success): ?>
                 <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
                     <?php echo htmlspecialchars($success); ?>
                 </div>
                 <?php endif; ?>
 
-                <?php if (isset($error)): ?>
+                <?php if ($error): ?>
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                     <?php echo htmlspecialchars($error); ?>
                 </div>
                 <?php endif; ?>
 
                 <!-- Filters -->
-                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6 mb-6">
                     <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                            <label for="search" class="block text-sm font-medium text-gray-700">Search</label>
+                            <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search</label>
                             <input type="text" id="search" name="search" value="<?php echo htmlspecialchars($search ?? ''); ?>"
                                 placeholder="Search requests..."
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md">
                         </div>
                         <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
-                            <select id="status" name="status" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                            <select id="status" name="status" class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md">
                                 <option value="all">All Status</option>
                                 <option value="pending" <?php echo $status_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
                                 <option value="approved" <?php echo $status_filter === 'approved' ? 'selected' : ''; ?>>Approved</option>
@@ -155,13 +214,13 @@ include '../../includes/sidebar.php';
                             </select>
                         </div>
                         <div>
-                            <label for="priority" class="block text-sm font-medium text-gray-700">Priority</label>
-                            <select id="priority" name="priority" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <label for="priority" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priority</label>
+                            <select id="priority" name="priority" class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md">
                                 <option value="all">All Priorities</option>
-                                <option value="urgent" <?php echo $priority_filter === 'urgent' ? 'selected' : ''; ?>>Urgent</option>
-                                <option value="high" <?php echo $priority_filter === 'high' ? 'selected' : ''; ?>>High</option>
-                                <option value="medium" <?php echo $priority_filter === 'medium' ? 'selected' : ''; ?>>Medium</option>
                                 <option value="low" <?php echo $priority_filter === 'low' ? 'selected' : ''; ?>>Low</option>
+                                <option value="medium" <?php echo $priority_filter === 'medium' ? 'selected' : ''; ?>>Medium</option>
+                                <option value="high" <?php echo $priority_filter === 'high' ? 'selected' : ''; ?>>High</option>
+                                <option value="urgent" <?php echo $priority_filter === 'urgent' ? 'selected' : ''; ?>>Urgent</option>
                             </select>
                         </div>
                         <div class="flex items-end">
@@ -176,20 +235,20 @@ include '../../includes/sidebar.php';
                 <div class="space-y-4">
                     <?php if (!empty($requests)): ?>
                         <?php foreach ($requests as $request): ?>
-                        <div class="bg-white rounded-lg shadow p-6 border-l-4 
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6 border-l-4 
                             <?php 
                             switch($request['priority']) {
-                                case 'urgent': echo 'border-red-500'; break;
-                                case 'high': echo 'border-orange-500'; break;
-                                case 'medium': echo 'border-yellow-500'; break;
-                                default: echo 'border-blue-500';
+                                case 'urgent': echo 'border-l-red-500'; break;
+                                case 'high': echo 'border-l-orange-500'; break;
+                                case 'medium': echo 'border-l-yellow-500'; break;
+                                default: echo 'border-l-blue-500';
                             }
                             ?>">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <div class="flex items-center space-x-3 mb-2">
-                                        <h3 class="text-lg font-semibold text-gray-900">Request #<?php echo $request['id']; ?></h3>
-                                        <span class="px-2 py-1 text-xs font-semibold rounded-full
+                                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Request #<?php echo $request['id']; ?></h3>
+                                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full
                                             <?php 
                                             switch($request['status']) {
                                                 case 'pending': echo 'bg-yellow-100 text-yellow-800'; break;
@@ -201,7 +260,7 @@ include '../../includes/sidebar.php';
                                             ?>">
                                             <?php echo ucfirst($request['status']); ?>
                                         </span>
-                                        <span class="px-2 py-1 text-xs font-semibold rounded-full
+                                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full
                                             <?php 
                                             switch($request['priority']) {
                                                 case 'urgent': echo 'bg-red-100 text-red-800'; break;
@@ -213,51 +272,55 @@ include '../../includes/sidebar.php';
                                             <?php echo ucfirst($request['priority']); ?>
                                         </span>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
                                         <div>
-                                            <p class="text-sm font-medium text-gray-700">Item Description:</p>
-                                            <p class="text-gray-900"><?php echo htmlspecialchars($request['item_description']); ?></p>
+                                            <p class="text-gray-500 dark:text-gray-400 font-medium">Requested Item:</p>
+                                            <p class="text-gray-900 dark:text-white font-semibold"><?php echo htmlspecialchars($request['item_name']); ?> (<?php echo htmlspecialchars($request['item_code']); ?>)</p>
                                         </div>
                                         <div>
-                                            <p class="text-sm font-medium text-gray-700">Quantity Requested:</p>
-                                            <p class="text-gray-900"><?php echo $request['quantity_requested']; ?></p>
+                                            <p class="text-gray-500 dark:text-gray-400 font-medium">Quantity Requested:</p>
+                                            <p class="text-gray-900 dark:text-white font-semibold"><?php echo $request['quantity_requested']; ?></p>
                                         </div>
                                         <div>
-                                            <p class="text-sm font-medium text-gray-700">Requested By:</p>
-                                            <p class="text-gray-900"><?php echo htmlspecialchars($request['requester_name']); ?></p>
+                                            <p class="text-gray-500 dark:text-gray-400 font-medium">Requested By:</p>
+                                            <p class="text-gray-900 dark:text-white font-semibold"><?php echo htmlspecialchars($request['requester_name']); ?></p>
                                         </div>
                                         <div>
-                                            <p class="text-sm font-medium text-gray-700">Date Needed:</p>
-                                            <p class="text-gray-900"><?php echo date('M j, Y', strtotime($request['date_needed'])); ?></p>
+                                            <p class="text-gray-500 dark:text-gray-400 font-medium">Required Date:</p>
+                                            <p class="text-gray-900 dark:text-white font-semibold"><?php echo $request['required_date'] ? date('M j, Y', strtotime($request['required_date'])) : 'Not specified'; ?></p>
                                         </div>
                                     </div>
-                                    <?php if ($request['justification']): ?>
-                                    <div class="mb-4">
-                                        <p class="text-sm font-medium text-gray-700">Justification:</p>
-                                        <p class="text-gray-900"><?php echo nl2br(htmlspecialchars($request['justification'])); ?></p>
+                                    <div class="mb-4 text-sm">
+                                        <p class="text-gray-500 dark:text-gray-400 font-medium">Purpose:</p>
+                                        <p class="text-gray-800 dark:text-gray-200"><?php echo htmlspecialchars($request['purpose']); ?></p>
                                     </div>
-                                    <?php endif; ?>
-                                    <?php if ($request['admin_notes']): ?>
-                                    <div class="mb-4">
-                                        <p class="text-sm font-medium text-gray-700">Admin Notes:</p>
-                                        <p class="text-gray-900"><?php echo nl2br(htmlspecialchars($request['admin_notes'])); ?></p>
+                                    <?php if ($request['notes']): ?>
+                                    <div class="mb-4 text-sm">
+                                        <p class="text-gray-500 dark:text-gray-400 font-medium">Requester Notes:</p>
+                                        <p class="text-gray-800 dark:text-gray-200"><?php echo nl2br(htmlspecialchars($request['notes'])); ?></p>
                                     </div>
                                     <?php endif; ?>
-                                    <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                    <?php if ($request['remarks']): ?>
+                                    <div class="mb-4 text-sm bg-gray-50 dark:bg-gray-750 p-3 rounded-lg">
+                                        <p class="text-gray-500 dark:text-gray-400 font-medium">Admin Remarks:</p>
+                                        <p class="text-gray-900 dark:text-white"><?php echo nl2br(htmlspecialchars($request['remarks'])); ?></p>
+                                    </div>
+                                    <?php endif; ?>
+                                    <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                                         <span><i class="fas fa-calendar mr-1"></i>Requested: <?php echo date('M j, Y g:i A', strtotime($request['created_at'])); ?></span>
-                                        <?php if ($request['processed_at']): ?>
-                                        <span><i class="fas fa-check mr-1"></i>Processed: <?php echo date('M j, Y g:i A', strtotime($request['processed_at'])); ?></span>
+                                        <?php if ($request['approval_date']): ?>
+                                        <span><i class="fas fa-check-circle mr-1"></i>Processed Date: <?php echo date('M j, Y', strtotime($request['approval_date'])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <?php if (in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager']) && $request['status'] === 'pending'): ?>
+                                <?php if (in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager', 'principal']) && $request['status'] === 'pending'): ?>
                                 <div class="flex space-x-2">
                                     <button onclick="openStatusModal(<?php echo $request['id']; ?>, 'approved')" 
-                                        class="text-green-600 hover:text-green-800 px-3 py-1 border border-green-600 rounded">
+                                        class="text-green-600 hover:bg-green-600 hover:text-white px-3 py-1 border border-green-600 rounded-lg transition">
                                         Approve
                                     </button>
                                     <button onclick="openStatusModal(<?php echo $request['id']; ?>, 'rejected')" 
-                                        class="text-red-600 hover:text-red-800 px-3 py-1 border border-red-600 rounded">
+                                        class="text-red-600 hover:bg-red-600 hover:text-white px-3 py-1 border border-red-600 rounded-lg transition">
                                         Reject
                                     </button>
                                 </div>
@@ -266,10 +329,10 @@ include '../../includes/sidebar.php';
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                    <div class="text-center py-12">
+                    <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                         <i class="fas fa-clipboard-list text-gray-400 text-6xl mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
-                        <p class="text-gray-500 mb-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No requests found</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-4">
                             <?php if ($search || $status_filter || $priority_filter): ?>
                                 Try adjusting your search criteria.
                             <?php else: ?>
@@ -289,8 +352,8 @@ include '../../includes/sidebar.php';
                     <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                         <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                         <a href="?page=<?php echo $i; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $status_filter ? "&status=$status_filter" : ''; ?><?php echo $priority_filter ? "&priority=$priority_filter" : ''; ?>" 
-                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 
-                            <?php echo $i === $page ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' : ''; ?>">
+                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750 
+                            <?php echo $i === $page ? 'z-10 bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/30' : ''; ?>">
                             <?php echo $i; ?>
                         </a>
                         <?php endfor; ?>
@@ -300,20 +363,20 @@ include '../../includes/sidebar.php';
             </div>
         </main>
 
-        <!-- Footer with proper margin for sidebar -->
+        <!-- Footer -->
         <div class="lg:ml-0">
             <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
 </div>
 
-<?php if (in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager'])): ?>
+<?php if (in_array($user_role, ['super_admin', 'school_admin', 'inventory_manager', 'principal'])): ?>
 <!-- Status Update Modal -->
 <div id="statusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
         <div class="mt-3">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-medium text-gray-900">Update Request Status</h3>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Update Request Status</h3>
                 <button onclick="closeStatusModal()" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times"></i>
                 </button>
@@ -322,23 +385,23 @@ include '../../includes/sidebar.php';
                 <input type="hidden" id="statusRequestId" name="request_id">
                 <input type="hidden" id="statusValue" name="status">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">New Status</label>
-                    <p id="statusText" class="mt-1 text-sm font-medium"></p>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Action</label>
+                    <p id="statusText" class="mt-1 text-sm font-bold capitalize text-blue-600 dark:text-blue-400"></p>
                 </div>
                 <div>
-                    <label for="statusNotes" class="block text-sm font-medium text-gray-700">Notes</label>
-                    <textarea id="statusNotes" name="notes" rows="3"
-                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                        placeholder="Add any notes about this decision..."></textarea>
+                    <label for="statusNotes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Admin Remarks / Notes</label>
+                    <textarea id="statusNotes" name="notes" rows="3" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
+                        placeholder="Add remarks or justification..."></textarea>
                 </div>
                 <div class="flex justify-end space-x-3 pt-4">
                     <button type="button" onclick="closeStatusModal()" 
-                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                        class="px-4 py-2 bg-gray-300 dark:bg-gray-750 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400">
                         Cancel
                     </button>
                     <button type="submit" name="update_status"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        Update Status
+                        Confirm Action
                     </button>
                 </div>
             </form>
@@ -351,7 +414,7 @@ include '../../includes/sidebar.php';
 function openStatusModal(requestId, status) {
     document.getElementById('statusRequestId').value = requestId;
     document.getElementById('statusValue').value = status;
-    document.getElementById('statusText').textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    document.getElementById('statusText').textContent = status === 'approved' ? 'Approve & Disburse Stock' : 'Reject Request';
     document.getElementById('statusModal').classList.remove('hidden');
 }
 

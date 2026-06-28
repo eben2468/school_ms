@@ -12,6 +12,25 @@ $db = $database->getConnection();
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
 
+// Self-heal: ensure the support_tickets table exists in this tenant DB
+// (older tenant databases were provisioned without it).
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS support_tickets (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        priority ENUM('low','medium','high','urgent') DEFAULT 'medium',
+        status ENUM('open','in_progress','resolved','closed') DEFAULT 'open',
+        assigned_to INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_support_user (user_id)
+    )");
+} catch (PDOException $e) {
+    error_log("support_tickets ensure failed: " . $e->getMessage());
+}
+
 // Redirect admins to management page if they want to manage tickets
 if (isset($_GET['manage']) && in_array($user_role, ['super_admin', 'school_admin', 'principal'])) {
     header("Location: admin/support_management.php");
@@ -52,22 +71,28 @@ $tickets_query = "SELECT st.*, u.name as assigned_to_name
                   LEFT JOIN users u ON st.assigned_to = u.id 
                   WHERE st.user_id = :user_id 
                   ORDER BY st.created_at DESC";
-$tickets_stmt = $db->prepare($tickets_query);
-$tickets_stmt->bindParam(':user_id', $user_id);
-$tickets_stmt->execute();
-$user_tickets = $tickets_stmt->fetchAll(PDO::FETCH_ASSOC);
+$user_tickets = [];
+$stats = ['total_tickets' => 0, 'open_tickets' => 0, 'in_progress_tickets' => 0, 'resolved_tickets' => 0];
+try {
+    $tickets_stmt = $db->prepare($tickets_query);
+    $tickets_stmt->bindParam(':user_id', $user_id);
+    $tickets_stmt->execute();
+    $user_tickets = $tickets_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get ticket statistics
-$stats_query = "SELECT 
-    COUNT(*) as total_tickets,
-    COUNT(CASE WHEN status = 'open' THEN 1 END) as open_tickets,
-    COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_tickets,
-    COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved_tickets
-    FROM support_tickets WHERE user_id = :user_id";
-$stats_stmt = $db->prepare($stats_query);
-$stats_stmt->bindParam(':user_id', $user_id);
-$stats_stmt->execute();
-$stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
+    // Get ticket statistics
+    $stats_query = "SELECT
+        COUNT(*) as total_tickets,
+        COUNT(CASE WHEN status = 'open' THEN 1 END) as open_tickets,
+        COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_tickets,
+        COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved_tickets
+        FROM support_tickets WHERE user_id = :user_id";
+    $stats_stmt = $db->prepare($stats_query);
+    $stats_stmt->bindParam(':user_id', $user_id);
+    $stats_stmt->execute();
+    $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC) ?: $stats;
+} catch (PDOException $e) {
+    error_log("support tickets query failed: " . $e->getMessage());
+}
 
 $title = "Support Center";
 include 'includes/header.php';
@@ -75,12 +100,12 @@ include 'includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">

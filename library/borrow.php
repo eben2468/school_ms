@@ -86,7 +86,7 @@ if (!$book_id) {
         error_log("Borrow page error: " . $e->getMessage());
 
         // If there's an error, redirect to library index with error message
-        header("Location: index.php?error=" . urlencode("Unable to load borrow books page: " . $e->getMessage()));
+        header("Location: books/index.php?error=" . urlencode("Unable to load borrow books page: " . $e->getMessage()));
         exit();
     }
 }
@@ -99,13 +99,13 @@ $book_stmt->execute();
 $book = $book_stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$book) {
-    header("Location: index.php");
+    header("Location: books/index.php");
     exit();
 }
 
 // Check if book is available
 if ($book['copies_available'] <= 0) {
-    header("Location: index.php?error=Book is not available for borrowing");
+    header("Location: books/index.php?error=Book is not available for borrowing");
     exit();
 }
 
@@ -117,7 +117,7 @@ $existing_loan_stmt->bindParam(':book_id', $book_id);
 $existing_loan_stmt->execute();
 
 if ($existing_loan_stmt->rowCount() > 0) {
-    header("Location: index.php?error=You already have this book borrowed");
+    header("Location: books/index.php?error=You already have this book borrowed");
     exit();
 }
 
@@ -132,7 +132,7 @@ $current_loans = $loan_count_stmt->fetch(PDO::FETCH_ASSOC)['count'];
 $max_books = 3;
 
 if ($current_loans >= $max_books) {
-    header("Location: index.php?error=You have reached the maximum number of borrowed books ($max_books)");
+    header("Location: books/index.php?error=You have reached the maximum number of borrowed books ($max_books)");
     exit();
 }
 
@@ -173,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $title = "Borrow Book";
 $breadcrumbs = [
     ['title' => 'Dashboard', 'url' => '../dashboard.php'],
-    ['title' => 'Library', 'url' => 'index.php'],
+    ['title' => 'Library', 'url' => 'books/index.php'],
     ['title' => 'Borrow Book']
 ];
 include '../includes/header.php';
@@ -181,63 +181,73 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
-                <div class="flex justify-between items-center mb-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <h1 class="text-3xl font-semibold text-gray-800 dark:text-white">Borrow Book</h1>
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    <a href="books/index.php" class="w-full sm:w-auto bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg flex items-center justify-center whitespace-nowrap transition-colors shadow-sm">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Library
                     </a>
                 </div>
 
             <?php if (isset($error)): ?>
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div class="bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 px-4 py-3 rounded mb-4">
                 <?php echo htmlspecialchars($error); ?>
             </div>
             <?php endif; ?>
 
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border border-gray-200 dark:border-gray-700">
                 <!-- Book Details -->
-                <div class="p-6 border-b border-gray-200">
-                    <div class="flex items-start space-x-6">
-                        <div class="w-24 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-book text-gray-400 text-3xl"></i>
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                        <!-- Book Cover - Center on mobile, left on desktop -->
+                        <div class="w-24 sm:w-32 h-32 sm:h-44 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
+                            <i class="fas fa-book text-gray-400 dark:text-gray-500 text-3xl sm:text-4xl"></i>
                         </div>
-                        <div class="flex-grow">
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2"><?php echo htmlspecialchars($book['title']); ?></h2>
-                            <p class="text-lg text-gray-600 dark:text-gray-300 mb-2">by <?php echo htmlspecialchars($book['author']); ?></p>
-                            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                <div>
-                                    <span class="font-medium">ISBN:</span> <?php echo htmlspecialchars($book['isbn']); ?>
+                        
+                        <!-- Book Information -->
+                        <div class="flex-grow w-full">
+                            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center sm:text-left"><?php echo htmlspecialchars($book['title']); ?></h2>
+                            <p class="text-base sm:text-lg text-gray-600 dark:text-gray-300 mb-4 text-center sm:text-left">by <?php echo htmlspecialchars($book['author']); ?></p>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                    <span class="font-medium text-gray-500 dark:text-gray-400">ISBN</span>
+                                    <span class="text-gray-800 dark:text-gray-200 font-semibold text-right"><?php echo htmlspecialchars($book['isbn']); ?></span>
                                 </div>
-                                <div>
-                                    <span class="font-medium">Category:</span> <?php echo htmlspecialchars($book['category'] ?? 'Uncategorized'); ?>
+                                <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                    <span class="font-medium text-gray-500 dark:text-gray-400">Category</span>
+                                    <span class="text-gray-800 dark:text-gray-200 font-semibold text-right"><?php echo htmlspecialchars($book['category'] ?? 'Uncategorized'); ?></span>
                                 </div>
-                                <div>
-                                    <span class="font-medium">Publisher:</span> <?php echo htmlspecialchars($book['publisher'] ?? 'N/A'); ?>
+                                <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                    <span class="font-medium text-gray-500 dark:text-gray-400">Publisher</span>
+                                    <span class="text-gray-800 dark:text-gray-200 font-semibold text-right"><?php echo htmlspecialchars($book['publisher'] ?? 'N/A'); ?></span>
                                 </div>
-                                <div>
-                                    <span class="font-medium">Publication Year:</span> <?php echo htmlspecialchars($book['publication_year'] ?? 'N/A'); ?>
+                                <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                    <span class="font-medium text-gray-500 dark:text-gray-400">Pub. Year</span>
+                                    <span class="text-gray-800 dark:text-gray-200 font-semibold text-right"><?php echo htmlspecialchars($book['publication_year'] ?? 'N/A'); ?></span>
                                 </div>
-                                <div>
-                                    <span class="font-medium">Location:</span> <?php echo htmlspecialchars($book['location'] ?? 'Not specified'); ?>
+                                <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                    <span class="font-medium text-gray-500 dark:text-gray-400">Location</span>
+                                    <span class="text-gray-800 dark:text-gray-200 font-semibold text-right"><?php echo htmlspecialchars($book['location'] ?? 'Not specified'); ?></span>
                                 </div>
-                                <div>
-                                    <span class="font-medium">Available Copies:</span> 
-                                    <span class="font-semibold text-green-600"><?php echo $book['copies_available']; ?></span>
+                                <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                    <span class="font-medium text-gray-500 dark:text-gray-400">Available Copies</span>
+                                    <span class="text-green-600 dark:text-green-400 font-semibold text-right"><?php echo $book['copies_available']; ?></span>
                                 </div>
                             </div>
+                            
                             <?php if ($book['description']): ?>
-                            <div class="mt-4">
-                                <span class="font-medium text-gray-700">Description:</span>
-                                <p class="text-gray-600 mt-1"><?php echo nl2br(htmlspecialchars($book['description'])); ?></p>
+                            <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                <span class="font-semibold text-gray-700 dark:text-gray-300 block mb-2">Description</span>
+                                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed"><?php echo nl2br(htmlspecialchars($book['description'])); ?></p>
                             </div>
                             <?php endif; ?>
                         </div>
@@ -246,13 +256,13 @@ include '../includes/sidebar.php';
 
                 <!-- Borrowing Form -->
                 <form action="" method="POST" class="p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Loan Details</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Loan Details</h3>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
-                            <label for="loan_duration" class="block text-sm font-medium text-gray-700 mb-2">Loan Duration</label>
+                            <label for="loan_duration" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loan Duration</label>
                             <select id="loan_duration" name="loan_duration" 
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                                 <option value="7">1 Week (7 days)</option>
                                 <option value="14" selected>2 Weeks (14 days)</option>
                                 <option value="21">3 Weeks (21 days)</option>
@@ -260,26 +270,26 @@ include '../includes/sidebar.php';
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
-                            <div id="due-date-display" class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-700">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Due Date</label>
+                            <div id="due-date-display" class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium">
                                 <!-- Will be updated by JavaScript -->
                             </div>
                         </div>
                     </div>
 
                     <!-- Current Loans Info -->
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                        <h4 class="font-medium text-blue-800 mb-2">Your Current Loans</h4>
-                        <div class="text-sm text-blue-700">
-                            <p>Currently borrowed books: <span class="font-semibold"><?php echo $current_loans; ?></span> of <span class="font-semibold"><?php echo $max_books; ?></span> allowed</p>
-                            <p class="mt-1">After borrowing this book, you will have <span class="font-semibold"><?php echo $current_loans + 1; ?></span> borrowed books.</p>
+                    <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-lg p-4 mb-6">
+                        <h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">Your Current Loans</h4>
+                        <div class="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">
+                            <p>Currently borrowed books: <span class="font-bold"><?php echo $current_loans; ?></span> of <span class="font-bold"><?php echo $max_books; ?></span> allowed</p>
+                            <p class="mt-1.5">After borrowing this book, you will have <span class="font-bold"><?php echo $current_loans + 1; ?></span> borrowed books.</p>
                         </div>
                     </div>
 
                     <!-- Terms and Conditions -->
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                        <h4 class="font-medium text-gray-800 mb-2">Borrowing Terms & Conditions</h4>
-                        <ul class="text-sm text-gray-600 space-y-1">
+                    <div class="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
+                        <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Borrowing Terms & Conditions</h4>
+                        <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                             <li>• You are responsible for the book until it is returned</li>
                             <li>• Late returns may incur fines as per library policy</li>
                             <li>• Lost or damaged books must be replaced or paid for</li>
@@ -288,13 +298,13 @@ include '../includes/sidebar.php';
                         </ul>
                     </div>
 
-                    <div class="flex justify-end space-x-3">
-                        <a href="index.php" 
-                            class="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <div class="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+                        <a href="books/index.php" 
+                            class="w-full sm:w-auto px-6 py-2.5 text-center border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             Cancel
                         </a>
                         <button type="submit"
-                            class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            class="w-full sm:w-auto px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm text-sm font-medium transition-colors flex items-center justify-center">
                             <i class="fas fa-book mr-2"></i>Borrow Book
                         </button>
                     </div>

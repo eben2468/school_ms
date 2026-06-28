@@ -34,7 +34,7 @@ function notifyStudentEnrollment($student_data, $created_by_id) {
         'type' => 'academic',
         'priority' => 'medium',
         'icon' => 'fas fa-user-plus',
-        'action_url' => "/school_ms/students/view.php?id={$student_data['id']}",
+        'action_url' => "/students/view.php?id={$student_data['id']}",
         'action_text' => 'View Student',
         'created_by' => $created_by_id
     ]);
@@ -65,7 +65,7 @@ function notifyFeePaymentReceived($payment_data, $created_by_id) {
             'type' => 'finance',
             'priority' => 'medium',
             'icon' => 'fas fa-check-circle',
-            'action_url' => "/school_ms/finance/receipt.php?id={$payment_data['payment_id']}",
+            'action_url' => "/finance/receipt.php?id={$payment_data['payment_id']}",
             'action_text' => 'View Receipt',
             'created_by' => $created_by_id
         ]);
@@ -95,7 +95,7 @@ function notifyAssignmentSubmission($assignment_data, $submission_count, $create
             'type' => 'academic',
             'priority' => 'low',
             'icon' => 'fas fa-check-double',
-            'action_url' => "/school_ms/academics/assignments/view.php?id={$assignment_data['id']}",
+            'action_url' => "/academics/assignments/view.php?id={$assignment_data['id']}",
             'action_text' => 'View Assignment',
             'created_by' => $created_by_id
         ]);
@@ -128,7 +128,7 @@ function checkAndNotifyAttendanceAlerts($student_data, $created_by_id) {
             'type' => 'attendance',
             'priority' => 'high',
             'icon' => 'fas fa-exclamation-triangle',
-            'action_url' => "/school_ms/attendance/student.php?id={$student_data['id']}",
+            'action_url' => "/attendance/student.php?id={$student_data['id']}",
             'action_text' => 'View Attendance',
             'created_by' => $created_by_id
         ]);
@@ -149,7 +149,7 @@ function notifyGradePublication($exam_data, $created_by_id) {
         'type' => 'grades',
         'priority' => 'medium',
         'icon' => 'fas fa-graduation-cap',
-        'action_url' => "/school_ms/academics/grades/view.php?exam_id={$exam_data['id']}",
+        'action_url' => "/academics/grades/view.php?exam_id={$exam_data['id']}",
         'action_text' => 'View Grades',
         'created_by' => $created_by_id
     ]);
@@ -261,7 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['demo_notification']))
         'type' => 'system',
         'priority' => 'medium',
         'icon' => 'fas fa-star',
-        'action_url' => '/school_ms/notifications.php',
+        'action_url' => '/notifications.php',
         'action_text' => 'View All Notifications',
         'created_by' => $_SESSION['user_id'] ?? null
     ]);

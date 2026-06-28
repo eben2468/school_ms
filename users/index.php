@@ -1,9 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin'])) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/access_control.php';
+requireModuleRole('users');
 
 require_once '../config/database.php';
 $database = new Database();
@@ -116,7 +114,7 @@ $total_users = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
 $total_pages = ceil($total_users / $limit);
 
 // Fetch users
-$query = "SELECT id, name, email, role, status, created_at FROM users $where_clause 
+$query = "SELECT id, name, email, role, status, created_at, profile_picture FROM users $where_clause 
           ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
 $stmt = $db->prepare($query);
 $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -139,12 +137,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
@@ -175,6 +173,16 @@ include '../includes/sidebar.php';
                     </div>
                 </div>
 
+                <!-- Action Result Messages -->
+                <?php if (isset($_GET['success'])): ?>
+                <div class="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <?php echo htmlspecialchars($_GET['success']); ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Delete Messages -->
                 <?php if (isset($_SESSION['delete_success'])): ?>
                 <div class="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
@@ -197,43 +205,40 @@ include '../includes/sidebar.php';
                 <?php endif; ?>
 
                 <!-- Action Buttons -->
-                <div class="flex justify-between items-center mb-6">
-                    <div class="flex space-x-3">
-                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
-                            <i class="fas fa-plus mr-2"></i>Add New User
-                        </a>
-                        <a href="bulk_import.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
-                            <i class="fas fa-upload mr-2"></i>Bulk Import
-                        </a>
-                        <a href="check_parents.php" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
-                            <i class="fas fa-users-cog mr-2"></i>Check User Roles
-                        </a>
-
-                        <a href="delete.php" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
-                            <i class="fas fa-trash-alt mr-2"></i>Delete Users
-                        </a>
-                    </div>
-                    <div class="flex space-x-2">
-                        <div class="relative">
-                            <button onclick="toggleExportDropdown()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center" id="exportButton">
-                                <i class="fas fa-download mr-2"></i>Export All Users
-                                <i class="fas fa-chevron-down ml-2"></i>
-                            </button>
-                            <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 border border-gray-200 dark:border-gray-700">
-                                <div class="py-1">
-                                    <button onclick="exportAllUsers('csv')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                        <i class="fas fa-file-csv mr-2 text-green-500"></i>Export as CSV
-                                    </button>
-                                    <button onclick="exportAllUsers('excel')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                        <i class="fas fa-file-excel mr-2 text-green-600"></i>Export as Excel
-                                    </button>
-                                    <button onclick="exportAllUsers('json')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                        <i class="fas fa-file-code mr-2 text-blue-500"></i>Export as JSON
-                                    </button>
-                                    <hr class="my-1 border-gray-200 dark:border-gray-600">
-                                    <div class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <i class="fas fa-info-circle mr-1"></i>Exports all users (<?php echo $total_users; ?> total)
-                                    </div>
+                <div class="grid grid-cols-2 gap-3 mb-6 md:flex md:items-center md:space-x-3">
+                    <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin'], true)): ?>
+                    <a href="create.php" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center text-center">
+                        <i class="fas fa-user-plus mr-2"></i>Create User
+                    </a>
+                    <?php endif; ?>
+                    <a href="bulk_import.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center text-center">
+                        <i class="fas fa-upload mr-2"></i>Bulk Import
+                    </a>
+                    <a href="check_parents.php" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center text-center">
+                        <i class="fas fa-users-cog mr-2"></i>Check User Roles
+                    </a>
+                    <a href="delete.php" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center text-center">
+                        <i class="fas fa-trash-alt mr-2"></i>Delete Users
+                    </a>
+                    <div class="relative w-full md:w-auto md:ml-auto">
+                        <button onclick="toggleExportDropdown()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg flex items-center justify-center w-full" id="exportButton">
+                            <i class="fas fa-download mr-2"></i>Export All Users
+                            <i class="fas fa-chevron-down ml-2"></i>
+                        </button>
+                        <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 border border-gray-200 dark:border-gray-700">
+                            <div class="py-1">
+                                <button onclick="exportAllUsers('csv')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                                    <i class="fas fa-file-csv mr-2 text-green-500"></i>Export as CSV
+                                </button>
+                                <button onclick="exportAllUsers('excel')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                                    <i class="fas fa-file-excel mr-2 text-green-600"></i>Export as Excel
+                                </button>
+                                <button onclick="exportAllUsers('json')" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                                    <i class="fas fa-file-code mr-2 text-blue-500"></i>Export as JSON
+                                </button>
+                                <hr class="my-1 border-gray-200 dark:border-gray-600">
+                                <div class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <i class="fas fa-info-circle mr-1"></i>Exports all users (<?php echo $total_users; ?> total)
                                 </div>
                             </div>
                         </div>
@@ -255,10 +260,10 @@ include '../includes/sidebar.php';
                                 <select name="role" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                                     <option value="">All Roles</option>
                                     <?php
-                                    $roles = ['super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor'];
+                                    $roles = ['super_admin', 'school_admin', 'principal', 'teacher', 'student', 'parent', 'librarian', 'accountant', 'transport_officer', 'hostel_warden', 'canteen_manager', 'nurse', 'counselor', 'hr'];
                                     foreach ($roles as $role) {
                                         $selected = $role_filter === $role ? 'selected' : '';
-                                        echo "<option value=\"$role\" $selected>" . ucfirst(str_replace('_', ' ', $role)) . "</option>";
+                                        echo "<option value=\"$role\" $selected>" . formatRoleName($role) . "</option>";
                                     }
                                     ?>
                                 </select>
@@ -307,10 +312,7 @@ include '../includes/sidebar.php';
                     <div class="text-center py-12">
                         <i class="fas fa-users text-gray-400 text-6xl mb-4"></i>
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No users found</h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-4">Get started by creating your first user.</p>
-                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                            Add New User
-                        </a>
+                        <p class="text-gray-500 dark:text-gray-400 mb-4">No users match your filters.</p>
                     </div>
                     <?php else: ?>
                     <div class="overflow-x-auto table-container">
@@ -329,8 +331,12 @@ include '../includes/sidebar.php';
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <td class="px-3 sm:px-6 py-4">
                                         <div class="flex items-center">
-                                            <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                                                <?php echo strtoupper(substr($user['name'], 0, 1)); ?>
+                                            <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                                                <?php if(!empty($user['profile_picture'])): ?>
+                                                    <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>" class="w-full h-full object-cover">
+                                                <?php else: ?>
+                                                    <?php echo strtoupper(substr($user['name'], 0, 1)); ?>
+                                                <?php endif; ?>
                                             </div>
                                             <div class="ml-3 sm:ml-4 min-w-0 flex-1">
                                                 <div class="text-sm font-medium text-gray-900 dark:text-white truncate"><?php echo htmlspecialchars($user['name']); ?></div>
@@ -355,6 +361,7 @@ include '../includes/sidebar.php';
                                                 case 'canteen_manager': echo 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'; break;
                                                 case 'nurse': echo 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'; break;
                                                 case 'counselor': echo 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'; break;
+                                                case 'hr': echo 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'; break;
                                                 default: echo 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'; break;
                                             }
                                             ?>">
@@ -373,11 +380,12 @@ include '../includes/sidebar.php';
                                                 case 'canteen_manager': echo 'utensils'; break;
                                                 case 'nurse': echo 'user-md'; break;
                                                 case 'counselor': echo 'comments'; break;
+                                                case 'hr': echo 'id-card'; break;
                                                 default: echo 'user'; break;
                                             }
                                             ?> mr-1 hidden sm:inline"></i>
-                                            <span class="hidden sm:inline"><?php echo ucfirst(str_replace('_', ' ', $user['role'])); ?></span>
-                                            <span class="sm:hidden"><?php echo ucfirst(substr(str_replace('_', ' ', $user['role']), 0, 8)); ?></span>
+                                            <span class="hidden sm:inline"><?php echo formatRoleName($user['role']); ?></span>
+                                            <span class="sm:hidden"><?php echo htmlspecialchars(substr(formatRoleName($user['role']), 0, 8)); ?></span>
                                         </span>
                                     </td>
                                     <td class="px-3 sm:px-6 py-4">

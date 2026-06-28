@@ -138,6 +138,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':attachment_name', $attachment_name);
             $stmt->execute();
 
+            $new_assignment_id = $db->lastInsertId();
+
+            // Notify students and parents in class (defensive try-catch)
+            try {
+                // Fetch class name
+                $class_name_query = "SELECT name FROM classes WHERE id = :class_id";
+                $class_name_stmt = $db->prepare($class_name_query);
+                $class_name_stmt->bindParam(':class_id', $class_id);
+                $class_name_stmt->execute();
+                $class_name_row = $class_name_stmt->fetch(PDO::FETCH_ASSOC);
+                $class_name = $class_name_row ? $class_name_row['name'] : 'Class';
+
+                // Fetch subject name
+                $subject_name_query = "SELECT name FROM subjects WHERE id = :subject_id";
+                $subject_name_stmt = $db->prepare($subject_name_query);
+                $subject_name_stmt->bindParam(':subject_id', $subject_id);
+                $subject_name_stmt->execute();
+                $subject_name_row = $subject_name_stmt->fetch(PDO::FETCH_ASSOC);
+                $subject_name = $subject_name_row ? $subject_name_row['name'] : 'Subject';
+
+                // Get all active students in the class
+                $students_query = "SELECT sc.student_id 
+                                  FROM student_classes sc
+                                  JOIN users u ON sc.student_id = u.id
+                                  WHERE sc.class_id = :class_id AND sc.status = 'active' AND u.status = 'active'";
+                $students_stmt = $db->prepare($students_query);
+                $students_stmt->bindParam(':class_id', $class_id);
+                $students_stmt->execute();
+                $students_list = $students_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Get all active parents of students in this class
+                $parents_query = "SELECT DISTINCT p.parent_id, pu.name as parent_name, sc.student_id, su.name as student_name
+                                 FROM student_classes sc
+                                 JOIN users su ON sc.student_id = su.id
+                                 JOIN (
+                                     SELECT student_id, parent_id FROM parent_students
+                                     UNION
+                                     SELECT user_id as student_id, parent_id FROM student_profiles WHERE parent_id IS NOT NULL
+                                 ) p ON sc.student_id = p.student_id
+                                 JOIN users pu ON p.parent_id = pu.id
+                                 WHERE sc.class_id = :class_id AND sc.status = 'active' AND su.status = 'active' AND pu.status = 'active'";
+                $parents_stmt = $db->prepare($parents_query);
+                $parents_stmt->bindParam(':class_id', $class_id);
+                $parents_stmt->execute();
+                $parents_list = $parents_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Common parameters for notifications
+                $notif_title = "New Assignment: " . $title;
+                $notif_message = "A new assignment has been given in " . $subject_name . " for class " . $class_name . ". Due date: " . date('M d, Y h:i A', strtotime($due_datetime)) . ".";
+                $student_action_url = "/academic/assignments/view.php?id=" . $new_assignment_id;
+
+                // Prepare insert statement for notifications
+                $insert_notif_query = "INSERT INTO notifications (user_id, title, message, type, priority, action_url, action_text, icon)
+                                       VALUES (:user_id, :title, :message, 'academic', 'medium', :action_url, 'View Assignment', 'fas fa-file-alt')";
+                $insert_notif_stmt = $db->prepare($insert_notif_query);
+
+                // Send to students
+                foreach ($students_list as $student) {
+                    $insert_notif_stmt->execute([
+                        ':user_id' => $student['student_id'],
+                        ':title' => $notif_title,
+                        ':message' => $notif_message,
+                        ':action_url' => $student_action_url
+                    ]);
+                }
+
+                // Send to parents
+                foreach ($parents_list as $parent) {
+                    $parent_message = "A new assignment has been given to your child " . $parent['student_name'] . " in " . $subject_name . " (" . $class_name . "). Due date: " . date('M d, Y h:i A', strtotime($due_datetime)) . ".";
+                    $parent_action_url = "/parent/child_assignments.php?student_id=" . $parent['student_id'];
+                    
+                    $insert_notif_stmt->execute([
+                        ':user_id' => $parent['parent_id'],
+                        ':title' => $notif_title,
+                        ':message' => $parent_message,
+                        ':action_url' => $parent_action_url
+                    ]);
+                }
+            } catch (Exception $notif_err) {
+                // Log notification failure but do not crash the user experience
+                error_log("Failed to send assignment creation notifications: " . $notif_err->getMessage());
+            }
+
             header("Location: index.php?success=Assignment created successfully");
             exit();
         } catch (PDOException $e) {
@@ -155,18 +238,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
         <div class="w-full">
             <div class="flex justify-between items-center mb-6">
-                <h1 class="text-3xl font-semibold text-gray-800">Create New Assignment</h1>
-                <a href="index.php" class="text-blue-600 hover:text-blue-800">
+                <h1 class="text-3xl font-semibold text-gray-800 dark:text-white">Create New Assignment</h1>
+                <a href="index.php" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                     <i class="fas fa-arrow-left mr-2"></i>Back to Assignments
                 </a>
             </div>
@@ -181,28 +264,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <?php endif; ?>
 
-            <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                 <form action="" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
                     <div>
-                        <label for="title" class="block text-sm font-medium text-gray-700">Assignment Title *</label>
+                        <label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Assignment Title *</label>
                         <input type="text" id="title" name="title" required
                             value="<?php echo isset($_POST['title']) ? htmlspecialchars($_POST['title']) : ''; ?>"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                             placeholder="Enter assignment title">
                     </div>
 
                     <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                        <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
                         <textarea id="description" name="description" rows="4"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                             placeholder="Enter assignment description, instructions, and requirements"><?php echo isset($_POST['description']) ? htmlspecialchars($_POST['description']) : ''; ?></textarea>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="class_id" class="block text-sm font-medium text-gray-700">Class *</label>
+                            <label for="class_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Class *</label>
                             <select id="class_id" name="class_id" required
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                                 <option value="">Select Class</option>
                                 <?php foreach ($classes as $class): ?>
                                 <option value="<?php echo $class['id']; ?>" 
@@ -214,9 +297,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <div>
-                            <label for="subject_id" class="block text-sm font-medium text-gray-700">Subject *</label>
+                            <label for="subject_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Subject *</label>
                             <select id="subject_id" name="subject_id" required
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                                 <option value="">Select Subject</option>
                                 <?php foreach ($subjects as $subject): ?>
                                 <option value="<?php echo $subject['id']; ?>" 
@@ -230,79 +313,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="due_date" class="block text-sm font-medium text-gray-700">Due Date *</label>
+                            <label for="due_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Due Date *</label>
                             <input type="date" id="due_date" name="due_date" required
                                 value="<?php echo isset($_POST['due_date']) ? htmlspecialchars($_POST['due_date']) : ''; ?>"
                                 min="<?php echo date('Y-m-d'); ?>"
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                         </div>
 
                         <div>
-                            <label for="due_time" class="block text-sm font-medium text-gray-700">Due Time *</label>
+                            <label for="due_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Due Time *</label>
                             <input type="time" id="due_time" name="due_time" required
                                 value="<?php echo isset($_POST['due_time']) ? htmlspecialchars($_POST['due_time']) : '23:59'; ?>"
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                         </div>
                     </div>
 
                     <!-- File Attachment -->
                     <div>
-                        <label for="attachment" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-paperclip mr-2"></i>Attachment (Optional)
+                        <label for="attachment" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-paperclip mr-2 text-gray-500 dark:text-gray-400"></i>Attachment (Optional)
                         </label>
-                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors duration-200">
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-md hover:border-gray-400 dark:hover:border-gray-500 transition-colors duration-200 dark:bg-gray-700/30">
                             <div class="space-y-1 text-center">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                                     <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
-                                <div class="flex text-sm text-gray-600">
-                                    <label for="attachment" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                <div class="flex text-sm text-gray-600 dark:text-gray-400">
+                                    <label for="attachment" class="relative cursor-pointer bg-white dark:bg-gray-700 rounded-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 px-1">
                                         <span>Upload a file</span>
                                         <input id="attachment" name="attachment" type="file" class="sr-only" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar" onchange="updateFileName(this)">
                                     </label>
-                                    <p class="pl-1">or drag and drop</p>
+                                    <p class="pl-1 text-gray-500 dark:text-gray-400">or drag and drop</p>
                                 </div>
-                                <p class="text-xs text-gray-500">PDF, DOC, DOCX, TXT, JPG, PNG, ZIP up to 10MB</p>
-                                <div id="file-name" class="text-sm text-gray-700 font-medium hidden"></div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">PDF, DOC, DOCX, TXT, JPG, PNG, ZIP up to 10MB</p>
+                                <div id="file-name" class="text-sm text-gray-700 dark:text-gray-300 font-medium hidden"></div>
                             </div>
                         </div>
-                        <p class="mt-2 text-sm text-gray-500">
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                             <i class="fas fa-info-circle mr-1"></i>
                             You can attach reference materials, instructions, or templates for students.
                         </p>
                     </div>
 
-                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-lg">
-                        <h3 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                            <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 dark:from-gray-800 dark:to-gray-800 dark:border-gray-700 p-4 rounded-lg shadow-sm transition-all duration-200">
+                        <h3 class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3 flex items-center">
+                            <i class="fas fa-lightbulb text-yellow-500 dark:text-yellow-400 mr-2"></i>
                             Assignment Guidelines
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <ul class="text-sm text-gray-600 space-y-2">
+                            <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-2">
                                 <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5 text-xs"></i>
+                                    <i class="fas fa-check-circle text-green-500 dark:text-green-400 mr-2 mt-0.5 text-xs"></i>
                                     Provide clear instructions and requirements
                                 </li>
                                 <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5 text-xs"></i>
+                                    <i class="fas fa-check-circle text-green-500 dark:text-green-400 mr-2 mt-0.5 text-xs"></i>
                                     Set a reasonable due date to give students enough time
                                 </li>
                                 <li class="flex items-start">
-                                    <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5 text-xs"></i>
+                                    <i class="fas fa-check-circle text-green-500 dark:text-green-400 mr-2 mt-0.5 text-xs"></i>
                                     Consider the workload from other subjects
                                 </li>
                             </ul>
-                            <ul class="text-sm text-gray-600 space-y-2">
+                            <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-2">
                                 <li class="flex items-start">
-                                    <i class="fas fa-bell text-blue-500 mr-2 mt-0.5 text-xs"></i>
+                                    <i class="fas fa-bell text-blue-500 dark:text-blue-400 mr-2 mt-0.5 text-xs"></i>
                                     Students will be notified automatically
                                 </li>
                                 <li class="flex items-start">
-                                    <i class="fas fa-paperclip text-purple-500 mr-2 mt-0.5 text-xs"></i>
+                                    <i class="fas fa-paperclip text-purple-500 dark:text-purple-400 mr-2 mt-0.5 text-xs"></i>
                                     Attach reference materials if needed
                                 </li>
                                 <li class="flex items-start">
-                                    <i class="fas fa-shield-alt text-red-500 mr-2 mt-0.5 text-xs"></i>
+                                    <i class="fas fa-shield-alt text-red-500 dark:text-red-400 mr-2 mt-0.5 text-xs"></i>
                                     Maximum file size: 10MB
                                 </li>
                             </ul>
@@ -311,18 +394,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="flex justify-end space-x-3 pt-4">
                         <a href="index.php" 
-                            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                             Cancel
                         </a>
                         <button type="submit"
-                            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                             Create Assignment
                         </button>
                     </div>
                 </form>
             </div>
         </div>
-            </div>
         </main>
 
         <!-- Footer with proper margin for sidebar -->

@@ -19,7 +19,7 @@ if (!$exam_id) {
 $query = "SELECT e.*, s.name as subject_name, s.code as subject_code,
           c.name as class_name, c.grade_level,
           (SELECT COUNT(*) FROM exam_results er WHERE er.exam_id = e.id) as total_submissions,
-          (SELECT COUNT(*) FROM exam_results er WHERE er.exam_id = e.id AND er.marks_obtained >= (e.total_marks * 0.4)) as passed_count,
+          (SELECT COUNT(*) FROM exam_results er WHERE er.exam_id = e.id AND e.passing_marks IS NOT NULL AND er.marks_obtained >= e.passing_marks) as passed_count,
           (SELECT COUNT(*) FROM student_classes sc WHERE sc.class_id = e.class_id AND sc.status = 'active') as total_students
           FROM exams e
           LEFT JOIN subjects s ON e.subject_id = s.id
@@ -40,12 +40,14 @@ include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="max-w-7xl mx-auto">
             <div class="flex items-center justify-between mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Exam Details</h1>
@@ -54,14 +56,9 @@ include '../../includes/sidebar.php';
                         <i class="fas fa-arrow-left mr-2"></i> Back to Exams
                     </a>
                     <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])): ?>
-                    <?php 
-                    $exam_datetime = strtotime($exam['exam_date'] . ' ' . $exam['start_time']);
-                    if ($exam_datetime > time()): 
-                    ?>
                     <a href="edit.php?id=<?php echo $exam_id; ?>" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
                         <i class="fas fa-edit mr-2"></i> Edit Exam
                     </a>
-                    <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -70,6 +67,7 @@ include '../../includes/sidebar.php';
             <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
                 <div class="p-6">
                     <?php
+                    $exam_datetime = strtotime($exam['exam_date'] . ' ' . $exam['start_time']);
                     $now = time();
                     $end_time = $exam_datetime + ($exam['duration'] * 60);
                     
@@ -204,29 +202,31 @@ include '../../includes/sidebar.php';
                                 <dd class="mt-1 text-sm text-gray-900"><?php echo $exam['total_marks'] ?? 'N/A'; ?></dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Passing Marks (40%)</dt>
-                                <dd class="mt-1 text-sm text-gray-900"><?php echo round(($exam['total_marks'] ?? 0) * 0.4); ?></dd>
+                                <dt class="text-sm font-medium text-gray-500">Passing Marks</dt>
+                                <dd class="mt-1 text-sm text-gray-900"><?php echo $exam['passing_marks'] !== null ? htmlspecialchars($exam['passing_marks']) : 'N/A'; ?></dd>
                             </div>
+                            <?php if ($exam['passing_marks'] !== null): ?>
                             <div class="pt-4 border-t border-gray-200">
                                 <dt class="text-sm font-medium text-gray-500">Pass Percentage</dt>
                                 <dd class="mt-1">
-                                    <?php if ($exam['total_submissions'] > 0): ?>
-                                    <div class="relative pt-1">
-                                        <?php $percentage = round(($exam['passed_count'] / $exam['total_submissions']) * 100); ?>
-                                        <div class="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
-                                            <div style="width: <?php echo $percentage; ?>%"
-                                                class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500">
-                                            </div>
-                                        </div>
-                                        <div class="text-sm text-gray-900 mt-1">
-                                            <?php echo $percentage; ?>% (<?php echo $exam['passed_count']; ?> out of <?php echo $exam['total_submissions']; ?>)
-                                        </div>
-                                    </div>
-                                    <?php else: ?>
-                                    <span class="text-sm text-gray-500">No results submitted yet</span>
-                                    <?php endif; ?>
+                                     <?php if ($exam['total_submissions'] > 0): ?>
+                                     <div class="relative pt-1">
+                                         <?php $percentage = round(($exam['passed_count'] / $exam['total_submissions']) * 100); ?>
+                                         <div class="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+                                             <div style="width: <?php echo $percentage; ?>%"
+                                                 class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500">
+                                             </div>
+                                         </div>
+                                         <div class="text-sm text-gray-900 mt-1">
+                                             <?php echo $percentage; ?>% (<?php echo $exam['passed_count']; ?> out of <?php echo $exam['total_submissions']; ?>)
+                                         </div>
+                                     </div>
+                                     <?php else: ?>
+                                     <span class="text-sm text-gray-500">No results submitted yet</span>
+                                     <?php endif; ?>
                                 </dd>
                             </div>
+                            <?php endif; ?>
                         </dl>
                     </div>
                 </div>
@@ -266,6 +266,12 @@ include '../../includes/sidebar.php';
                 </div>
             </div>
         </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
+        </div>
     </div>
 </div>
 
@@ -284,6 +290,4 @@ function human_time_diff($from, $to) {
         return $days . ' day' . ($days == 1 ? '' : 's');
     }
 }
-?>
-
-<?php include '../../includes/footer.php'; ?>
+?>

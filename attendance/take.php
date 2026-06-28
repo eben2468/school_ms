@@ -6,6 +6,10 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 }
 
 require_once '../config/database.php';
+// Apply the school's configured timezone (e.g. Africa/Accra) before any time is
+// stamped, so recorded check-in times match local time rather than the server's
+// default timezone.
+require_once '../includes/settings_helper.php';
 $database = new Database();
 $db = $database->getConnection();
 
@@ -77,23 +81,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_attendance'])) {
 
         // Insert new attendance records
         if ($has_created_by) {
-            $insert_query = "INSERT INTO attendance (student_id, class_id, date, status, notes, created_by)
-                            VALUES (:student_id, :class_id, :date, :status, :notes, :created_by)";
+            $insert_query = "INSERT INTO attendance (student_id, class_id, date, status, notes, time_in, created_by)
+                            VALUES (:student_id, :class_id, :date, :status, :notes, :time_in, :created_by)";
         } else {
-            $insert_query = "INSERT INTO attendance (student_id, class_id, date, status, notes)
-                            VALUES (:student_id, :class_id, :date, :status, :notes)";
+            $insert_query = "INSERT INTO attendance (student_id, class_id, date, status, notes, time_in)
+                            VALUES (:student_id, :class_id, :date, :status, :notes, :time_in)";
         }
         $insert_stmt = $db->prepare($insert_query);
 
         foreach ($attendance_data as $student_id => $data) {
             $status = $data['status'] ?? 'absent';
             $notes = $data['notes'] ?? '';
+            // Record the check-in time for students who are present or late.
+            // Use a time the teacher supplied for this student if provided,
+            // otherwise stamp the moment the register is saved.
+            $time_in = null;
+            if (in_array($status, ['present', 'late'], true)) {
+                $time_in = !empty($data['time_in']) ? $data['time_in'] : date('H:i:s');
+            }
 
             $insert_stmt->bindParam(':student_id', $student_id);
             $insert_stmt->bindParam(':class_id', $class_id);
             $insert_stmt->bindParam(':date', $date);
             $insert_stmt->bindParam(':status', $status);
             $insert_stmt->bindParam(':notes', $notes);
+            $insert_stmt->bindParam(':time_in', $time_in);
             if ($has_created_by) {
                 $insert_stmt->bindParam(':created_by', $user_id);
             }
@@ -158,9 +170,9 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 20px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">

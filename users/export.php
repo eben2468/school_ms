@@ -78,7 +78,7 @@ if ($format === 'csv') {
             $user['id'],
             $user['name'],
             $user['email'],
-            ucfirst(str_replace('_', ' ', $user['role'])),
+            formatRoleName($user['role']),
             ucfirst($user['status']),
             date('Y-m-d', strtotime($user['created_at'])),
             date('H:i:s', strtotime($user['created_at']))
@@ -114,7 +114,7 @@ if ($format === 'csv') {
         echo '<td>' . htmlspecialchars($user['id']) . '</td>';
         echo '<td>' . htmlspecialchars($user['name']) . '</td>';
         echo '<td>' . htmlspecialchars($user['email']) . '</td>';
-        echo '<td>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $user['role']))) . '</td>';
+        echo '<td>' . htmlspecialchars(formatRoleName($user['role'])) . '</td>';
         echo '<td>' . htmlspecialchars(ucfirst($user['status'])) . '</td>';
         echo '<td>' . date('Y-m-d', strtotime($user['created_at'])) . '</td>';
         echo '<td>' . date('H:i:s', strtotime($user['created_at'])) . '</td>';
@@ -153,7 +153,7 @@ if ($format === 'csv') {
             'name' => $user['name'],
             'email' => $user['email'],
             'role' => $user['role'],
-            'role_display' => ucfirst(str_replace('_', ' ', $user['role'])),
+            'role_display' => formatRoleName($user['role']),
             'status' => $user['status'],
             'created_at' => $user['created_at'],
             'created_date' => date('Y-m-d', strtotime($user['created_at'])),

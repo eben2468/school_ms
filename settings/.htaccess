@@ -1,0 +1,11 @@
+# These are legitimate, login-protected admin tools (linked from the SMS and
+# Email settings tabs) — re-allow them despite the global test_* block rule.
+<FilesMatch "^(test_sms|test_email)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+</FilesMatch>

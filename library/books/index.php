@@ -1,26 +1,56 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'school_admin', 'librarian'])) {
-    header("Location: ../../auth/login.php");
-    exit();
-}
+require_once '../../includes/access_control.php';
+requireModuleRole('library');
 
 require_once '../../config/database.php';
+require_once '../../includes/module_access.php';
+requireModule('library'); // block access if the module is disabled for this school
+require_once '../../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
 
-$user_role = $_SESSION['role'];
+// Heal older tenant DBs missing newer library_books columns (e.g. total_copies).
+ensureLibraryBooksColumns($db);
 
-// Handle book deletion
-if (isset($_POST['delete_book']) && isset($_POST['book_id'])) {
+$user_role = $_SESSION['role'];
+// Staff can manage the catalogue; students/teachers browse and borrow.
+$is_staff = in_array($user_role, ['super_admin', 'school_admin', 'librarian'], true);
+
+// Flash messages carried over from redirects (e.g. books/delete.php).
+if (isset($_GET['deleted'])) {
+    $success_message = '"' . $_GET['deleted'] . '" was removed from the library.';
+}
+if (isset($_GET['error'])) {
+    $error_message = $_GET['error'];
+}
+
+// Handle book deletion (staff only)
+if ($is_staff && isset($_POST['delete_book']) && isset($_POST['book_id'])) {
     $book_id = filter_input(INPUT_POST, 'book_id', FILTER_SANITIZE_NUMBER_INT);
-    $query = "DELETE FROM library_books WHERE id = :book_id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':book_id', $book_id);
-    if ($stmt->execute()) {
-        $success_message = "Book deleted successfully!";
-    } else {
-        $error_message = "Error deleting book.";
+    
+    try {
+        // Check if book has active loans
+        $check_query = "SELECT COUNT(*) as active_loans FROM book_loans WHERE book_id = :book_id AND status = 'borrowed'";
+        $check_stmt = $db->prepare($check_query);
+        $check_stmt->bindParam(':book_id', $book_id);
+        $check_stmt->execute();
+        $check_result = $check_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($check_result['active_loans'] > 0) {
+            $error_message = "Cannot delete book with active loans. Please ensure all copies are returned first.";
+        } else {
+            $query = "DELETE FROM library_books WHERE id = :book_id";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':book_id', $book_id);
+            if ($stmt->execute()) {
+                $success_message = "Book deleted successfully!";
+            } else {
+                $error_message = "Error deleting book.";
+            }
+        }
+    } catch (PDOException $e) {
+        $error_message = "Database error: " . $e->getMessage();
     }
 }
 
@@ -77,30 +107,29 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_COLUMN);
 // Get book statistics
 $stats_query = "SELECT
     COUNT(*) as total_books,
-    SUM(COALESCE(copies_available, 0)) as total_copies,
+    SUM(COALESCE(total_copies, 0)) as total_copies,
     SUM(COALESCE(copies_available, 0)) as available_copies,
     COUNT(CASE WHEN copies_available > 0 THEN 1 END) as available_books
     FROM library_books";
 $stats_stmt = $db->query($stats_query);
 $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 
-$title = "Books Management";
+$title = "Library Management";
 $breadcrumbs = [
     ['title' => 'Dashboard', 'url' => '../../dashboard.php'],
-    ['title' => 'Library Management', 'url' => '../index.php'],
-    ['title' => 'Books Management']
+    ['title' => 'Library Management']
 ];
 include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="w-72 flex-shrink-0 lg:block hidden"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
             <div class="max-w-7xl mx-auto">
@@ -109,8 +138,8 @@ include '../../includes/sidebar.php';
                     <div class="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 rounded-xl p-4 text-white shadow-lg">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h1 class="text-3xl font-bold mb-2">Books Management</h1>
-                                <p class="text-purple-100 text-lg">Manage library book collection and inventory</p>
+                                <h1 class="text-3xl font-bold mb-2">Library Management</h1>
+                                <p class="text-purple-100 text-lg">Browse the catalogue, manage books, loans and resources</p>
                                 <div class="mt-4 flex items-center space-x-4 text-sm text-purple-100">
                                     <div class="flex items-center">
                                         <i class="fas fa-book mr-2"></i>
@@ -131,31 +160,31 @@ include '../../includes/sidebar.php';
                     </div>
                 </div>
 
-                <!-- Navigation -->
-                <div class="flex justify-between items-center mb-6">
-                    <nav class="flex" aria-label="Breadcrumb">
-                        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-                            <li class="inline-flex items-center">
-                                <a href="../index.php" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
-                                    <i class="fas fa-book mr-2"></i>
-                                    Library Management
-                                </a>
-                            </li>
-                            <li>
-                                <div class="flex items-center">
-                                    <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Books Management</span>
-                                </div>
-                            </li>
-                        </ol>
-                    </nav>
-                    <div class="flex space-x-3">
-                        <a href="../index.php" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200">
-                            <i class="fas fa-arrow-left mr-2"></i>Back to Library
+                <!-- Action Toolbar -->
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Book Catalogue</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Search, borrow and manage the library collection</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 no-stack">
+                        <a href="../loans.php" class="inline-flex items-center whitespace-nowrap bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200">
+                            <i class="fas fa-book-reader mr-2"></i>View Loans
                         </a>
-                        <a href="create.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center">
+                        <?php if ($is_staff): ?>
+                        <a href="../reports.php" class="inline-flex items-center whitespace-nowrap bg-purple-500 hover:bg-purple-600 text-white px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200">
+                            <i class="fas fa-chart-bar mr-2"></i>Reports
+                        </a>
+                        <?php $export_availability = $status_filter === 'available' ? 'available' : ($status_filter === 'unavailable' ? 'borrowed' : ''); ?>
+                        <a href="export.php?<?php echo http_build_query(array_filter(['search' => $search, 'category' => $category_filter, 'availability' => $export_availability])); ?>" class="inline-flex items-center whitespace-nowrap bg-gray-500 hover:bg-gray-600 text-white px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200">
+                            <i class="fas fa-download mr-2"></i>Export
+                        </a>
+                        <a href="bulk_import.php" class="inline-flex items-center whitespace-nowrap bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200">
+                            <i class="fas fa-file-import mr-2 text-purple-500"></i>Bulk Upload
+                        </a>
+                        <a href="create.php" class="inline-flex items-center whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200">
                             <i class="fas fa-plus mr-2"></i>Add Book
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -306,14 +335,19 @@ include '../../includes/sidebar.php';
                         <div class="p-6">
                             <!-- Book Header -->
                             <div class="flex justify-between items-start mb-4">
-                                <div class="flex-grow">
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
-                                        <?php echo htmlspecialchars($book['title']); ?>
-                                    </h3>
-                                    <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                                        <i class="fas fa-user mr-1"></i>
-                                        <?php echo htmlspecialchars($book['author']); ?>
-                                    </p>
+                                <div class="flex gap-3 flex-grow min-w-0">
+                                    <?php if (!empty($book['cover_image'])): ?>
+                                    <img src="../../uploads/book_covers/<?php echo htmlspecialchars($book['cover_image']); ?>" alt="<?php echo htmlspecialchars($book['title']); ?> cover" class="w-12 rounded-md shadow flex-shrink-0 object-cover" style="aspect-ratio: 2 / 3;">
+                                    <?php endif; ?>
+                                    <div class="min-w-0">
+                                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+                                            <?php echo htmlspecialchars($book['title']); ?>
+                                        </h3>
+                                        <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                            <i class="fas fa-user mr-1"></i>
+                                            <?php echo htmlspecialchars($book['author']); ?>
+                                        </p>
+                                    </div>
                                 </div>
                                 <?php $is_available = ($book['copies_available'] ?? 0) > 0; ?>
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
@@ -360,7 +394,7 @@ include '../../includes/sidebar.php';
                                     <div class="text-xs text-gray-600 dark:text-gray-400">Available</div>
                                 </div>
                                 <div class="text-center">
-                                    <div class="text-lg font-bold text-green-600 dark:text-green-400"><?php echo $book['copies_available'] ?? 0; ?></div>
+                                    <div class="text-lg font-bold text-green-600 dark:text-green-400"><?php echo $book['total_copies'] ?? 1; ?></div>
                                     <div class="text-xs text-gray-600 dark:text-gray-400">In Stock</div>
                                 </div>
                                 <div class="text-center">
@@ -382,18 +416,26 @@ include '../../includes/sidebar.php';
                                     class="inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium transition-colors duration-200">
                                     <i class="fas fa-eye mr-1"></i>View Details
                                 </a>
-                                <div class="flex space-x-2">
+                                <div class="flex items-center space-x-2 no-stack">
+                                    <?php if (!$is_staff && $is_available && in_array($user_role, ['student', 'teacher'], true)): ?>
+                                    <a href="../borrow.php?id=<?php echo $book['id']; ?>"
+                                        class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors duration-200">
+                                        <i class="fas fa-hand-holding mr-2"></i>Borrow
+                                    </a>
+                                    <?php endif; ?>
+                                    <?php if ($is_staff): ?>
                                     <a href="edit.php?id=<?php echo $book['id']; ?>"
-                                        class="inline-flex items-center text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                        class="inline-flex items-center text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <form action="" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this book? This action cannot be undone.')">
                                         <input type="hidden" name="book_id" value="<?php echo $book['id']; ?>">
                                         <button type="submit" name="delete_book"
-                                            class="inline-flex items-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200">
+                                            class="inline-flex items-center text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200" title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -420,9 +462,11 @@ include '../../includes/sidebar.php';
                             <i class="fas fa-times mr-2"></i>Clear Filters
                         </a>
                         <?php endif; ?>
+                        <?php if ($is_staff): ?>
                         <a href="create.php" class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium">
                             <i class="fas fa-plus mr-2"></i>Add First Book
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>

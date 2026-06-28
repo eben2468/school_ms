@@ -17,9 +17,9 @@ if (isset($_POST['update_status']) && isset($_POST['loan_id']) && isset($_POST['
     $status = filter_input(INPUT_POST, 'status', FILTER_SANITIZE_STRING);
     
     if ($status === 'returned') {
-        $query = "UPDATE book_loans SET status = :status, return_date = NOW() WHERE id = :loan_id";
+        $query = "UPDATE book_loans SET status = :status, returned_date = NOW() WHERE id = :loan_id";
         // Update available copies
-        $update_book_query = "UPDATE library_books SET available_copies = available_copies + 1 
+        $update_book_query = "UPDATE library_books SET copies_available = copies_available + 1 
                              WHERE id = (SELECT book_id FROM book_loans WHERE id = :loan_id)";
         $update_stmt = $db->prepare($update_book_query);
         $update_stmt->bindParam(':loan_id', $loan_id);
@@ -71,7 +71,7 @@ $query = "SELECT bl.*, lb.title, lb.author, lb.isbn, u.name as borrower_name, u.
           JOIN library_books lb ON bl.book_id = lb.id
           JOIN users u ON bl.user_id = u.id
           $where_clause
-          ORDER BY bl.borrow_date DESC";
+          ORDER BY bl.borrowed_date DESC";
 $stmt = $db->prepare($query);
 foreach ($params as $key => $value) {
     $stmt->bindValue($key, $value);
@@ -94,17 +94,19 @@ include '../../includes/header.php';
 include '../../includes/sidebar.php';
 ?>
 
-<div class="flex">
-    <!-- Sidebar space -->
-    <div class="w-64 flex-shrink-0"></div>
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
+    <!-- Sidebar Space (Dynamic width based on sidebar state) -->
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
-    <!-- Main content -->
-    <div class="flex-grow p-8 bg-gray-50 min-h-screen">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
+        <!-- Content Wrapper -->
+        <main class="p-4 lg:p-8 flex-1">
         <div class="max-w-7xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-semibold text-gray-800">Borrowing Management</h1>
                 <div class="flex space-x-3">
-                    <a href="../index.php" class="text-blue-600 hover:text-blue-800">
+                    <a href="../books/index.php" class="text-blue-600 hover:text-blue-800">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Library
                     </a>
                     <a href="new_loan.php" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
@@ -237,10 +239,10 @@ include '../../includes/sidebar.php';
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">
-                                        <div>Borrowed: <?php echo date('M j, Y', strtotime($loan['borrow_date'])); ?></div>
+                                        <div>Borrowed: <?php echo date('M j, Y', strtotime($loan['borrowed_date'])); ?></div>
                                         <div>Due: <?php echo date('M j, Y', strtotime($loan['due_date'])); ?></div>
-                                        <?php if ($loan['return_date']): ?>
-                                        <div>Returned: <?php echo date('M j, Y', strtotime($loan['return_date'])); ?></div>
+                                        <?php if ($loan['returned_date']): ?>
+                                        <div>Returned: <?php echo date('M j, Y', strtotime($loan['returned_date'])); ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -301,8 +303,13 @@ include '../../includes/sidebar.php';
                 </a>
             </div>
             <?php endif; ?>
+                </div>
+        </main>
+
+        <!-- Footer with proper margin for sidebar -->
+        <div class="lg:ml-0">
+            <?php include '../../includes/footer.php'; ?>
         </div>
     </div>
 </div>
 
-<?php include '../../includes/footer.php'; ?>

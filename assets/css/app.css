@@ -1,4 +1,30 @@
-/* School Management System - Custom Styles */
+/* Sidebar dynamic layout transitions */
+.main-content-wrapper {
+    transition: margin-left 0.3s ease-in-out;
+}
+
+/* Base style for spacing div when Sidebar is open (Default Desktop) */
+.sidebar-spacer {
+    width: 18rem;
+    /* 72 units */
+    transition: width 0.3s ease-in-out;
+    flex-shrink: 0;
+}
+
+/* Collapsed state */
+.sidebar-spacer.collapsed {
+    width: 4rem;
+    /* 16 units */
+}
+
+/* Hide on mobile */
+@media (max-width: 1023px) {
+    .sidebar-spacer {
+        display: none !important;
+        width: 0 !important;
+    }
+}
+
 
 /* Scrollbar Styling */
 .scrollbar-thin {
@@ -47,6 +73,7 @@
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -58,6 +85,7 @@
         transform: translateX(-100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -69,6 +97,7 @@
         transform: translateY(20px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -76,9 +105,12 @@
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -211,6 +243,7 @@
     0% {
         left: -100%;
     }
+
     100% {
         left: 100%;
     }
@@ -255,7 +288,7 @@
     .mobile-hidden {
         display: none;
     }
-    
+
     .mobile-full {
         width: 100%;
     }
@@ -266,11 +299,11 @@
     .no-print {
         display: none !important;
     }
-    
+
     .print-break {
         page-break-after: always;
     }
-    
+
     .print-break-inside {
         page-break-inside: avoid;
     }
@@ -369,4 +402,52 @@
 /* Force override any Tailwind background utilities */
 .documents-header * {
     color: inherit !important;
+}
+
+/* Custom Orange Color Palette for Tailwind CSS v2 */
+.bg-orange-50 { background-color: #fff7ed !important; }
+.bg-orange-100 { background-color: #ffedd5 !important; }
+.bg-orange-500 { background-color: #f97316 !important; }
+.bg-orange-600 { background-color: #ea580c !important; }
+.hover\:bg-orange-700:hover { background-color: #c2410c !important; }
+.text-orange-500 { color: #f97316 !important; }
+.text-orange-600 { color: #ea580c !important; }
+.text-orange-700 { color: #c2410c !important; }
+.border-orange-200 { border-color: #fed7aa !important; }
+/* ============================================================
+   Toggle switches
+   Tailwind 2.2.19 (CDN) does not generate the peer-checked:* or
+   after:* utilities these switches rely on, so the knob and the
+   "on" state never render. Recreate them with plain CSS keyed off
+   the existing markup (input.sr-only.peer + div.w-11.h-6 ...).
+   ============================================================ */
+input.sr-only.peer + .w-11.h-6 {
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+input.sr-only.peer + .w-11.h-6::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    height: 1.25rem;
+    width: 1.25rem;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    transition: all 0.2s ease;
+}
+input.sr-only.peer:checked + .w-11.h-6::after {
+    transform: translateX(1.25rem);
+    border-color: #ffffff;
+}
+/* Activate the checked track colour the markup already declares */
+input.sr-only.peer:checked + .peer-checked\:bg-blue-600   { background-color: #2563eb !important; }
+input.sr-only.peer:checked + .peer-checked\:bg-green-600  { background-color: #16a34a !important; }
+input.sr-only.peer:checked + .peer-checked\:bg-orange-500 { background-color: #f97316 !important; }
+input.sr-only.peer:checked + .peer-checked\:bg-indigo-600 { background-color: #4f46e5 !important; }
+input.sr-only.peer:checked + .peer-checked\:bg-purple-600 { background-color: #9333ea !important; }
+/* Focus ring for keyboard users */
+input.sr-only.peer:focus-visible + .w-11.h-6 {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.35);
 }

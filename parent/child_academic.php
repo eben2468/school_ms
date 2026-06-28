@@ -38,6 +38,11 @@ $stmt->bindParam(':student_id', $student_id);
 $stmt->execute();
 $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Heal older tenant DBs missing optional grade/assignment columns.
+require_once '../includes/schema_helpers.php';
+ensureAcademicRecordColumns($db);
+ensureAssignmentColumns($db);
+
 // Get academic records
 $academic_context = $database->getCurrentAcademicContext();
 $current_year_id = $academic_context['year_id'];
@@ -59,11 +64,16 @@ WHERE sar.student_id = :student_id
 AND sar.academic_year_id = :year_id
 ORDER BY at.term_number, s.name";
 
-$stmt = $db->prepare($records_sql);
-$stmt->bindParam(':student_id', $student_id);
-$stmt->bindParam(':year_id', $current_year_id);
-$stmt->execute();
-$academic_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$academic_records = [];
+try {
+    $stmt = $db->prepare($records_sql);
+    $stmt->bindParam(':student_id', $student_id);
+    $stmt->bindParam(':year_id', $current_year_id);
+    $stmt->execute();
+    $academic_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("child_academic records query failed: " . $e->getMessage());
+}
 
 // Get assignments
 $assignments_sql = "SELECT 
@@ -84,10 +94,15 @@ WHERE a.status = 'active'
 ORDER BY a.due_date DESC
 LIMIT 10";
 
-$stmt = $db->prepare($assignments_sql);
-$stmt->bindParam(':student_id', $student_id);
-$stmt->execute();
-$assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$assignments = [];
+try {
+    $stmt = $db->prepare($assignments_sql);
+    $stmt->bindParam(':student_id', $student_id);
+    $stmt->execute();
+    $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("child_academic assignments query failed: " . $e->getMessage());
+}
 
 $title = "Academic Progress - " . htmlspecialchars($student['name']);
 include '../includes/header.php';
@@ -95,15 +110,15 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="w-72 flex-shrink-0 lg:block hidden"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
-            <div class="w-full" style="margin-top: 20px;">
+            <div class="w-full">
                 <!-- Header Section -->
                 <div class="mb-8">
                     <div class="page-header-gradient rounded-xl p-4 text-white shadow-lg">

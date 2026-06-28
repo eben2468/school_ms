@@ -61,12 +61,12 @@ include '../includes/sidebar.php';
 ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <main class="p-6 lg:p-8 flex-1">
             <div class="w-full">
             <div class="flex justify-between items-center mb-6">
@@ -136,7 +136,7 @@ include '../includes/sidebar.php';
 
                             <a href="fees.php?student_id=<?php echo $child['id']; ?>" class="p-3 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
                                 <div class="flex items-center">
-                                    <i class="fas fa-dollar-sign text-yellow-600 mr-2"></i>
+                                    <i class="fas fa-wallet text-yellow-600 mr-2"></i>
                                     <span class="text-sm font-medium text-yellow-800">Fees</span>
                                 </div>
                             </a>

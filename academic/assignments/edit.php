@@ -109,23 +109,22 @@ $current_due_time = date('H:i', strtotime($assignment['due_date']));
 <?php include '../../includes/sidebar.php'; ?>
 
 <!-- Main Layout Container -->
-<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen" style="margin-top: 80px;">
+<div class="flex bg-gray-50 dark:bg-gray-900 min-h-screen w-full overflow-x-hidden" style="margin-top: 80px;">
     <!-- Sidebar Space (Fixed positioning handled in sidebar.php) -->
-    <div class="transition-all duration-300 lg:block hidden" x-data x-bind:class="$store.sidebar?.collapsed ? 'w-16' : 'w-72'"></div>
+    <div class="sidebar-spacer lg:block hidden" :class="{ 'collapsed': $store.sidebar.collapsed }"></div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col transition-all duration-300">
+    <div class="flex-1 flex flex-col transition-all duration-300 min-w-0">
         <!-- Content Wrapper -->
         <main class="p-6 lg:p-8 flex-1">
         <div class="w-full">
-        <div class="w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-3xl font-semibold text-gray-800">Edit Assignment</h1>
-                <div class="flex space-x-3">
-                    <a href="view.php?id=<?php echo $assignment_id; ?>" class="text-blue-600 hover:text-blue-800">
+            <div class="mb-6 edit-assignment-header">
+                <h1 class="text-3xl font-semibold text-gray-800 mb-3">Edit Assignment</h1>
+                <div class="flex space-x-3 no-stack">
+                    <a href="view.php?id=<?php echo $assignment_id; ?>" class="text-blue-600 hover:text-blue-800 flex items-center">
                         <i class="fas fa-eye mr-2"></i>View Assignment
                     </a>
-                    <a href="index.php" class="text-blue-600 hover:text-blue-800">
+                    <a href="index.php" class="text-blue-600 hover:text-blue-800 flex items-center">
                         <i class="fas fa-arrow-left mr-2"></i>Back to Assignments
                     </a>
                 </div>
@@ -219,7 +218,7 @@ $current_due_time = date('H:i', strtotime($assignment['due_date']));
 
                     <!-- Submit Button -->
                     <div class="flex justify-end pt-6 border-t border-gray-200">
-                        <div class="flex space-x-3">
+                        <div class="flex space-x-3 no-stack form-buttons">
                             <a href="view.php?id=<?php echo $assignment_id; ?>" 
                                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
                                 Cancel
