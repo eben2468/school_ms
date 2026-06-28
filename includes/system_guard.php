@@ -124,7 +124,7 @@ if (!defined('SYSTEM_GUARD_LOADED')) {
         <h1><?php echo $school; ?></h1>
         <h2>We&rsquo;ll be back soon!</h2>
         <p>We&rsquo;re doing a little tidying up behind the scenes to make things even better for you. Hang tight &mdash; we&rsquo;ll be ready in just a bit. Thanks so much for your patience!</p>
-        <a class="btn" href="/auth/logout.php"><i class="fas fa-arrow-right-from-bracket"></i> Sign out</a>
+        <a class="btn" href="/school_ms/auth/logout.php"><i class="fas fa-arrow-right-from-bracket"></i> Sign out</a>
         <div class="divider"></div>
         <div class="foot">Need help sooner? Please reach out to your administrator.</div>
     </div>
@@ -154,7 +154,7 @@ if (!defined('SYSTEM_GUARD_LOADED')) {
                     }
                     @session_destroy();
                     if (!headers_sent()) {
-                        header('Location: /index.php?timeout=1');
+                        header('Location: /school_ms/index.php?timeout=1');
                     }
                     exit();
                 }

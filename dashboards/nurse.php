@@ -222,10 +222,10 @@ $color_map = [
 <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Quick actions">
     <?php
     $quick_actions = [
-        ['href' => '/health/records/index.php', 'icon' => 'fa-file-medical', 'color' => 'blue', 'title' => 'Health Records', 'desc' => 'Manage health records'],
-        ['href' => '/health/medical_records/index.php', 'icon' => 'fa-stethoscope', 'color' => 'emerald', 'title' => 'Health Visits', 'desc' => 'Record and track visits'],
-        ['href' => '/health/emergency/index.php', 'icon' => 'fa-briefcase-medical', 'color' => 'violet', 'title' => 'Emergency', 'desc' => 'Emergency contacts & cases'],
-        ['href' => '/health/reports/index.php', 'icon' => 'fa-chart-line', 'color' => 'amber', 'title' => 'Health Reports', 'desc' => 'Generate health reports'],
+        ['href' => '/school_ms/health/records/index.php', 'icon' => 'fa-file-medical', 'color' => 'blue', 'title' => 'Health Records', 'desc' => 'Manage health records'],
+        ['href' => '/school_ms/health/medical_records/index.php', 'icon' => 'fa-stethoscope', 'color' => 'emerald', 'title' => 'Health Visits', 'desc' => 'Record and track visits'],
+        ['href' => '/school_ms/health/emergency/index.php', 'icon' => 'fa-briefcase-medical', 'color' => 'violet', 'title' => 'Emergency', 'desc' => 'Emergency contacts & cases'],
+        ['href' => '/school_ms/health/reports/index.php', 'icon' => 'fa-chart-line', 'color' => 'amber', 'title' => 'Health Reports', 'desc' => 'Generate health reports'],
     ];
     foreach ($quick_actions as $qa):
         $c = $color_map[$qa['color']];

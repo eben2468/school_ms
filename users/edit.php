@@ -463,7 +463,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="flex items-center space-x-4">
                             <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300" id="imagePreviewContainer">
                                 <?php if(!empty($user['profile_picture'])): ?>
-                                    <img id="imagePreview" src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>" class="w-full h-full object-cover">
+                                    <img id="imagePreview" src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>" class="w-full h-full object-cover">
                                 <?php else: ?>
                                     <i class="fas fa-user text-3xl text-gray-400" id="defaultIcon"></i>
                                     <img id="imagePreview" src="#" alt="Preview" class="hidden w-full h-full object-cover">
@@ -701,7 +701,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="flex items-center space-x-4">
                                 <div class="w-40 h-20 rounded-lg bg-white dark:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center overflow-hidden">
                                     <?php if (!empty($staff_sig) && file_exists('../uploads/signatures/' . $staff_sig)): ?>
-                                        <img src="/serve_image.php?path=signatures/<?php echo rawurlencode($staff_sig); ?>" alt="Signature" class="max-h-full max-w-full object-contain">
+                                        <img src="/school_ms/serve_image.php?path=signatures/<?php echo rawurlencode($staff_sig); ?>" alt="Signature" class="max-h-full max-w-full object-contain">
                                     <?php else: ?>
                                         <span class="text-xs text-gray-400"><i class="fas fa-signature mr-1"></i>No signature</span>
                                     <?php endif; ?>

@@ -119,11 +119,11 @@ if (!function_exists('redirectUnauthorized')) {
     function redirectUnauthorized($loggedIn) {
         if (!headers_sent()) {
             if (!$loggedIn) {
-                header('Location: /auth/login.php');
+                header('Location: /school_ms/auth/login.php');
             } else {
                 // Send users to their own dashboard (parents have a dedicated one).
                 $role = $_SESSION['role'] ?? '';
-                $dash = ($role === 'parent') ? '/parent/dashboard.php' : '/dashboard.php';
+                $dash = ($role === 'parent') ? '/school_ms/parent/dashboard.php' : '/school_ms/dashboard.php';
                 $msg = 'You do not have permission to access that page.';
                 header('Location: ' . $dash . '?error=' . urlencode($msg));
             }

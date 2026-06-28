@@ -193,7 +193,7 @@ $color_map = [
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <i class="fas fa-boxes text-rose-500"></i> Inventory Alerts
             </h3>
-            <a href="/canteen/inventory/index.php" class="text-xs text-rose-600 dark:text-rose-400 hover:underline">Manage</a>
+            <a href="/school_ms/canteen/inventory/index.php" class="text-xs text-rose-600 dark:text-rose-400 hover:underline">Manage</a>
         </div>
         <div class="space-y-3">
             <?php if (!empty($low_stock_items)): ?>
@@ -230,10 +230,10 @@ $color_map = [
 <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Quick actions">
     <?php
     $quick_actions = [
-        ['href' => '/canteen/menu/index.php', 'icon' => 'fa-utensils', 'color' => 'blue', 'title' => 'Manage Menu', 'desc' => 'Add and organize items'],
-        ['href' => '/canteen/orders/index.php', 'icon' => 'fa-shopping-cart', 'color' => 'emerald', 'title' => 'View Orders', 'desc' => 'Process and track orders'],
-        ['href' => '/canteen/inventory/index.php', 'icon' => 'fa-boxes', 'color' => 'violet', 'title' => 'Inventory', 'desc' => 'Manage stock and supplies'],
-        ['href' => '/canteen/reports/index.php', 'icon' => 'fa-chart-bar', 'color' => 'amber', 'title' => 'Sales Reports', 'desc' => 'View sales and analytics'],
+        ['href' => '/school_ms/canteen/menu/index.php', 'icon' => 'fa-utensils', 'color' => 'blue', 'title' => 'Manage Menu', 'desc' => 'Add and organize items'],
+        ['href' => '/school_ms/canteen/orders/index.php', 'icon' => 'fa-shopping-cart', 'color' => 'emerald', 'title' => 'View Orders', 'desc' => 'Process and track orders'],
+        ['href' => '/school_ms/canteen/inventory/index.php', 'icon' => 'fa-boxes', 'color' => 'violet', 'title' => 'Inventory', 'desc' => 'Manage stock and supplies'],
+        ['href' => '/school_ms/canteen/reports/index.php', 'icon' => 'fa-chart-bar', 'color' => 'amber', 'title' => 'Sales Reports', 'desc' => 'View sales and analytics'],
     ];
     foreach ($quick_actions as $qa):
         $c = $color_map[$qa['color']];

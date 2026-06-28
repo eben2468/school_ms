@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Common parameters for notifications
                 $notif_title = "New Assignment: " . $title;
                 $notif_message = "A new assignment has been given in " . $subject_name . " for class " . $class_name . ". Due date: " . date('M d, Y h:i A', strtotime($due_datetime)) . ".";
-                $student_action_url = "/academic/assignments/view.php?id=" . $new_assignment_id;
+                $student_action_url = "/school_ms/academic/assignments/view.php?id=" . $new_assignment_id;
 
                 // Prepare insert statement for notifications
                 $insert_notif_query = "INSERT INTO notifications (user_id, title, message, type, priority, action_url, action_text, icon)
@@ -207,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Send to parents
                 foreach ($parents_list as $parent) {
                     $parent_message = "A new assignment has been given to your child " . $parent['student_name'] . " in " . $subject_name . " (" . $class_name . "). Due date: " . date('M d, Y h:i A', strtotime($due_datetime)) . ".";
-                    $parent_action_url = "/parent/child_assignments.php?student_id=" . $parent['student_id'];
+                    $parent_action_url = "/school_ms/parent/child_assignments.php?student_id=" . $parent['student_id'];
                     
                     $insert_notif_stmt->execute([
                         ':user_id' => $parent['parent_id'],

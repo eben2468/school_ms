@@ -817,4 +817,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<script src="/assets/js/online-learning.js"></script>
+<script src="/school_ms/assets/js/online-learning.js"></script>

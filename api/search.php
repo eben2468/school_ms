@@ -62,7 +62,7 @@ try {
                 'subtitle' => $student['identifier'] ? "ID: " . $student['identifier'] : $student['email'],
                 'type' => 'student',
                 'icon' => 'fas fa-user-graduate',
-                'url' => '/students/profile.php?id=' . $student['id']
+                'url' => '/school_ms/students/profile.php?id=' . $student['id']
             ];
         }
     }
@@ -103,7 +103,7 @@ try {
                 'subtitle' => $teacher['identifier'] ? "ID: " . $teacher['identifier'] : $teacher['email'],
                 'type' => 'teacher',
                 'icon' => 'fas fa-chalkboard-teacher',
-                'url' => '/users/profile.php?id=' . $teacher['id']
+                'url' => '/school_ms/users/profile.php?id=' . $teacher['id']
             ];
         }
     }
@@ -131,7 +131,7 @@ try {
             'subtitle' => $class['description'] ?: 'Class',
             'type' => 'class',
             'icon' => 'fas fa-chalkboard',
-            'url' => '/academic/classes/view.php?id=' . $class['id']
+            'url' => '/school_ms/academic/classes/view.php?id=' . $class['id']
         ];
     }
 
@@ -158,7 +158,7 @@ try {
             'subtitle' => $subject['code'] ? "Code: " . $subject['code'] : 'Subject',
             'type' => 'subject',
             'icon' => 'fas fa-book',
-            'url' => '/academic/subjects/view.php?id=' . $subject['id']
+            'url' => '/school_ms/academic/subjects/view.php?id=' . $subject['id']
         ];
     }
 
@@ -187,7 +187,7 @@ try {
                 'subtitle' => $assignment['subject_name'] ?: 'Assignment',
                 'type' => 'assignment',
                 'icon' => 'fas fa-tasks',
-                'url' => '/academic/assignments/view.php?id=' . $assignment['id']
+                'url' => '/school_ms/academic/assignments/view.php?id=' . $assignment['id']
             ];
         }
     }
@@ -202,7 +202,7 @@ try {
                 'subtitle' => 'Add a new student to the system',
                 'type' => 'action',
                 'icon' => 'fas fa-user-plus',
-                'url' => '/students/enroll.php'
+                'url' => '/school_ms/students/enroll.php'
             ];
         }
     }
@@ -214,7 +214,7 @@ try {
                 'subtitle' => 'Set up a new class',
                 'type' => 'action',
                 'icon' => 'fas fa-plus-circle',
-                'url' => '/academic/classes/create.php'
+                'url' => '/school_ms/academic/classes/create.php'
             ];
         }
     }
@@ -226,7 +226,7 @@ try {
                 'subtitle' => 'Create a new assignment',
                 'type' => 'action',
                 'icon' => 'fas fa-tasks',
-                'url' => '/academic/assignments/create.php'
+                'url' => '/school_ms/academic/assignments/create.php'
             ];
         }
     }

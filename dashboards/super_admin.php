@@ -220,37 +220,37 @@ $total_users = $stats['total_students'] + $stats['total_teachers'] + $stats['tot
         <span class="text-sm text-gray-500 dark:text-gray-400">Administrative tools</span>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <a href="/users/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/users/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors duration-200">
                 <i class="fas fa-users-cog text-red-600 dark:text-red-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">User Management</span>
         </a>
-        <a href="/settings/super_admin.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/settings/super_admin.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors duration-200">
                 <i class="fas fa-cogs text-purple-600 dark:text-purple-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">System Settings</span>
         </a>
-        <a href="/admin/backup.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/admin/backup.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors duration-200">
                 <i class="fas fa-database text-blue-600 dark:text-blue-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">Backup & Restore</span>
         </a>
-        <a href="/admin/security.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/admin/security.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-orange-200 dark:group-hover:bg-orange-800 transition-colors duration-200">
                 <i class="fas fa-shield-alt text-orange-600 dark:text-orange-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">Security</span>
         </a>
-        <a href="/admin/logs.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/admin/logs.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-green-200 dark:group-hover:bg-green-800 transition-colors duration-200">
                 <i class="fas fa-file-alt text-green-600 dark:text-green-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">System Logs</span>
         </a>
-        <a href="/academic/settings/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/academic/settings/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800 transition-colors duration-200">
                 <i class="fas fa-graduation-cap text-indigo-600 dark:text-indigo-400 text-xl"></i>
             </div>

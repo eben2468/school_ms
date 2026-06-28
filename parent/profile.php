@@ -198,7 +198,7 @@ include '../includes/sidebar.php';
                                     <div class="flex items-center space-x-6">
                                         <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                             <?php if (!empty($parent_info['profile_picture'])): ?>
-                                                <img id="imagePreview" src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($parent_info['profile_picture']); ?>" class="w-full h-full object-cover">
+                                                <img id="imagePreview" src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($parent_info['profile_picture']); ?>" class="w-full h-full object-cover">
                                             <?php else: ?>
                                                 <i class="fas fa-user text-3xl text-gray-400" id="defaultIcon"></i>
                                                 <img id="imagePreview" src="#" alt="Preview" class="hidden w-full h-full object-cover">

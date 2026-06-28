@@ -202,7 +202,7 @@ foreach ($children as $child) {
         'id' => $cid,
         'name' => $child['name'],
         'profile_picture' => !empty($child['profile_picture'])
-            ? ('/serve_image.php?path=profile_pictures/' . rawurlencode($child['profile_picture']))
+            ? ('/school_ms/serve_image.php?path=profile_pictures/' . rawurlencode($child['profile_picture']))
             : '',
         'student_id' => $child['student_id'],
         'class' => $child['class_name'] ? ('Grade ' . $child['grade_level'] . ' - ' . $child['class_name']) : 'Not enrolled',
@@ -336,7 +336,7 @@ include '../includes/sidebar.php';
                             <span class="w-6 h-6 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-xs"
                                   :class="selected === <?php echo $cid; ?> ? 'bg-white/25' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'">
                                 <?php if (!empty($child['profile_picture'])): ?>
-                                <img src="/serve_image.php?path=profile_pictures/<?php echo rawurlencode($child['profile_picture']); ?>" alt="" class="w-full h-full object-cover">
+                                <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo rawurlencode($child['profile_picture']); ?>" alt="" class="w-full h-full object-cover">
                                 <?php else: ?>
                                 <?php echo strtoupper(substr($child['name'], 0, 1)); ?>
                                 <?php endif; ?>

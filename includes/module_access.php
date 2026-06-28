@@ -188,7 +188,7 @@ if (!function_exists('requireModule')) {
             $msg = "This module is not available on your school's current subscription plan.";
             if (!headers_sent()) {
                 $role = $_SESSION['role'] ?? '';
-                $dash = ($role === 'parent') ? '/parent/dashboard.php' : '/dashboard.php';
+                $dash = ($role === 'parent') ? '/school_ms/parent/dashboard.php' : '/school_ms/dashboard.php';
                 header("Location: " . $dash . "?error=" . urlencode($msg));
             }
             exit();

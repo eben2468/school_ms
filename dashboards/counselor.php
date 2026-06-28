@@ -237,10 +237,10 @@ $color_map = [
 <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Quick actions">
     <?php
     $quick_actions = [
-        ['href' => '/health/counseling/index.php', 'icon' => 'fa-comments', 'color' => 'blue', 'title' => 'Counseling Sessions', 'desc' => 'Individual &amp; group sessions'],
-        ['href' => '/health/counseling/create.php', 'icon' => 'fa-calendar-plus', 'color' => 'emerald', 'title' => 'New Session', 'desc' => 'Schedule an appointment'],
-        ['href' => '/health/counseling/index.php?status=scheduled', 'icon' => 'fa-hand-holding-heart', 'color' => 'violet', 'title' => 'Follow-ups', 'desc' => 'Handle guidance cases'],
-        ['href' => '/health/reports/index.php', 'icon' => 'fa-chart-line', 'color' => 'amber', 'title' => 'Reports', 'desc' => 'Generate counseling reports'],
+        ['href' => '/school_ms/health/counseling/index.php', 'icon' => 'fa-comments', 'color' => 'blue', 'title' => 'Counseling Sessions', 'desc' => 'Individual &amp; group sessions'],
+        ['href' => '/school_ms/health/counseling/create.php', 'icon' => 'fa-calendar-plus', 'color' => 'emerald', 'title' => 'New Session', 'desc' => 'Schedule an appointment'],
+        ['href' => '/school_ms/health/counseling/index.php?status=scheduled', 'icon' => 'fa-hand-holding-heart', 'color' => 'violet', 'title' => 'Follow-ups', 'desc' => 'Handle guidance cases'],
+        ['href' => '/school_ms/health/reports/index.php', 'icon' => 'fa-chart-line', 'color' => 'amber', 'title' => 'Reports', 'desc' => 'Generate counseling reports'],
     ];
     foreach ($quick_actions as $qa):
         $c = $color_map[$qa['color']];

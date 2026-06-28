@@ -125,7 +125,7 @@ try {
             'type' => 'academic',
             'priority' => 'medium',
             'icon' => 'fas fa-user-plus',
-            'action_url_template' => '/students/view.php?id={student_id}',
+            'action_url_template' => '/school_ms/students/view.php?id={student_id}',
             'action_text' => 'View Student'
         ],
         [
@@ -135,7 +135,7 @@ try {
             'type' => 'finance',
             'priority' => 'medium',
             'icon' => 'fas fa-money-bill-wave',
-            'action_url_template' => '/finance/view_payment.php?id={payment_id}',
+            'action_url_template' => '/school_ms/finance/view_payment.php?id={payment_id}',
             'action_text' => 'View Payment'
         ],
         [
@@ -145,7 +145,7 @@ try {
             'type' => 'finance',
             'priority' => 'high',
             'icon' => 'fas fa-exclamation-triangle',
-            'action_url_template' => '/finance/overdue.php?student_id={student_id}',
+            'action_url_template' => '/school_ms/finance/overdue.php?student_id={student_id}',
             'action_text' => 'View Details'
         ],
         [
@@ -165,7 +165,7 @@ try {
             'type' => 'attendance',
             'priority' => 'high',
             'icon' => 'fas fa-calendar-times',
-            'action_url_template' => '/attendance/student.php?id={student_id}',
+            'action_url_template' => '/school_ms/attendance/student.php?id={student_id}',
             'action_text' => 'View Attendance'
         ],
         [
@@ -195,7 +195,7 @@ try {
             'type' => 'library',
             'priority' => 'medium',
             'icon' => 'fas fa-book',
-            'action_url_template' => '/library/my_books.php',
+            'action_url_template' => '/school_ms/library/my_books.php',
             'action_text' => 'View Books'
         ],
         [
@@ -259,7 +259,7 @@ try {
             'type' => 'general',
             'priority' => 'low',
             'icon' => 'fas fa-user-edit',
-            'action_url' => '/settings/school.php',
+            'action_url' => '/school_ms/settings/school.php',
             'action_text' => 'Update Profile'
         ]
     ];

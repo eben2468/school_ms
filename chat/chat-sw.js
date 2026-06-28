@@ -4,9 +4,9 @@ const CHAT_CACHE = 'chat-messages-v1';
 
 // Cache chat-related resources
 const urlsToCache = [
-    '/chat/get_messages.php',
-    '/chat/get_conversations.php',
-    '/chat/send_message.php'
+    '/school_ms/chat/get_messages.php',
+    '/school_ms/chat/get_conversations.php',
+    '/school_ms/chat/send_message.php'
 ];
 
 // Install event - cache resources
@@ -86,7 +86,7 @@ async function syncOfflineMessages() {
         
         for (const message of offlineMessages) {
             try {
-                const response = await fetch('/chat/send_message.php', {
+                const response = await fetch('/school_ms/chat/send_message.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

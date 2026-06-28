@@ -130,7 +130,7 @@ include '../includes/sidebar.php';
                         <div class="flex items-center gap-6">
                             <div class="w-24 h-24 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300 text-3xl font-bold shadow-inner shrink-0 overflow-hidden">
                                 <?php if(!empty($staff['profile_picture'])): ?>
-                                    <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($staff['profile_picture']); ?>" class="w-full h-full object-cover">
+                                    <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($staff['profile_picture']); ?>" class="w-full h-full object-cover">
                                 <?php else: ?>
                                     <?php 
                                         $names = explode(' ', $staff['name']);

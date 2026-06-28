@@ -156,7 +156,7 @@ try {
                 'type' => 'general',
                 'priority' => 'low',
                 'icon' => 'fas fa-user-edit',
-                'action_url' => '/settings/school.php',
+                'action_url' => '/school_ms/settings/school.php',
                 'action_text' => 'Update Profile',
                 'created_by' => $_SESSION['user_id']
             ],
@@ -216,8 +216,8 @@ try {
     
     echo "<h3>✅ Database Fix Complete!</h3>";
     echo "<p><strong>The notification system should now work properly.</strong></p>";
-    echo "<p><a href='/notifications.php' class='text-blue-600 hover:text-blue-800'>→ Test Notifications Page</a></p>";
-    echo "<p><a href='/dashboard.php' class='text-blue-600 hover:text-blue-800'>→ Test Dashboard Notifications</a></p>";
+    echo "<p><a href='/school_ms/notifications.php' class='text-blue-600 hover:text-blue-800'>→ Test Notifications Page</a></p>";
+    echo "<p><a href='/school_ms/dashboard.php' class='text-blue-600 hover:text-blue-800'>→ Test Dashboard Notifications</a></p>";
     
 } catch (PDOException $e) {
     echo "<p>❌ Database error: " . $e->getMessage() . "</p>";

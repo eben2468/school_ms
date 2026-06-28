@@ -369,7 +369,7 @@ $student_chart_data = [
                     <?php endif; ?>
                 </span>
             </div>
-            <a href="/finance/student_finances.php" class="inline-flex items-center justify-center bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition gap-2 text-sm">
+            <a href="/school_ms/finance/student_finances.php" class="inline-flex items-center justify-center bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition gap-2 text-sm">
                 <i class="fas fa-wallet"></i> View Financial Dashboard
             </a>
         </div>
@@ -421,7 +421,7 @@ $student_chart_data = [
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Assignments</h3>
-            <a href="/academic/assignments/" class="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800">View all</a>
+            <a href="/school_ms/academic/assignments/" class="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800">View all</a>
         </div>
         <div class="space-y-4">
             <?php if (!empty($upcoming_assignments)): ?>
@@ -465,7 +465,7 @@ $student_chart_data = [
 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 mb-8">
     <div class="flex items-center justify-between mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Grades</h3>
-        <a href="/academic/grades/" class="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800">View all</a>
+        <a href="/school_ms/academic/grades/" class="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800">View all</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -523,37 +523,37 @@ $student_chart_data = [
         <span class="text-sm text-gray-500 dark:text-gray-400">Quick access</span>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <a href="/academic/assignments/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/academic/assignments/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-cyan-100 dark:bg-cyan-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-cyan-200 dark:group-hover:bg-cyan-800 transition-colors duration-200">
                 <i class="fas fa-tasks text-cyan-600 dark:text-cyan-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">Assignments</span>
         </a>
-        <a href="/academic/grades/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/academic/grades/" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors duration-200">
                 <i class="fas fa-star text-purple-600 dark:text-purple-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">My Grades</span>
         </a>
-        <a href="/attendance/student.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/attendance/student.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-green-200 dark:group-hover:bg-green-800 transition-colors duration-200">
                 <i class="fas fa-calendar-check text-green-600 dark:text-green-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">Attendance</span>
         </a>
-        <a href="/academic/timetable/student.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/academic/timetable/student.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors duration-200">
                 <i class="fas fa-calendar-alt text-blue-600 dark:text-blue-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">Timetable</span>
         </a>
-        <a href="/library/books/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/library/books/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800 transition-colors duration-200">
                 <i class="fas fa-book text-indigo-600 dark:text-indigo-400 text-xl"></i>
             </div>
             <span class="text-sm font-medium text-gray-900 dark:text-white text-center">Library</span>
         </a>
-        <a href="/communication/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
+        <a href="/school_ms/communication/index.php" class="flex flex-col items-center p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group">
             <div class="w-12 h-12 bg-teal-100 dark:bg-teal-900 rounded-lg flex items-center justify-center mb-3 group-hover:bg-teal-200 dark:group-hover:bg-teal-800 transition-colors duration-200">
                 <i class="fas fa-comments text-teal-600 dark:text-teal-400 text-xl"></i>
             </div>

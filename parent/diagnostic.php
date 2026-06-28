@@ -226,7 +226,7 @@ include '../includes/sidebar.php';
                                 </div>
                             </a>
                             
-                            <a href="/parent/dashboard.php" class="p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <a href="/school_ms/parent/dashboard.php" class="p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                 <div class="flex items-center">
                                     <i class="fas fa-tachometer-alt text-purple-500 mr-3"></i>
                                     <span class="font-medium text-gray-900 dark:text-white">Main Dashboard</span>

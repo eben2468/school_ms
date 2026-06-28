@@ -434,10 +434,10 @@ $logo_url = getSchoolLogo();
     $stmt_role = $_SESSION['role'] ?? '';
     $stmt_sid = isset($view_student_id) ? (int)$view_student_id : (int)filter_input(INPUT_GET, 'student_id', FILTER_SANITIZE_NUMBER_INT);
     if ($stmt_role === 'parent') {
-        $back_url = '/parent/fees.php?student_id=' . $stmt_sid;
+        $back_url = '/school_ms/parent/fees.php?student_id=' . $stmt_sid;
         $back_label = 'Back to Fees';
     } elseif ($stmt_role === 'student') {
-        $back_url = '/dashboard.php';
+        $back_url = '/school_ms/dashboard.php';
         $back_label = 'Back to Dashboard';
     } else {
         $back_url = 'student_balances.php';

@@ -4,7 +4,7 @@
 window.SchoolMS = {
     // Configuration
     config: {
-        apiUrl: '/api/',
+        apiUrl: '/school_ms/api/',
         notificationDuration: 5000,
         searchDelay: 300
     },

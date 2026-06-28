@@ -212,7 +212,7 @@ include '../includes/sidebar.php';
                             <div class="flex items-center space-x-3">
                                 <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden border border-gray-200">
                                     <?php if (!empty($student['profile_picture'])): ?>
-                                        <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
+                                        <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
                                     <?php else: ?>
                                         <i class="fas fa-user text-blue-600 text-lg"></i>
                                     <?php endif; ?>

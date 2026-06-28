@@ -1,8 +1,8 @@
 <?php
 // Include settings helper
-require_once dirname(__DIR__) . '/includes/settings_helper.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
 // Application version (single source of truth)
-require_once dirname(__DIR__) . '/config/version.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/version.php';
 
 $current_year = date('Y');
 $role = $_SESSION['role'] ?? '';
@@ -139,33 +139,33 @@ foreach ($social_meta as $key => $meta) {
                 <h3 class="text-lg font-semibold text-white">Quick Links</h3>
                 <ul class="space-y-3">
                     <li>
-                        <a href="<?php echo ($role === 'parent') ? '/parent/dashboard.php' : '/dashboard.php'; ?>" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                        <a href="<?php echo ($role === 'parent') ? '/school_ms/parent/dashboard.php' : '/school_ms/dashboard.php'; ?>" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
                             <i class="fas fa-tachometer-alt w-4 text-blue-100"></i>
                             <span>Dashboard</span>
                         </a>
                     </li>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
                     <li>
-                        <a href="/academic/index.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                        <a href="/school_ms/academic/index.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
                             <i class="fas fa-graduation-cap w-4 text-blue-100"></i>
                             <span>Academics</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/students/index.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                        <a href="/school_ms/students/index.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
                             <i class="fas fa-user-graduate w-4 text-blue-100"></i>
                             <span>Students</span>
                         </a>
                     </li>
                     <?php endif; ?>
                     <li>
-                        <a href="/library/books/index.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                        <a href="/school_ms/library/books/index.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
                             <i class="fas fa-book w-4 text-blue-100"></i>
                             <span>Library</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/settings/school.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                        <a href="/school_ms/settings/school.php" class="text-blue-100 hover:text-white transition-colors duration-200 flex items-center space-x-2">
                             <i class="fas fa-cog w-4 text-blue-100"></i>
                             <span>Settings</span>
                         </a>
@@ -243,13 +243,13 @@ foreach ($social_meta as $key => $meta) {
                         <span class="text-xs text-blue-300 font-medium">v<?php echo APP_VERSION; ?></span>
                     </div>
                     <div class="space-y-2">
-                        <a href="/help.php" class="block text-sm text-blue-100 hover:text-white transition-colors duration-200">
+                        <a href="/school_ms/help.php" class="block text-sm text-blue-100 hover:text-white transition-colors duration-200">
                             <i class="fas fa-question-circle mr-2 text-blue-100"></i>Help Center
                         </a>
-                        <a href="/support.php" class="block text-sm text-blue-100 hover:text-white transition-colors duration-200">
+                        <a href="/school_ms/support.php" class="block text-sm text-blue-100 hover:text-white transition-colors duration-200">
                             <i class="fas fa-headset mr-2 text-blue-100"></i>Technical Support
                         </a>
-                        <a href="/feedback.php" class="block text-sm text-blue-100 hover:text-white transition-colors duration-200">
+                        <a href="/school_ms/feedback.php" class="block text-sm text-blue-100 hover:text-white transition-colors duration-200">
                             <i class="fas fa-comment-alt mr-2 text-blue-100"></i>Send Feedback
                         </a>
                     </div>
@@ -265,11 +265,11 @@ foreach ($social_meta as $key => $meta) {
                         &copy; <?php echo $current_year; ?> <?php echo htmlspecialchars($school_name); ?>. All rights reserved.
                     </p>
                     <div class="flex items-center space-x-4 text-xs text-blue-100">
-                        <a href="/privacy.php" class="hover:text-white transition-colors duration-200">Privacy Policy</a>
+                        <a href="/school_ms/privacy.php" class="hover:text-white transition-colors duration-200">Privacy Policy</a>
                         <span class="text-blue-200">•</span>
-                        <a href="/terms.php" class="hover:text-white transition-colors duration-200">Terms of Service</a>
+                        <a href="/school_ms/terms.php" class="hover:text-white transition-colors duration-200">Terms of Service</a>
                         <span class="text-blue-200">•</span>
-                        <a href="/cookies.php" class="hover:text-white transition-colors duration-200">Cookie Policy</a>
+                        <a href="/school_ms/cookies.php" class="hover:text-white transition-colors duration-200">Cookie Policy</a>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -309,7 +309,7 @@ foreach ($social_meta as $key => $meta) {
                 const statusText = document.querySelector('.text-green-400');
 
                 // Simulate status check
-                fetch('/api/status.php')
+                fetch('/school_ms/api/status.php')
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'online') {

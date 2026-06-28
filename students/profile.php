@@ -171,7 +171,7 @@ $exam_results = $exam_results_stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="text-center mb-6">
                                 <div class="w-24 h-24 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-4 border-white shadow-lg">
                                     <?php if(!empty($student['profile_picture'])): ?>
-                                        <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" class="w-full h-full object-cover">
+                                        <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" class="w-full h-full object-cover">
                                     <?php else: ?>
                                         <i class="fas fa-user text-blue-600 dark:text-blue-400 text-3xl"></i>
                                     <?php endif; ?>

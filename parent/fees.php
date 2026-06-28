@@ -194,7 +194,7 @@ include '../includes/sidebar.php';
                                 <a href="?student_id=<?php echo $child['id']; ?>" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
                                     <i class="fas fa-money-bill-wave"></i> View Fees
                                 </a>
-                                <a href="/finance/student_balances.php?student_id=<?php echo $child['id']; ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                                <a href="/school_ms/finance/student_balances.php?student_id=<?php echo $child['id']; ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
                                     <i class="fas fa-file-invoice"></i> Statement
                                 </a>
                             </div>
@@ -225,7 +225,7 @@ include '../includes/sidebar.php';
                         
                         <!-- Actions: Statement + Academic Year Selector -->
                         <div class="flex flex-col items-end gap-3">
-                            <a href="/finance/student_balances.php?student_id=<?php echo $student_id; ?>" target="_blank" rel="noopener"
+                            <a href="/school_ms/finance/student_balances.php?student_id=<?php echo $student_id; ?>" target="_blank" rel="noopener"
                                class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition">
                                 <i class="fas fa-file-invoice"></i> View / Download Statement
                             </a>

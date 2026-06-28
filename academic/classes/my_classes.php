@@ -340,7 +340,7 @@ include '../../includes/sidebar.php';
                                     <div class="flex flex-col items-center text-center p-4 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-700">
                                         <div class="w-14 h-14 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-2">
                                             <?php if (!empty($mate['profile_picture'])): ?>
-                                                <img src="/serve_image.php?path=profile_pictures/<?= htmlspecialchars($mate['profile_picture']) ?>"
+                                                <img src="/school_ms/serve_image.php?path=profile_pictures/<?= htmlspecialchars($mate['profile_picture']) ?>"
                                                      alt="<?= htmlspecialchars($mate['name']) ?>" class="w-full h-full object-cover">
                                             <?php else: ?>
                                                 <span class="text-blue-600 dark:text-blue-400 font-semibold text-lg">

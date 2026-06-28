@@ -20,7 +20,7 @@ $current_db = !empty($_SESSION['school_db_name']) ? $_SESSION['school_db_name'] 
 $mysqldump_bin = file_exists('C:\\xampp\\mysql\\bin\\mysqldump.exe') ? 'C:\\xampp\\mysql\\bin\\mysqldump.exe' : 'mysqldump';
 $mysql_bin     = file_exists('C:\\xampp\\mysql\\bin\\mysql.exe') ? 'C:\\xampp\\mysql\\bin\\mysql.exe' : 'mysql';
 
-$backup_dir = dirname(__DIR__) . '/backups/';
+$backup_dir = $_SERVER['DOCUMENT_ROOT'] . '/school_ms/backups/';
 if (!is_dir($backup_dir)) { @mkdir($backup_dir, 0755, true); }
 
 $message = '';

@@ -168,7 +168,7 @@ include '../includes/sidebar.php';
                                 </select>
                             </form>
                             <?php endif; ?>
-                            <a href="/finance/student_balances.php?student_id=<?= $target_student_id ?>" target="_blank" class="bg-white text-green-700 hover:bg-green-50 px-4 py-2 rounded-lg font-bold shadow transition flex items-center gap-2 text-sm whitespace-nowrap">
+                            <a href="/school_ms/finance/student_balances.php?student_id=<?= $target_student_id ?>" target="_blank" class="bg-white text-green-700 hover:bg-green-50 px-4 py-2 rounded-lg font-bold shadow transition flex items-center gap-2 text-sm whitespace-nowrap">
                                 <i class="fas fa-print"></i> Statement of Account
                             </a>
                         </div>

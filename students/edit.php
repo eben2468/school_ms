@@ -253,7 +253,7 @@ include '../includes/sidebar.php';
                                 <div class="flex items-center space-x-4">
                                     <div class="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border border-gray-300 dark:border-gray-600 shadow-sm" id="imagePreviewContainer">
                                         <?php if(!empty($student['profile_picture'])): ?>
-                                            <img id="imagePreview" src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" class="w-full h-full object-cover">
+                                            <img id="imagePreview" src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" class="w-full h-full object-cover">
                                         <?php else: ?>
                                             <i class="fas fa-user text-3xl text-gray-400" id="defaultIcon"></i>
                                             <img id="imagePreview" src="#" alt="Preview" class="hidden w-full h-full object-cover">

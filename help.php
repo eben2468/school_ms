@@ -343,7 +343,7 @@ let typingTimeout = null;
 document.addEventListener('DOMContentLoaded', function() {
     // Register service worker for offline support
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/chat/chat-sw.js')
+        navigator.serviceWorker.register('/school_ms/chat/chat-sw.js')
             .then(registration => {
                 console.log('Chat service worker registered:', registration);
             })
@@ -857,7 +857,7 @@ document.addEventListener('keydown', function(e) {
     // Alt + H for Help
     if (e.altKey && e.key === 'h') {
         e.preventDefault();
-        window.location.href = '/help.php';
+        window.location.href = '/school_ms/help.php';
     }
 
     // Escape to close chat

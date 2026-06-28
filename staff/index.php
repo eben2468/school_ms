@@ -410,7 +410,7 @@ include '../includes/sidebar.php';
                                 <div class="flex items-center space-x-3">
                                     <div class="w-12 h-12 bg-gradient-to-br <?php echo $avatar_gradient; ?> rounded-full flex items-center justify-center shadow-md flex-shrink-0 overflow-hidden">
                                         <?php if(!empty($member['profile_picture'])): ?>
-                                            <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($member['profile_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
+                                            <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($member['profile_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
                                         <?php else: ?>
                                             <span class="text-white font-bold text-sm"><?php echo $initials; ?></span>
                                         <?php endif; ?>

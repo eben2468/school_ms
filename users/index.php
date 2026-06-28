@@ -333,7 +333,7 @@ include '../includes/sidebar.php';
                                         <div class="flex items-center">
                                             <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
                                                 <?php if(!empty($user['profile_picture'])): ?>
-                                                    <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>" class="w-full h-full object-cover">
+                                                    <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>" class="w-full h-full object-cover">
                                                 <?php else: ?>
                                                     <?php echo strtoupper(substr($user['name'], 0, 1)); ?>
                                                 <?php endif; ?>

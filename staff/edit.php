@@ -578,7 +578,7 @@ include '../includes/sidebar.php';
                                         $pic = $pic_stmt->fetchColumn();
                                         ?>
                                         <?php if(!empty($pic)): ?>
-                                            <img id="imagePreview" src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($pic); ?>" class="w-full h-full object-cover">
+                                            <img id="imagePreview" src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($pic); ?>" class="w-full h-full object-cover">
                                         <?php else: ?>
                                             <i class="fas fa-user text-3xl text-gray-400" id="defaultIcon"></i>
                                             <img id="imagePreview" src="#" alt="Preview" class="hidden w-full h-full object-cover">
@@ -612,7 +612,7 @@ include '../includes/sidebar.php';
                                 <div class="flex items-center space-x-4">
                                     <div class="w-40 h-20 rounded-lg bg-white dark:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center overflow-hidden">
                                         <?php if(!empty($staff_sig) && file_exists('../uploads/signatures/' . $staff_sig)): ?>
-                                            <img src="/serve_image.php?path=signatures/<?php echo rawurlencode($staff_sig); ?>" alt="Signature" class="max-h-full max-w-full object-contain">
+                                            <img src="/school_ms/serve_image.php?path=signatures/<?php echo rawurlencode($staff_sig); ?>" alt="Signature" class="max-h-full max-w-full object-contain">
                                         <?php else: ?>
                                             <span class="text-xs text-gray-400"><i class="fas fa-signature mr-1"></i>No signature</span>
                                         <?php endif; ?>

@@ -17,12 +17,12 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /index.php");
+    header("Location: /school_ms/index.php");
     exit();
 }
 
-require_once dirname(__DIR__) . '/config/database.php';
-require_once dirname(__DIR__) . '/includes/settings_helper.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/database.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
 
 $school_name    = getSchoolSetting('school_name', 'School Management System');
 $school_email   = getSchoolSetting('school_email', 'info@school.edu');
@@ -41,8 +41,8 @@ $related_pages = [
 ];
 $current_file = basename($_SERVER['PHP_SELF']);
 
-include dirname(__DIR__) . '/includes/header.php';
-include dirname(__DIR__) . '/includes/sidebar.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/header.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/sidebar.php';
 ?>
 
 <style>
@@ -188,7 +188,7 @@ include dirname(__DIR__) . '/includes/sidebar.php';
 
         <!-- Footer -->
         <div class="lg:ml-0">
-            <?php include dirname(__DIR__) . '/includes/footer.php'; ?>
+            <?php include $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/footer.php'; ?>
         </div>
     </div>
 </div>

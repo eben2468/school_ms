@@ -1,12 +1,12 @@
 <?php
 // Include settings helper
-require_once dirname(__DIR__) . '/includes/settings_helper.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
 // Include module access control (per-school subscription gating)
-require_once dirname(__DIR__) . '/includes/module_access.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/module_access.php';
 // Include role-based access control (canonical role -> module matrix)
-require_once dirname(__DIR__) . '/includes/access_control.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/access_control.php';
 // Application version (single source of truth)
-require_once dirname(__DIR__) . '/config/version.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/version.php';
 
 $role = isset($_SESSION['role']) ? $_SESSION['role'] : '';
 $current_page = $_SERVER['PHP_SELF'];
@@ -55,7 +55,7 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 <div class="relative group">
                     <div class="rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm border-2 border-white/20 group-hover:border-white/40 transition-all duration-300 ring-2 ring-white/10" :class="$store.sidebar.collapsed ? 'w-10 h-10' : 'w-14 h-14'">
                         <?php if (isset($_SESSION['profile_picture']) && !empty($_SESSION['profile_picture'])): ?>
-                            <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>"
+                            <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>"
                                  alt="Profile Picture"
                                  class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                         <?php else: ?>
@@ -122,7 +122,7 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
         <!-- Dashboard Section -->
         <?php
         // Parents get the dedicated parent dashboard as their primary Dashboard link
-        $dashboard_link = ($role === 'parent') ? '/parent/dashboard.php' : '/dashboard.php';
+        $dashboard_link = ($role === 'parent') ? '/school_ms/parent/dashboard.php' : '/school_ms/dashboard.php';
         ?>
         <div id="dashboard-section" class="mb-6">
             <a href="<?php echo $dashboard_link; ?>" class="flex items-center rounded-xl <?php echo strpos($current_page, 'dashboard.php') !== false ? 'bg-white/20 shadow-lg backdrop-blur-sm' : 'hover:bg-white/10'; ?> transition-all duration-200 group" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-3' : 'space-x-3 px-4 py-3'">
@@ -156,12 +156,12 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="studentOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/students/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/students/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/students/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/students/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-list w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>All Students</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal'])): ?>
-                    <a href="/students/enroll.php" class="flex items-center rounded-lg <?php echo strpos($current_page, 'enroll.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/students/enroll.php" class="flex items-center rounded-lg <?php echo strpos($current_page, 'enroll.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user-plus w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Student Enrollment</span>
                     </a>
@@ -189,17 +189,17 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="userOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/users/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/users/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/users/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/users/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-list w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>All Users</span>
                     </a>
                     <?php if (($role ?? '') === 'super_admin'): ?>
-                    <a href="/users/create.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/users/create.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/users/create.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/users/create.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user-plus w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Create User</span>
                     </a>
                     <?php endif; ?>
-                    <a href="/admin/parent_student_links.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/parent_student_links.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/admin/parent_student_links.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/parent_student_links.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-link w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Parent-Student Links</span>
                     </a>
@@ -226,31 +226,31 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="studentAcademicOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/students/profile.php?id=<?php echo $_SESSION['user_id']; ?>" class="flex items-center rounded-lg <?php echo strpos($current_page, '/students/profile.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/students/profile.php?id=<?php echo $_SESSION['user_id']; ?>" class="flex items-center rounded-lg <?php echo strpos($current_page, '/students/profile.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Profile</span>
                     </a>
-                    <a href="/academic/assignments/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/assignments/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/assignments/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/assignments/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tasks w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Assignments</span>
                     </a>
-                    <a href="/academic/grades/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/grades/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/grades/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/grades/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-line w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Grades</span>
                     </a>
-                    <a href="/attendance/student.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/attendance/student.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/attendance/student.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/attendance/student.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-calendar-check w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Attendance</span>
                     </a>
-                    <a href="/academic/timetable/student.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/timetable/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/timetable/student.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/timetable/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-calendar-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Timetable</span>
                     </a>
-                    <a href="/academic/classes/my_classes.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/classes/my_classes.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/classes/my_classes.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/classes/my_classes.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chalkboard w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Classes</span>
                     </a>
-                    <a href="/finance/student_finances.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/student_finances.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/student_finances.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/student_finances.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-wallet w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Finances</span>
                     </a>
@@ -277,44 +277,44 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="academicOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/academic/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/academic/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/academic/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-line w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Academic Overview</span>
                     </a>
-                    <a href="/academic/classes/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/classes/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/classes/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/classes/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chalkboard w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Classes</span>
                     </a>
-                    <a href="/academic/subjects/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/subjects/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/subjects/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/subjects/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-book w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Subjects</span>
                     </a>
-                    <a href="/academic/assignments/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/assignments/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/assignments/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/assignments/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tasks w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Assignments</span>
                     </a>
-                    <a href="/academic/grades/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/grades/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/grades/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/grades/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-bar w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Grades</span>
                     </a>
-                    <a href="/academic/timetable/<?php echo $role === 'teacher' ? 'teacher.php' : 'index.php'; ?>" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/timetable/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/timetable/<?php echo $role === 'teacher' ? 'teacher.php' : 'index.php'; ?>" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/timetable/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-calendar-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Timetable</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal'])): ?>
-                    <a href="/academic/class-management.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/class-management.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/class-management.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/class-management.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user-friends w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Class Management</span>
                     </a>
-                    <a href="/academic/settings/" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/settings/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/settings/" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/settings/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-cogs w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Academic Settings</span>
                     </a>
-                    <a href="/academic/promotions/" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/promotions/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/promotions/" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/promotions/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-graduation-cap w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Student Promotions</span>
                     </a>
-                    <a href="/academic/records/" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/records/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/records/" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/records/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-line w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Academic Records</span>
                     </a>
@@ -342,17 +342,17 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="examOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/academic/exams/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/exams/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/exams/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/exams/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-list w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>All Exams</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal'])): ?>
-                    <a href="/academic/exams/create.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/exams/create.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/exams/create.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/exams/create.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-plus w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Schedule Exam</span>
                     </a>
                     <?php endif; ?>
-                    <a href="/academic/exams/results.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/exams/results.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/exams/results.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/exams/results.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-bar w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Results</span>
                     </a>
@@ -364,7 +364,7 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
         <!-- Attendance -->
         <?php if (canAccessModule('attendance')): ?>
         <div class="px-2 mb-4">
-            <a href="/attendance/index.php" class="flex items-center rounded-xl <?php echo strpos($current_page, '/attendance/') !== false ? 'bg-white/20 shadow-lg backdrop-blur-sm' : 'hover:bg-white/10'; ?> transition-all duration-200 group" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-3' : 'space-x-3 px-4 py-3'">
+            <a href="/school_ms/attendance/index.php" class="flex items-center rounded-xl <?php echo strpos($current_page, '/attendance/') !== false ? 'bg-white/20 shadow-lg backdrop-blur-sm' : 'hover:bg-white/10'; ?> transition-all duration-200 group" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-3' : 'space-x-3 px-4 py-3'">
                 <div class="w-10 h-10 rounded-lg <?php echo strpos($current_page, '/attendance/') !== false ? 'bg-white/30' : 'bg-white/10 group-hover:bg-white/20'; ?> flex items-center justify-center transition-colors duration-200 backdrop-blur-sm">
                     <i class="fas fa-calendar-check text-lg text-white"></i>
                 </div>
@@ -396,29 +396,29 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="reportsOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/reports/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/reports/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/reports/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/reports/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-bar w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Reports Dashboard</span>
                     </a>
-                    <a href="/reports/academic.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/reports/academic.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/reports/academic.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/reports/academic.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-graduation-cap w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Academic Progress</span>
                     </a>
-                    <a href="/attendance/reports.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/attendance/reports.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/attendance/reports.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/attendance/reports.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-calendar-check w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Attendance Reports</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal'])): ?>
-                    <a href="/reports/class.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/reports/class.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/reports/class.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/reports/class.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chalkboard w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Class Reports</span>
                     </a>
                     <?php endif; ?>
-                    <a href="/academic/reports/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/reports/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/reports/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/reports/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-file-invoice w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Term Report</span>
                     </a>
-                    <a href="/academic/reports/compilation.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/reports/compilation.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/academic/reports/compilation.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/academic/reports/compilation.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-clipboard-check w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Report Compilation</span>
                     </a>
@@ -445,20 +445,20 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="libraryOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/library/books/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/books/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/library/books/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/books/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-line w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Library Management</span>
                     </a>
-                    <a href="/library/borrow.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/borrow.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/library/borrow.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/borrow.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-hand-holding w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Borrow Books</span>
                     </a>
-                    <a href="/library/loans.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/loans.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/library/loans.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/loans.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-exchange-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Book Loans</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'librarian'])): ?>
-                    <a href="/library/manage.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/manage.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/library/manage.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/library/manage.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-cogs w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Manage Library</span>
                     </a>
@@ -486,31 +486,31 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="transportOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/transport/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/transport/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/transport/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Transport Dashboard</span>
                     </a>
-                    <a href="/transport/routes/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/routes/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/routes/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/routes/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-route w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Routes</span>
                     </a>
-                    <a href="/transport/vehicles/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/vehicles/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/vehicles/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/vehicles/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-bus w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Vehicles</span>
                     </a>
-                    <a href="/transport/assignments/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/assignments/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/assignments/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/assignments/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user-graduate w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Student Assignments</span>
                     </a>
-                    <a href="/transport/drivers/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/drivers/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/drivers/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/drivers/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-id-card w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Drivers</span>
                     </a>
-                    <a href="/transport/maintenance/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/maintenance/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/maintenance/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/maintenance/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tools w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Maintenance Logs</span>
                     </a>
-                    <a href="/transport/reports/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/reports/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/transport/reports/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/transport/reports/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-bar w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Transport Reports</span>
                     </a>
@@ -537,19 +537,19 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="hostelOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/hostel/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/hostel/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/hostel/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/hostel/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Hostel Dashboard</span>
                     </a>
-                    <a href="/hostel/blocks/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/hostel/blocks/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/hostel/blocks/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/hostel/blocks/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-building w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Blocks</span>
                     </a>
-                    <a href="/hostel/rooms/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/hostel/rooms/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/hostel/rooms/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/hostel/rooms/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-bed w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Rooms</span>
                     </a>
-                    <a href="/hostel/allocations/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/hostel/allocations/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/hostel/allocations/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/hostel/allocations/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-users w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Allocations</span>
                     </a>
@@ -562,8 +562,8 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
         <?php if (canAccessModule('hostel_student') && isModuleEnabled('hostel')): ?>
         <div id="my-hostel-section" class="px-2 mb-4">
             <h3 class="px-4 text-xs font-semibold text-blue-200 uppercase tracking-wider mb-3" x-show="!$store.sidebar.collapsed" x-transition>Hostel</h3>
-            <a href="/hostel/my_hostel.php" class="w-full flex items-center rounded-xl <?php echo $current_page === '/hostel/my_hostel.php' ? 'bg-white/20 shadow-lg backdrop-blur-sm' : 'hover:bg-white/10'; ?> transition-all duration-200 group" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-3' : 'space-x-3 px-4 py-3'">
-                <div class="w-10 h-10 rounded-lg <?php echo $current_page === '/hostel/my_hostel.php' ? 'bg-white/30' : 'bg-white/10 group-hover:bg-white/20'; ?> flex items-center justify-center transition-colors duration-200 backdrop-blur-sm">
+            <a href="/school_ms/hostel/my_hostel.php" class="w-full flex items-center rounded-xl <?php echo $current_page === '/school_ms/hostel/my_hostel.php' ? 'bg-white/20 shadow-lg backdrop-blur-sm' : 'hover:bg-white/10'; ?> transition-all duration-200 group" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-3' : 'space-x-3 px-4 py-3'">
+                <div class="w-10 h-10 rounded-lg <?php echo $current_page === '/school_ms/hostel/my_hostel.php' ? 'bg-white/30' : 'bg-white/10 group-hover:bg-white/20'; ?> flex items-center justify-center transition-colors duration-200 backdrop-blur-sm">
                     <i class="fas fa-bed text-lg text-white"></i>
                 </div>
                 <div class="flex-1 text-left" x-show="!$store.sidebar.collapsed" x-transition>
@@ -592,31 +592,31 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="canteenOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/canteen/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/canteen/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/canteen/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Canteen Dashboard</span>
                     </a>
-                    <a href="/canteen/menu/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/menu/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/menu/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/menu/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-list w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Menu</span>
                     </a>
-                    <a href="/canteen/orders/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/orders/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/orders/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/orders/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-shopping-cart w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Orders</span>
                     </a>
-                    <a href="/canteen/inventory/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/inventory/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/inventory/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/inventory/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-boxes w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Inventory</span>
                     </a>
-                    <a href="/canteen/registrations/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/registrations/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/registrations/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/registrations/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user-check w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Registrations</span>
                     </a>
-                    <a href="/canteen/reports/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/reports/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/reports/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/reports/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-line w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Reports</span>
                     </a>
-                    <a href="/canteen/settings/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/settings/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/canteen/settings/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/canteen/settings/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-cog w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Settings</span>
                     </a>
@@ -643,59 +643,59 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="financeOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/finance/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/finance/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/finance/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-line w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Finance Overview</span>
                     </a>
-                    <a href="/finance/fee_categories.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/fee_categories.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/fee_categories.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/fee_categories.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tags w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Fee Categories</span>
                     </a>
-                    <a href="/finance/fee_structures.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/fee_structures.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/fee_structures.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/fee_structures.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-list-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Fee Structures</span>
                     </a>
-                    <a href="/finance/invoices.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/invoices.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/invoices.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/invoices.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-file-invoice-dollar w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Invoices</span>
                     </a>
-                    <a href="/finance/payments.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/payments.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/payments.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/payments.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-credit-card w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Payments</span>
                     </a>
-                    <a href="/finance/receipts.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/receipts.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/receipts.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/receipts.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-receipt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Receipts</span>
                     </a>
-                    <a href="/finance/student_balances.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/student_balances.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/student_balances.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/student_balances.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-wallet w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Account Statement</span>
                     </a>
-                    <a href="/finance/discounts.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/discounts.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/discounts.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/discounts.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-percent w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Discounts & Schol.</span>
                     </a>
-                    <a href="/finance/penalties.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/penalties.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/penalties.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/penalties.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-exclamation-triangle w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Penalties</span>
                     </a>
-                    <a href="/finance/income.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/income.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/income.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/income.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-hand-holding-usd w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Other Income</span>
                     </a>
-                    <a href="/finance/expenses.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/expenses.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/expenses.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/expenses.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-file-invoice w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Expenses</span>
                     </a>
-                    <a href="/finance/transactions.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/transactions.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/transactions.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/transactions.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-book w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Unified Ledger</span>
                     </a>
-                    <a href="/finance/reports.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/reports.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/reports.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/reports.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-bar w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Reports & Analytics</span>
                     </a>
-                    <a href="/finance/audit_logs.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/audit_logs.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/finance/audit_logs.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/finance/audit_logs.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-shield-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Audit Logs</span>
                     </a>
@@ -723,45 +723,45 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
 
                 <div x-show="staffOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal', 'hr'])): ?>
-                    <a href="/staff/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/staff/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/staff/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-address-book w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Directory</span>
                     </a>
-                    <a href="/staff/departments.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/departments.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/departments.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/departments.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-sitemap w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Departments</span>
                     </a>
-                    <a href="/staff/attendance.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/attendance.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/attendance.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/attendance.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-calendar-check w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Attendance</span>
                     </a>
-                    <a href="/staff/leaves.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/leaves.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/leaves.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/leaves.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-bed w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Leave Management</span>
                     </a>
-                    <a href="/staff/schedules.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/schedules.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/schedules.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/schedules.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-clock w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Schedules</span>
                     </a>
-                    <a href="/staff/performance.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/performance.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/performance.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/performance.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-star w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Performance</span>
                     </a>
-                    <a href="/staff/qualifications.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/qualifications.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/qualifications.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/qualifications.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-certificate w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Qualifications</span>
                     </a>
                     <?php endif; ?>
-                    <a href="/staff/salaries.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/salaries.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/salaries.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/salaries.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-coins w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Salary Allocation</span>
                     </a>
-                    <a href="/staff/payroll.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/payroll.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/payroll.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/payroll.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-money-check-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Payroll</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal', 'hr'])): ?>
-                    <a href="/staff/reports.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/reports.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/staff/reports.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/staff/reports.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-chart-pie w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Reports</span>
                     </a>
@@ -811,22 +811,22 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                         <div class="text-xs text-blue-200 font-medium mb-2">
                             <?php echo htmlspecialchars($child['name']); ?>
                         </div>
-                        <a href="/parent/child_academic.php?student_id=<?php echo $child['id']; ?>"
+                        <a href="/school_ms/parent/child_academic.php?student_id=<?php echo $child['id']; ?>"
                            class="flex items-center space-x-3 px-3 py-1.5 rounded-lg <?php echo (strpos($current_page, '/parent/child_academic.php') !== false && $_GET['student_id'] == $child['id']) ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-xs">
                             <i class="fas fa-chart-line w-3 text-blue-200"></i>
                             <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Academic Progress</span>
                         </a>
-                        <a href="/parent/child_attendance.php?student_id=<?php echo $child['id']; ?>"
+                        <a href="/school_ms/parent/child_attendance.php?student_id=<?php echo $child['id']; ?>"
                            class="flex items-center space-x-3 px-3 py-1.5 rounded-lg <?php echo (strpos($current_page, '/parent/child_attendance.php') !== false && $_GET['student_id'] == $child['id']) ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-xs">
                             <i class="fas fa-calendar-check w-3 text-blue-200"></i>
                             <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Attendance</span>
                         </a>
-                        <a href="/parent/child_assignments.php?student_id=<?php echo $child['id']; ?>"
+                        <a href="/school_ms/parent/child_assignments.php?student_id=<?php echo $child['id']; ?>"
                            class="flex items-center space-x-3 px-3 py-1.5 rounded-lg <?php echo (strpos($current_page, '/parent/child_assignments.php') !== false && $_GET['student_id'] == $child['id']) ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-xs">
                             <i class="fas fa-tasks w-3 text-blue-200"></i>
                             <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Assignments</span>
                         </a>
-                        <a href="/parent/fees.php?student_id=<?php echo $child['id']; ?>"
+                        <a href="/school_ms/parent/fees.php?student_id=<?php echo $child['id']; ?>"
                            class="flex items-center space-x-3 px-3 py-1.5 rounded-lg <?php echo (strpos($current_page, '/parent/fees.php') !== false && $_GET['student_id'] == $child['id']) ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-xs">
                             <i class="fas fa-wallet w-3 text-blue-200"></i>
                             <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Fees & Finances</span>
@@ -862,15 +862,15 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="healthOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/health/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/health/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/health/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/health/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Health Dashboard</span>
                     </a>
-                    <a href="/health/records/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/health/records/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/health/records/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/health/records/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-file-medical w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Health Records</span>
                     </a>
-                    <a href="/health/counseling/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/health/counseling/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/health/counseling/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/health/counseling/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-comments w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Counseling</span>
                     </a>
@@ -897,15 +897,15 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="inventoryOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/inventory/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/inventory/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/inventory/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/inventory/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Inventory Dashboard</span>
                     </a>
-                    <a href="/inventory/items/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/inventory/items/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/inventory/items/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/inventory/items/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-box w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Items</span>
                     </a>
-                    <a href="/inventory/requests/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/inventory/requests/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/inventory/requests/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/inventory/requests/') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-hand-paper w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Requests</span>
                     </a>
@@ -932,27 +932,27 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="onlineLearningOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/online_learning/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/online_learning/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/online_learning/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/online_learning/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Learning Dashboard</span>
                     </a>
-                    <a href="/online_learning/virtual_classroom.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/virtual_classroom.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/online_learning/virtual_classroom.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/virtual_classroom.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-video w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Virtual Classroom</span>
                     </a>
-                    <a href="/online_learning/materials.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/materials.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/online_learning/materials.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/materials.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-folder-open w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Learning Materials</span>
                     </a>
-                    <a href="/online_learning/quizzes.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/quizzes.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/online_learning/quizzes.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/quizzes.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-question-circle w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Quizzes & Tests</span>
                     </a>
-                    <a href="/online_learning/submissions.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/submissions.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/online_learning/submissions.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/submissions.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-upload w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Submissions</span>
                     </a>
-                    <a href="/online_learning/discussions.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/discussions.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/online_learning/discussions.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/online_learning/discussions.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-comments w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Discussion Boards</span>
                     </a>
@@ -979,25 +979,25 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="documentOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/documents/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/documents/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/documents/index.php" class="flex items-center rounded-lg <?php echo $current_page === '/school_ms/documents/index.php' ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-tachometer-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Document Dashboard</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal', 'teacher'])): ?>
-                    <a href="/documents/upload.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/upload.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/documents/upload.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/upload.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-cloud-upload-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Upload Documents</span>
                     </a>
                     <?php endif; ?>
-                    <a href="/documents/certificates.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/certificates.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/documents/certificates.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/certificates.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-certificate w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Certificates & IDs</span>
                     </a>
-                    <a href="/documents/transcripts.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/transcripts.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/documents/transcripts.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/transcripts.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-scroll w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Transcripts</span>
                     </a>
-                    <a href="/documents/shared.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/shared.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/documents/shared.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/documents/shared.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-share-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Shared Files</span>
                     </a>
@@ -1024,20 +1024,20 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="communicationOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/notifications.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/notifications.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/notifications.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/notifications.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-bell w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Notifications</span>
                     </a>
-                    <a href="/communication/live_chat.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/communication/live_chat.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/communication/live_chat.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/communication/live_chat.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-comment-dots w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Live Chat</span>
                         <span class="bg-green-500 text-white text-xs rounded-full px-2 py-0.5 ml-auto" x-show="!$store.sidebar.collapsed" x-transition>New</span>
                     </a>
-                    <a href="/communication/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/communication/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/communication/index.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/communication/index.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-comments w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Messages</span>
                     </a>
-                    <a href="/communication/announcements.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/communication/announcements.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/communication/announcements.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/communication/announcements.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-bullhorn w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Announcements</span>
                     </a>
@@ -1063,26 +1063,26 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="helpOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <a href="/help.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/help.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/help.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/help.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-book-open w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Help Center</span>
                     </a>
-                    <a href="/support.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/support.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/support.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/support.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-headset w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Contact Support</span>
                     </a>
-                    <a href="/feedback.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/feedback.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/feedback.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/feedback.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-comment-alt w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Send Feedback</span>
                     </a>
 
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal'])): ?>
                     <div class="border-t border-white/20 pt-2 mt-2">
-                        <a href="/admin/feedback_management.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/feedback_management.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                        <a href="/school_ms/admin/feedback_management.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/feedback_management.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                             <i class="fas fa-comments-dollar w-4 text-blue-200"></i>
                             <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Manage Feedback</span>
                         </a>
-                        <a href="/admin/support_management.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/support_management.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                        <a href="/school_ms/admin/support_management.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/support_management.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                             <i class="fas fa-ticket-alt w-4 text-blue-200"></i>
                             <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Manage Support Tickets</span>
                         </a>
@@ -1109,39 +1109,39 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 </button>
 
                 <div x-show="settingsOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2" class="space-y-1" :class="$store.sidebar.collapsed ? 'ml-0 flex flex-col items-center' : 'ml-6'">
-                    <?php $my_profile_link = ($role === 'parent') ? '/parent/profile.php' : '/profile.php'; ?>
+                    <?php $my_profile_link = ($role === 'parent') ? '/school_ms/parent/profile.php' : '/school_ms/profile.php'; ?>
                     <a href="<?php echo $my_profile_link; ?>" class="flex items-center rounded-lg <?php echo $current_page === $my_profile_link ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-user-cog w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>My Profile</span>
                     </a>
                     <?php if (in_array($role, ['super_admin', 'school_admin'])): ?>
-                    <a href="/settings/school.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/settings/school.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/settings/school.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/settings/school.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-school w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>School Settings</span>
                     </a>
                     <?php endif; ?>
                     <?php if ($role === 'super_admin'): ?>
-                    <a href="/settings/super_admin.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/settings/super_admin.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/settings/super_admin.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/settings/super_admin.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-sliders-h w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Super Admin Control</span>
                     </a>
-                    <a href="/settings/module_access.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/settings/module_access.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/settings/module_access.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/settings/module_access.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-toggle-on w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Module Access Control</span>
                     </a>
                     <?php endif; ?>
                     <?php if (in_array($role, ['super_admin', 'school_admin', 'principal'])): ?>
-                    <a href="/admin/logs.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/logs.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/admin/logs.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/logs.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-clipboard-list w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Activity Logs</span>
                     </a>
                     <?php endif; ?>
                     <?php if (in_array($role, ['super_admin', 'school_admin'])): ?>
-                    <a href="/admin/password_reset.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/password_reset.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/admin/password_reset.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/password_reset.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-key w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Reset Password</span>
                     </a>
-                    <a href="/admin/reset_requests.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/reset_requests.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm relative" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/admin/reset_requests.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/reset_requests.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm relative" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <span class="relative">
                             <i class="fas fa-user-clock w-4 text-blue-200"></i>
                             <?php if ($pending_reset_requests > 0): ?>
@@ -1155,11 +1155,11 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                     </a>
                     <?php endif; ?>
                     <?php if ($role === 'super_admin'): ?>
-                    <a href="/admin/security.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/security.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/admin/security.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/security.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-shield-halved w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Security Center</span>
                     </a>
-                    <a href="/admin/backup.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/backup.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
+                    <a href="/school_ms/admin/backup.php" class="flex items-center rounded-lg <?php echo strpos($current_page, '/admin/backup.php') !== false ? 'bg-white/20' : 'hover:bg-white/10'; ?> transition-all duration-200 text-sm" :class="$store.sidebar.collapsed ? 'justify-center px-0 py-2 w-10' : 'space-x-3 px-4 py-2'">
                         <i class="fas fa-database w-4 text-blue-200"></i>
                         <span class="text-white" x-show="!$store.sidebar.collapsed" x-transition>Backup &amp; Restore</span>
                     </a>

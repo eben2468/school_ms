@@ -1,7 +1,7 @@
 <?php
 // System Control enforcement (maintenance mode, session timeout, scheduled
 // backups). Runs before any output so it can redirect / show 503 cleanly.
-require_once dirname(__DIR__) . '/includes/system_guard.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/system_guard.php';
 ?><!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -12,12 +12,12 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     <meta http-equiv="Expires" content="0">
     <?php
     // Expose a CSRF token for forms and AJAX (see footer.php auto-attach script).
-    require_once dirname(__DIR__) . '/includes/csrf.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/csrf.php';
     ?>
     <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES); ?>">
     <?php
     // Include settings helper
-    require_once dirname(__DIR__) . '/includes/settings_helper.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
     $school_name = getSchoolSetting('school_name', 'School Management System');
     ?>
     <title><?php
@@ -69,16 +69,16 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="/assets/css/app.css" rel="stylesheet">
-    <link href="/assets/css/dynamic-theme.php" rel="stylesheet">
-    <link href="/assets/css/responsive.css" rel="stylesheet">
+    <link href="/school_ms/assets/css/app.css" rel="stylesheet">
+    <link href="/school_ms/assets/css/dynamic-theme.php" rel="stylesheet">
+    <link href="/school_ms/assets/css/responsive.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
-    <script src="/assets/js/image-cropper.js" defer></script>
+    <script src="/school_ms/assets/js/image-cropper.js" defer></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="/assets/js/app.js" defer></script>
-    <script src="/assets/js/export-utils.js"></script>
+    <script src="/school_ms/assets/js/app.js" defer></script>
+    <script src="/school_ms/assets/js/export-utils.js"></script>
     <style>
         <?php echo getThemeCSSVariables(); ?>
 
@@ -238,7 +238,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                     </button>
 
                     <!-- Logo and Brand -->
-                    <a href="<?php echo (($_SESSION['role'] ?? '') === 'parent') ? '/parent/dashboard.php' : '/dashboard.php'; ?>" class="flex items-center space-x-3 group">
+                    <a href="<?php echo (($_SESSION['role'] ?? '') === 'parent') ? '/school_ms/parent/dashboard.php' : '/school_ms/dashboard.php'; ?>" class="flex items-center space-x-3 group">
                         <div class="relative">
                             <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors duration-200 overflow-hidden">
                                 <?php 
@@ -262,7 +262,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                 <div class="header-center-section flex items-center space-x-6 text-center">
                     <!-- Academic Context -->
                     <?php
-                    require_once dirname(__DIR__) . '/config/database.php';
+                    require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/database.php';
                     $database = new Database();
                     $academic_context = $database->getCurrentAcademicContext();
                     ?>
@@ -309,13 +309,13 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                                 <i class="fas fa-plus text-lg"></i>
                             </button>
                             <div class="dropdown-content bg-white dark:bg-gray-800 shadow-xl rounded-xl mt-2 py-2 text-gray-800 dark:text-gray-200 w-56">
-                                <a href="/students/enroll.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                <a href="/school_ms/students/enroll.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <i class="fas fa-user-plus mr-3 w-4 text-blue-500"></i> Add Student
                                 </a>
-                                <a href="/academic/classes/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                <a href="/school_ms/academic/classes/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <i class="fas fa-chalkboard mr-3 w-4 text-purple-500"></i> Create Class
                                 </a>
-                                <a href="/academic/assignments/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                                <a href="/school_ms/academic/assignments/create.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                     <i class="fas fa-tasks mr-3 w-4 text-orange-500"></i> Create Assignment
                                 </a>
                             </div>
@@ -343,7 +343,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                                 </div>
                             </div>
                             <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
-                                <a href="/chat/admin_dashboard.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View Chat Dashboard</a>
+                                <a href="/school_ms/chat/admin_dashboard.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View Chat Dashboard</a>
                             </div>
                         </div>
                     </div>
@@ -373,7 +373,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                                 </div>
                             </div>
                             <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                                <a href="/notifications.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View all notifications</a>
+                                <a href="/school_ms/notifications.php" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View all notifications</a>
                                 <div class="flex space-x-2">
                                     <button id="refreshNotifications" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="Refresh">
                                         <i class="fas fa-sync-alt"></i>
@@ -388,7 +388,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                         <button class="flex items-center space-x-3 p-2 rounded-lg hover:bg-white/10 transition-colors duration-200">
                             <div class="w-8 h-8 rounded-full overflow-hidden border-2 border-white/30">
                                 <?php if (isset($_SESSION['profile_picture']) && !empty($_SESSION['profile_picture'])): ?>
-                                    <img src="/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>"
+                                    <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>"
                                          alt="Profile Picture"
                                          class="w-full h-full object-cover">
                                 <?php else: ?>
@@ -408,19 +408,19 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                                 <p class="font-medium"><?php echo isset($_SESSION['user_name']) ? htmlspecialchars($_SESSION['user_name']) : 'Guest'; ?></p>
                                 <p class="text-sm text-gray-500 dark:text-gray-400"><?php echo isset($_SESSION['email']) ? htmlspecialchars($_SESSION['email']) : ''; ?></p>
                             </div>
-                            <a href="/profile.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <a href="/school_ms/profile.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                 <i class="fas fa-user-circle mr-3 w-4"></i> My Profile
                             </a>
                             <?php if (isset($_SESSION['role']) && in_array($_SESSION['role'], ['super_admin', 'school_admin'], true)): ?>
-                            <a href="/settings/school.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <a href="/school_ms/settings/school.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                 <i class="fas fa-cog mr-3 w-4"></i> Settings
                             </a>
                             <?php endif; ?>
-                            <a href="/help.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <a href="/school_ms/help.php" class="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                 <i class="fas fa-question-circle mr-3 w-4"></i> Help & Support
                             </a>
                             <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                            <a href="/auth/logout.php" class="flex items-center px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors duration-200">
+                            <a href="/school_ms/auth/logout.php" class="flex items-center px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors duration-200">
                                 <i class="fas fa-sign-out-alt mr-3 w-4"></i> Sign Out
                             </a>
                         </div>
@@ -444,7 +444,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                     <span class="hidden sm:inline opacity-80">— acting as <?php echo htmlspecialchars($_SESSION['user_name'] ?? ''); ?></span>
                 </span>
             </div>
-            <form method="POST" action="/settings/exit_impersonation.php" class="inline">
+            <form method="POST" action="/school_ms/settings/exit_impersonation.php" class="inline">
                 <button type="submit"
                         class="bg-amber-950 text-amber-50 hover:bg-black hover:text-white font-bold px-4 py-1.5 rounded-lg text-xs transition-colors duration-150 flex items-center">
                     <i class="fas fa-arrow-left-from-bracket mr-1.5"></i> Exit to Super Admin
@@ -498,15 +498,15 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                     <!-- Default Quick Actions -->
                     <div x-show="!$store.search.loading && $store.search.query.length < 2" class="space-y-2">
                         <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Quick Actions</div>
-                        <a href="/students/enroll.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
+                        <a href="/school_ms/students/enroll.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
                             <i class="fas fa-user-plus text-blue-500 mr-3"></i>
                             <span class="text-gray-900 dark:text-gray-100">Add New Student</span>
                         </a>
-                        <a href="/academic/classes/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
+                        <a href="/school_ms/academic/classes/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
                             <i class="fas fa-plus-circle text-green-500 mr-3"></i>
                             <span class="text-gray-900 dark:text-gray-100">Create New Class</span>
                         </a>
-                        <a href="/academic/assignments/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
+                        <a href="/school_ms/academic/assignments/create.php" class="flex items-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" @click="$store.search.close()">
                             <i class="fas fa-tasks text-purple-500 mr-3"></i>
                             <span class="text-gray-900 dark:text-gray-100">Create Assignment</span>
                         </a>
@@ -622,7 +622,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
 
                     this.loading = true;
                     try {
-                        const response = await fetch('/api/search.php', {
+                        const response = await fetch('/school_ms/api/search.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -829,7 +829,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
         // Chat notification system for support agents
         function loadChatNotifications() {
             <?php if (in_array($_SESSION['role'], ['super_admin', 'school_admin', 'principal'])): ?>
-            fetch('/chat/get_agent_notifications.php')
+            fetch('/school_ms/chat/get_agent_notifications.php')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -855,7 +855,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
 
                         if (notifications.unassigned_count > 0) {
                             html += `
-                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-red-500 cursor-pointer" onclick="window.location.href='/chat/admin_dashboard.php'">
+                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-red-500 cursor-pointer" onclick="window.location.href='/school_ms/chat/admin_dashboard.php'">
                                     <div class="flex items-start space-x-3">
                                         <div class="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
                                             <i class="fas fa-exclamation text-red-600 dark:text-red-400 text-xs"></i>
@@ -871,7 +871,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
 
                         if (notifications.my_unread_count > 0) {
                             html += `
-                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-blue-500 cursor-pointer" onclick="window.location.href='/help.php'">
+                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-blue-500 cursor-pointer" onclick="window.location.href='/school_ms/help.php'">
                                     <div class="flex items-start space-x-3">
                                         <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                                             <i class="fas fa-message text-blue-600 dark:text-blue-400 text-xs"></i>
@@ -887,7 +887,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
 
                         if (notifications.urgent_count > 0) {
                             html += `
-                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-orange-500 cursor-pointer" onclick="window.location.href='/chat/admin_dashboard.php?filter=urgent'">
+                                <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-l-4 border-orange-500 cursor-pointer" onclick="window.location.href='/school_ms/chat/admin_dashboard.php?filter=urgent'">
                                     <div class="flex items-start space-x-3">
                                         <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
                                             <i class="fas fa-fire text-orange-600 dark:text-orange-400 text-xs"></i>
@@ -936,7 +936,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
                     <p class="text-sm font-semibold truncate">${title || 'New Notification'}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">${message || ''}</p>
                 </div>`;
-            toast.addEventListener('click', () => { window.location.href = '/notifications.php'; });
+            toast.addEventListener('click', () => { window.location.href = '/school_ms/notifications.php'; });
             container.appendChild(toast);
             requestAnimationFrame(() => toast.classList.remove('translate-x-full', 'opacity-0'));
             setTimeout(() => {
@@ -947,7 +947,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
 
         // Real-time notification system
         function loadNotifications() {
-            fetch('/communication/notifications/get_notifications.php?limit=5&unread_only=false')
+            fetch('/school_ms/communication/notifications/get_notifications.php?limit=5&unread_only=false')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -1038,7 +1038,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
         }
 
         function markNotificationAsRead(notificationId) {
-            fetch('/communication/notifications/mark_read.php', {
+            fetch('/school_ms/communication/notifications/mark_read.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1062,7 +1062,7 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
         }
 
         function markAllNotificationsAsRead() {
-            fetch('/communication/notifications/mark_all_read.php', {
+            fetch('/school_ms/communication/notifications/mark_all_read.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1091,9 +1091,9 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
             // This would typically search via API
             // For now, we'll simulate with static data
             const searchResults = [
-                { type: 'student', name: 'John Doe', class: 'Grade 5A', url: '/students/profile.php?id=1' },
-                { type: 'teacher', name: 'Jane Smith', subject: 'Mathematics', url: '/teachers/profile.php?id=1' },
-                { type: 'class', name: 'Grade 5A', students: 25, url: '/academic/classes/view.php?id=1' }
+                { type: 'student', name: 'John Doe', class: 'Grade 5A', url: '/school_ms/students/profile.php?id=1' },
+                { type: 'teacher', name: 'Jane Smith', subject: 'Mathematics', url: '/school_ms/teachers/profile.php?id=1' },
+                { type: 'class', name: 'Grade 5A', students: 25, url: '/school_ms/academic/classes/view.php?id=1' }
             ];
 
             return searchResults.filter(item =>
@@ -1178,6 +1178,6 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     </script>
 
     <!-- Emergency Sidebar Toggle Fix -->
-    <script src="/fix_sidebar_toggle.js"></script>
+    <script src="/school_ms/fix_sidebar_toggle.js"></script>
 
     <main>
