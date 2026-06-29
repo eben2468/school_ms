@@ -51,6 +51,29 @@ if (!function_exists('listViews')) {
     }
 }
 
+if (!function_exists('tableColumnDefs')) {
+    /**
+     * Map column-name => definition (type + attributes) for a table, parsed from
+     * SHOW CREATE TABLE. Key/constraint lines are skipped and AUTO_INCREMENT is
+     * stripped so a definition can be re-used in ALTER TABLE ... ADD COLUMN.
+     */
+    function tableColumnDefs(PDO $conn, $table) {
+        $defs = [];
+        try {
+            $row = $conn->query("SHOW CREATE TABLE `" . str_replace('`', '', $table) . "`")->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return $defs;
+        }
+        foreach (explode("\n", $row['Create Table'] ?? '') as $line) {
+            $line = trim($line);
+            if (preg_match('/^`([^`]+)`\s+(.+?),?$/', $line, $m)) {
+                $defs[$m[1]] = preg_replace('/\s+AUTO_INCREMENT\b/i', '', rtrim($m[2], ','));
+            }
+        }
+        return $defs;
+    }
+}
+
 if (!function_exists('replicateCentralSchemaToTenant')) {
     /**
      * Create any central base tables missing from the tenant.
@@ -98,6 +121,26 @@ if (!function_exists('replicateCentralSchemaToTenant')) {
                     error_log("replicateCentralSchemaToTenant: failed creating '{$table}': " . $e->getMessage());
                 }
             }
+            // Add columns that exist in central but are missing from the tenant's
+            // already-present tables (older tenant tables lag behind newer columns,
+            // e.g. teacher_profiles.department_id). Additive only — never drops/modifies.
+            foreach ($centralTables as $table) {
+                if (in_array($table, $exclude, true)) { continue; }
+                $safeT = str_replace('`', '', $table);
+                $cDefs = tableColumnDefs($central, $table);
+                $tDefs = tableColumnDefs($tenant, $table);
+                if (empty($tDefs)) { continue; }
+                foreach ($cDefs as $col => $def) {
+                    if (isset($tDefs[$col])) { continue; }
+                    try {
+                        $tenant->exec("ALTER TABLE `$safeT` ADD COLUMN `" . str_replace('`', '', $col) . "` $def");
+                        $created[] = "$table.$col (column)";
+                    } catch (PDOException $e) {
+                        error_log("replicateCentralSchemaToTenant: add column {$table}.{$col} failed: " . $e->getMessage());
+                    }
+                }
+            }
+
             // Replicate VIEWs too (e.g. the `students` view). Views depend on base tables,
             // so create them after the tables above. CREATE OR REPLACE is idempotent and
             // DEFINER is stripped so the view works under any database account.
