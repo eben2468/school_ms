@@ -1,8 +1,8 @@
 <?php
 // Include settings helper
-require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
+require_once dirname(__DIR__) . '/includes/settings_helper.php';
 // Application version (single source of truth)
-require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/version.php';
+require_once dirname(__DIR__) . '/config/version.php';
 
 $current_year = date('Y');
 $role = $_SESSION['role'] ?? '';

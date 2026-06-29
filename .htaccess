@@ -2,6 +2,23 @@
 # Security hardening for School Management System
 # --------------------------------------------------------------------------
 
+# --------------------------------------------------------------------------
+# Folder-name independence
+# --------------------------------------------------------------------------
+# The app's internal links are absolute and begin with /school_ms/. When the
+# app is deployed under a DIFFERENT folder name (or directly at the domain
+# root), there is no physical "school_ms" folder, so those links would 404.
+# This rule strips the /school_ms/ prefix ONLY when the requested path does not
+# exist as a real file/folder here -- which is exactly the situation on such a
+# host. Locally, where the app really lives in a school_ms/ folder, the files
+# DO exist, so the rule never fires and behaviour is unchanged.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^school_ms/(.*)$ $1 [L,QSA]
+</IfModule>
+
 # Block direct web access to developer / setup / migration / debug scripts.
 # These are maintenance tools and must not be reachable over HTTP in production.
 # (Patterns are chosen to avoid matching legitimate app files such as

@@ -1,12 +1,12 @@
 <?php
 // Include settings helper
-require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/settings_helper.php';
+require_once dirname(__DIR__) . '/includes/settings_helper.php';
 // Include module access control (per-school subscription gating)
-require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/module_access.php';
+require_once dirname(__DIR__) . '/includes/module_access.php';
 // Include role-based access control (canonical role -> module matrix)
-require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/includes/access_control.php';
+require_once dirname(__DIR__) . '/includes/access_control.php';
 // Application version (single source of truth)
-require_once $_SERVER['DOCUMENT_ROOT'] . '/school_ms/config/version.php';
+require_once dirname(__DIR__) . '/config/version.php';
 
 $role = isset($_SESSION['role']) ? $_SESSION['role'] : '';
 $current_page = $_SERVER['PHP_SELF'];
