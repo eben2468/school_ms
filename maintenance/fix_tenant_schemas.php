@@ -40,6 +40,37 @@ out("== Maintenance: schema + collation reconciliation ==");
 out("Standard collation: " . DB_STANDARD_COLLATION);
 out("");
 
+// ---- 0. Ensure the CENTRAL DB has every application table ----
+// Large central imports often time out in phpMyAdmin, leaving tables missing,
+// which then propagates to every tenant. Apply the bundled structure file
+// (CREATE TABLE IF NOT EXISTS, no data) server-side so central is complete
+// before we replicate it to the tenants.
+$structFile = __DIR__ . '/../deploy/database/central_tables_structure.sql';
+if (is_file($structFile)) {
+    $raw = preg_replace('/--[^\n]*\n/', "\n", file_get_contents($structFile));
+    $stmts = array_filter(array_map('trim', explode(';', $raw)));
+    $okCount = 0; $errCount = 0;
+    $central->exec("SET FOREIGN_KEY_CHECKS = 0");
+    foreach ($stmts as $st) {
+        if ($st === '' || stripos($st, 'SET ') === 0) { continue; }
+        try { $central->exec($st); $okCount++; }
+        catch (PDOException $e) {
+            $code = (int)($e->errorInfo[1] ?? 0);
+            if (in_array($code, [1050,1060,1061,1062,1091,1005,1022,1068], true)) { $okCount++; }
+            else { $errCount++; out("  structure WARN: " . $e->getMessage()); }
+        }
+    }
+    $central->exec("SET FOREIGN_KEY_CHECKS = 1");
+    out("[central] structure file applied: {$okCount} ok, {$errCount} errors");
+} else {
+    out("[central] NOTE: structure file NOT FOUND at deploy/database/central_tables_structure.sql");
+    out("          Upload that file to the server (same path) so missing central tables can be added.");
+}
+$hasStaff = (int)$central->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'staff_departments'")->fetchColumn();
+$tblCount = (int)$central->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()")->fetchColumn();
+out("[central] total tables now: {$tblCount} | staff_departments present: " . ($hasStaff ? 'YES' : 'NO'));
+out("");
+
 // ---- 1. Central directory: collation only (it is the replication source) ----
 out("[central] {" . DB_NAME . "}");
 $conv = normalizeDatabaseCollation($central);
