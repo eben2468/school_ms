@@ -523,17 +523,21 @@ if (!function_exists('getNadicsConfig')) {
             require_once __DIR__ . '/../config/database.php';
             $database = new Database();
             $db = $database->getConnection();
-            $stmt = $db->query("SELECT * FROM school_settings LIMIT 1");
-            $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
-            if ($row) {
-                foreach (['ai_provider', 'ai_api_key', 'ai_model', 'school_name',
-                          'nadics_enabled', 'nadics_name', 'nadics_persona'] as $k) {
-                    if (isset($row[$k]) && $row[$k] !== '') {
-                        $config[$k] = $row[$k];
+            // getConnection() returns null on failure — guard so we never call a
+            // method on null (which would be a fatal Error, not a PDOException).
+            if ($db) {
+                $stmt = $db->query("SELECT * FROM school_settings LIMIT 1");
+                $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+                if ($row) {
+                    foreach (['ai_provider', 'ai_api_key', 'ai_model', 'school_name',
+                              'nadics_enabled', 'nadics_name', 'nadics_persona'] as $k) {
+                        if (isset($row[$k]) && $row[$k] !== '') {
+                            $config[$k] = $row[$k];
+                        }
                     }
                 }
             }
-        } catch (PDOException $e) {
+        } catch (\Throwable $e) {
             error_log("Nadics AI config read failed: " . $e->getMessage());
         }
 

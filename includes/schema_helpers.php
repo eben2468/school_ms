@@ -155,6 +155,162 @@ if (!function_exists('ensureChatTables')) {
     }
 }
 
+if (!function_exists('ensureLiveChatTables')) {
+    /**
+     * Provision the live-chat module tables (live_chat_*) in any DB that predates
+     * the module. Mirrors communication/setup_live_chat_db.php. Cheap fast-path:
+     * returns immediately when live_chat_rooms already exists. Tables are created
+     * in FK-dependency order; each runs independently so one failure doesn't abort
+     * the rest. Uses the standardized utf8mb4_general_ci collation (FKs here are on
+     * INT columns, so collation differences don't affect them).
+     */
+    function ensureLiveChatTables($db) {
+        // Fast-path only when ALL tables are present — a partial set (e.g. rooms
+        // exists but live_chat_user_status is missing) must still be healed.
+        try {
+            $cnt = (int)$db->query(
+                "SELECT COUNT(*) FROM information_schema.tables
+                 WHERE table_schema = DATABASE() AND table_name IN (
+                   'live_chat_rooms','live_chat_participants','live_chat_messages',
+                   'live_chat_user_status','live_chat_message_reactions',
+                   'live_chat_message_reads','live_chat_blocked_users','live_chat_reports')"
+            )->fetchColumn();
+            if ($cnt >= 8) {
+                return; // fully provisioned
+            }
+        } catch (PDOException $e) {
+            // fall through and attempt creation
+        }
+
+        $statements = [
+            "CREATE TABLE IF NOT EXISTS live_chat_rooms (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                room_type ENUM('public','private','class','department','admin_only') DEFAULT 'public',
+                created_by INT NOT NULL,
+                max_participants INT DEFAULT 100,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_room_type (room_type), INDEX idx_is_active (is_active), INDEX idx_created_at (created_at),
+                CONSTRAINT live_chat_rooms_ibfk_1 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_participants (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                room_id INT NOT NULL,
+                user_id INT NOT NULL,
+                role ENUM('member','moderator','admin') DEFAULT 'member',
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                is_muted BOOLEAN DEFAULT FALSE,
+                is_banned BOOLEAN DEFAULT FALSE,
+                UNIQUE KEY unique_room_user (room_id, user_id),
+                INDEX idx_room_id (room_id), INDEX idx_user_id (user_id), INDEX idx_role (role), INDEX idx_last_seen (last_seen),
+                CONSTRAINT live_chat_participants_ibfk_1 FOREIGN KEY (room_id) REFERENCES live_chat_rooms(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_participants_ibfk_2 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                room_id INT NOT NULL,
+                sender_id INT NOT NULL,
+                message TEXT NOT NULL,
+                message_type ENUM('text','file','image','system','announcement') DEFAULT 'text',
+                file_path VARCHAR(500) NULL, file_name VARCHAR(255) NULL, file_size INT NULL,
+                reply_to_message_id INT NULL,
+                is_edited BOOLEAN DEFAULT FALSE, edited_at TIMESTAMP NULL,
+                is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_room_created (room_id, created_at), INDEX idx_sender_id (sender_id),
+                INDEX idx_message_type (message_type), INDEX idx_reply_to (reply_to_message_id), INDEX idx_is_deleted (is_deleted),
+                CONSTRAINT live_chat_messages_ibfk_1 FOREIGN KEY (room_id) REFERENCES live_chat_rooms(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_messages_ibfk_2 FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_messages_ibfk_3 FOREIGN KEY (reply_to_message_id) REFERENCES live_chat_messages(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_user_status (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                room_id INT NULL,
+                status ENUM('online','away','busy','offline') DEFAULT 'offline',
+                is_typing BOOLEAN DEFAULT FALSE,
+                typing_in_room_id INT NULL,
+                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                custom_status VARCHAR(100) NULL,
+                UNIQUE KEY unique_user_room (user_id, room_id),
+                INDEX idx_user_id (user_id), INDEX idx_status (status), INDEX idx_last_activity (last_activity), INDEX idx_typing (is_typing, typing_in_room_id),
+                CONSTRAINT live_chat_user_status_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_user_status_ibfk_2 FOREIGN KEY (room_id) REFERENCES live_chat_rooms(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_user_status_ibfk_3 FOREIGN KEY (typing_in_room_id) REFERENCES live_chat_rooms(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_message_reactions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                message_id INT NOT NULL,
+                user_id INT NOT NULL,
+                reaction_emoji VARCHAR(10) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_message_user_reaction (message_id, user_id, reaction_emoji),
+                INDEX idx_message_id (message_id), INDEX idx_user_id (user_id),
+                CONSTRAINT live_chat_reactions_ibfk_1 FOREIGN KEY (message_id) REFERENCES live_chat_messages(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_reactions_ibfk_2 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_message_reads (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                message_id INT NOT NULL,
+                user_id INT NOT NULL,
+                read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_message_user (message_id, user_id),
+                INDEX idx_message_id (message_id), INDEX idx_user_id (user_id), INDEX idx_read_at (read_at),
+                CONSTRAINT live_chat_reads_ibfk_1 FOREIGN KEY (message_id) REFERENCES live_chat_messages(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_reads_ibfk_2 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_blocked_users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                blocker_id INT NOT NULL,
+                blocked_id INT NOT NULL,
+                reason VARCHAR(255) NULL,
+                blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_blocker_blocked (blocker_id, blocked_id),
+                INDEX idx_blocker_id (blocker_id), INDEX idx_blocked_id (blocked_id),
+                CONSTRAINT live_chat_blocked_ibfk_1 FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_blocked_ibfk_2 FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+
+            "CREATE TABLE IF NOT EXISTS live_chat_reports (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                reporter_id INT NOT NULL,
+                reported_user_id INT NULL,
+                message_id INT NULL,
+                room_id INT NOT NULL,
+                report_type ENUM('spam','harassment','inappropriate_content','other') NOT NULL,
+                description TEXT NOT NULL,
+                status ENUM('pending','reviewed','resolved','dismissed') DEFAULT 'pending',
+                reviewed_by INT NULL, reviewed_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_reporter_id (reporter_id), INDEX idx_reported_user_id (reported_user_id), INDEX idx_status (status), INDEX idx_created_at (created_at),
+                CONSTRAINT live_chat_reports_ibfk_1 FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_reports_ibfk_2 FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_reports_ibfk_3 FOREIGN KEY (message_id) REFERENCES live_chat_messages(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_reports_ibfk_4 FOREIGN KEY (room_id) REFERENCES live_chat_rooms(id) ON DELETE CASCADE,
+                CONSTRAINT live_chat_reports_ibfk_5 FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+        ];
+
+        foreach ($statements as $sql) {
+            try {
+                $db->exec($sql);
+            } catch (PDOException $e) {
+                error_log("ensureLiveChatTables failed: " . $e->getMessage());
+            }
+        }
+    }
+}
+
 if (!function_exists('ensureNadicsAiTable')) {
     /**
      * Provision the Nadics AI interaction log table. Cheap fast-path: returns

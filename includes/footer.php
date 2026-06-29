@@ -427,7 +427,16 @@ foreach ($social_meta as $key => $meta) {
 <?php
 // Nadics AI — floating assistant available to every signed-in user. Renders
 // nothing when no user is logged in or when disabled in Settings > AI Assistant.
-require_once __DIR__ . '/nadics_ai_widget.php';
+// Guarded so a missing file (e.g. a partial upload) or a render-time error can
+// never take down the page it is embedded on — it just omits the widget.
+$__nadicsWidget = __DIR__ . '/nadics_ai_widget.php';
+if (is_file($__nadicsWidget)) {
+    try {
+        require_once $__nadicsWidget;
+    } catch (\Throwable $__nadicsErr) {
+        error_log('Nadics AI widget render failed: ' . $__nadicsErr->getMessage());
+    }
+}
 ?>
 </body>
 </html>

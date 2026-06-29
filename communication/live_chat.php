@@ -96,7 +96,8 @@ require_once '../config/database.php';
 require_once '../includes/schema_helpers.php';
 $database = new Database();
 $db = $database->getConnection();
-ensureChatTables($db); // heal tenants that predate the chat module
+ensureChatTables($db);     // heal tenants that predate the support-chat module
+ensureLiveChatTables($db); // heal tenants missing the live_chat_* tables
 
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
@@ -152,9 +153,15 @@ $online_users_query = "
     ORDER BY u.name
 ";
 
-$online_stmt = $db->prepare($online_users_query);
-$online_stmt->execute();
-$online_users = $online_stmt->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $online_stmt = $db->prepare($online_users_query);
+    $online_stmt->execute();
+    $online_users = $online_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Never let a missing/empty status table take down the whole page.
+    error_log('live_chat online users query failed: ' . $e->getMessage());
+    $online_users = [];
+}
 
 $title = "Live Chat";
 $breadcrumbs = [
