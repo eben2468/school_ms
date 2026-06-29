@@ -72,6 +72,15 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     <link href="/school_ms/assets/css/app.css" rel="stylesheet">
     <link href="/school_ms/assets/css/dynamic-theme.php" rel="stylesheet">
     <link href="/school_ms/assets/css/responsive.css" rel="stylesheet">
+    <!-- Layout offset fallback: guarantees content clears the fixed sidebar on
+         desktop even if the layout JavaScript is slow or blocked (e.g. on some
+         hosts). Harmless when the JS runs (it overrides this). -->
+    <style>
+      @media (min-width: 1024px) {
+        .sidebar-spacer { flex: 0 0 18rem; width: 18rem; }
+        .sidebar-spacer.collapsed { flex: 0 0 4rem; width: 4rem; }
+      }
+    </style>
     <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
     <script src="/school_ms/assets/js/image-cropper.js" defer></script>
