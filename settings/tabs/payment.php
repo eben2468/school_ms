@@ -114,8 +114,9 @@
                         </label>
                         <input type="text" id="payment_api_key" name="payment_api_key"
                             value="<?php echo htmlspecialchars($settings['payment_api_key'] ?? ''); ?>"
-                            placeholder="Enter your payment gateway public key"
+                            placeholder="pk_test_… or pk_live_…"
                             class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">For Paystack this is the <strong>Public Key</strong> — it starts with <code>pk_</code>.</p>
                     </div>
 
                     <div>
@@ -124,9 +125,12 @@
                         </label>
                         <input type="password" id="payment_api_secret" name="payment_api_secret"
                             value="<?php echo htmlspecialchars($settings['payment_api_secret'] ?? ''); ?>"
-                            placeholder="Enter your payment gateway secret key"
+                            placeholder="sk_test_… or sk_live_…"
                             class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Keep this secure and never share it publicly</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">For Paystack this is the <strong>Secret Key</strong> — it starts with <code>sk_</code>. Keep it private and never share it.</p>
+                        <p id="paystack_key_warning" class="text-xs text-red-600 dark:text-red-400 mt-1 hidden">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>This looks like a Public key (pk_). The Secret Key must start with <code>sk_</code>.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -237,4 +241,21 @@ document.addEventListener('DOMContentLoaded', function() {
         credentialsDiv.style.display = 'none';
     }
 });
+
+// Warn if the Secret Key field contains a Public (pk_) key for Paystack.
+(function () {
+    const secret = document.getElementById('payment_api_secret');
+    const warn = document.getElementById('paystack_key_warning');
+    const gatewaySel = document.getElementById('payment_gateway');
+    if (!secret || !warn) return;
+    function checkSecret() {
+        const v = (secret.value || '').trim().toLowerCase();
+        const isPaystack = (gatewaySel.value === 'paystack');
+        warn.classList.toggle('hidden', !(isPaystack && v.indexOf('pk_') === 0));
+    }
+    secret.addEventListener('input', checkSecret);
+    gatewaySel.addEventListener('change', checkSecret);
+    document.addEventListener('DOMContentLoaded', checkSecret);
+    checkSecret();
+})();
 </script>

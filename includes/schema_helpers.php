@@ -89,16 +89,19 @@ if (!function_exists('ensureAssignmentColumns')) {
 
 if (!function_exists('ensureChatTables')) {
     /**
-     * Provision the live-chat tables (chat_conversations, chat_messages,
-     * chat_typing) in a tenant DB that predates the chat module. Cheap
-     * fast-path: returns immediately if chat_conversations already exists.
-     * Schema mirrors the central DB.
+     * Provision the support-chat tables (chat_conversations, chat_messages,
+     * chat_typing) in a tenant DB that predates the chat module. Schema mirrors
+     * the central DB. Fast-path only skips when ALL three tables exist, so a
+     * partial schema (e.g. chat_conversations present but chat_typing missing)
+     * is still healed rather than silently left broken.
      */
     function ensureChatTables($db) {
         try {
-            $chk = $db->query("SHOW TABLES LIKE 'chat_conversations'");
-            if ($chk && $chk->rowCount() > 0) {
-                return; // already provisioned
+            $cnt = (int)$db->query("SELECT COUNT(*) FROM information_schema.tables
+                                    WHERE table_schema = DATABASE() AND table_name IN
+                                    ('chat_conversations','chat_messages','chat_typing')")->fetchColumn();
+            if ($cnt >= 3) {
+                return; // fully provisioned
             }
         } catch (PDOException $e) {
             // fall through and attempt creation
@@ -358,10 +361,30 @@ if (!function_exists('ensureFinanceTables')) {
      * runs independently so one failure doesn't abort the rest.
      */
     function ensureFinanceTables($db) {
+        // Heal commonly-missing computed columns on an existing finance_invoices
+        // (cheap, idempotent) so dashboards that reference them never 500.
         try {
-            $chk = $db->query("SHOW TABLES LIKE 'finance_invoices'");
-            if ($chk && $chk->rowCount() > 0) {
-                return; // already provisioned
+            $hasInv = $db->query("SHOW TABLES LIKE 'finance_invoices'");
+            if ($hasInv && $hasInv->rowCount() > 0) {
+                ensureColumns($db, 'finance_invoices', [
+                    'amount_paid'     => "DECIMAL(10,2) NOT NULL DEFAULT '0.00'",
+                    'discount_amount' => "DECIMAL(10,2) NOT NULL DEFAULT '0.00'",
+                    'penalty_amount'  => "DECIMAL(10,2) NOT NULL DEFAULT '0.00'",
+                ]);
+            }
+        } catch (PDOException $e) {
+            // ignore — table check / column add is best-effort
+        }
+
+        // Fast-path: skip the CREATE statements only when ALL finance tables are
+        // present. A partial schema (e.g. finance_invoices exists but
+        // finance_payments is missing) must still be healed — the previous
+        // "finance_invoices exists" check let partial schemas through and 500ed.
+        try {
+            $cnt = (int)$db->query("SELECT COUNT(*) FROM information_schema.tables
+                                    WHERE table_schema = DATABASE() AND table_name LIKE 'finance\_%'")->fetchColumn();
+            if ($cnt >= 14) {
+                return; // fully provisioned
             }
         } catch (PDOException $e) {
             // fall through and attempt creation

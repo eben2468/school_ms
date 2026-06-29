@@ -7,9 +7,13 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['student', 'pa
 
 require_once '../config/database.php';
 require_once 'includes/finance_functions.php';
+require_once '../includes/paystack_helper.php';
 
 $database = new Database();
 $db = $database->getConnection();
+
+// Online "Pay" buttons appear only when Paystack is the active gateway.
+$paystack_enabled = isPaystackEnabled();
 
 $user_role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
@@ -62,6 +66,23 @@ if (!$student) {
 
 // Fetch invoices, payments, penalties, and discounts to build a comprehensive timeline ledger
 $invoices = getStudentInvoices($target_student_id, $db);
+
+// Outstanding invoices (with a positive balance) for online payment.
+$outstanding_invoices = [];
+if ($paystack_enabled) {
+    try {
+        $oi = $db->prepare("SELECT id, invoice_number,
+                                   (total_amount + penalty_amount - discount_amount - amount_paid) AS balance
+                            FROM finance_invoices
+                            WHERE student_id = :sid AND status != 'cancelled'
+                            HAVING balance > 0
+                            ORDER BY due_date ASC");
+        $oi->execute([':sid' => $target_student_id]);
+        $outstanding_invoices = $oi->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $outstanding_invoices = [];
+    }
+}
 
 // Construct timeline ledger entries
 $ledger = [];
@@ -250,6 +271,34 @@ include '../includes/sidebar.php';
                     </div>
                 </div>
 
+                <!-- Pay Online (Paystack) -->
+                <?php if ($paystack_enabled && !empty($outstanding_invoices)): ?>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-green-200 dark:border-green-800 overflow-hidden mb-8">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+                        <i class="fas fa-credit-card text-green-600 dark:text-green-400 mr-2 text-xl"></i>
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Pay Fees Online</h2>
+                    </div>
+                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                        <?php foreach ($outstanding_invoices as $oinv): ?>
+                        <div class="px-6 py-4 flex items-center justify-between gap-4">
+                            <div>
+                                <p class="font-semibold text-gray-900 dark:text-white">Invoice #<?php echo htmlspecialchars($oinv['invoice_number']); ?></p>
+                                <p class="text-sm text-rose-500">Balance: <?php echo formatFinanceCurrency($oinv['balance'], $db); ?></p>
+                            </div>
+                            <button type="button"
+                                onclick="openPaystackPayment({invoiceId: <?php echo (int)$oinv['id']; ?>, amount: <?php echo (float)$oinv['balance']; ?>, label: 'Invoice #<?php echo addslashes($oinv['invoice_number']); ?>'})"
+                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors whitespace-nowrap">
+                                <i class="fas fa-credit-card mr-2"></i> Pay
+                            </button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="px-6 py-3 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
+                        <i class="fas fa-info-circle mr-1"></i> You can choose how much to pay on each invoice (part or full).
+                    </p>
+                </div>
+                <?php endif; ?>
+
                 <!-- Ledger History Table -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -321,3 +370,5 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<?php include '../includes/paystack_inline.php'; // Paystack checkout (renders only when enabled) ?>

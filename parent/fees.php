@@ -7,11 +7,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 
 require_once '../config/database.php';
 require_once '../includes/schema_helpers.php';
+require_once '../includes/paystack_helper.php';
 $database = new Database();
 $db = $database->getConnection();
 
 // Heal tenant DBs that predate the finance module.
 ensureFinanceTables($db);
+
+// Show online "Pay" buttons when Paystack is the active gateway.
+$paystack_enabled = isPaystackEnabled();
 
 $parent_id = $_SESSION['user_id'];
 $student_id = $_GET['student_id'] ?? null;
@@ -338,6 +342,9 @@ include '../includes/sidebar.php';
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Due Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Date</th>
+                                    <?php if ($paystack_enabled): ?>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Action</th>
+                                    <?php endif; ?>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -389,6 +396,19 @@ include '../includes/sidebar.php';
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         <?php echo $fee['payment_date'] ? date('M j, Y', strtotime($fee['payment_date'])) : '-'; ?>
                                     </td>
+                                    <?php if ($paystack_enabled): ?>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <?php if ($balance > 0): ?>
+                                        <button type="button"
+                                            onclick="openPaystackPayment({invoiceId: <?php echo (int)$fee['id']; ?>, amount: <?php echo (float)$balance; ?>, label: '<?php echo addslashes($fee['fee_type']); ?>'})"
+                                            class="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                                            <i class="fas fa-credit-card mr-1.5"></i> Pay
+                                        </button>
+                                        <?php else: ?>
+                                        <span class="text-green-600 dark:text-green-400 text-xs font-medium">Paid</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <?php endif; ?>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -406,3 +426,5 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<?php include '../includes/paystack_inline.php'; // Paystack checkout (renders only when enabled) ?>

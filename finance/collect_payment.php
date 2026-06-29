@@ -7,6 +7,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 
 require_once '../config/database.php';
 require_once '../includes/settings_helper.php';
+require_once '../includes/paystack_helper.php';
 require_once 'includes/finance_functions.php';
 require_once 'includes/invoice_functions.php';
 require_once 'includes/payment_functions.php';
@@ -16,6 +17,8 @@ $db = $database->getConnection();
 
 $user_role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
+// Show a "Pay with Paystack" option alongside manual recording when active.
+$paystack_enabled = isPaystackEnabled();
 
 $success = '';
 $error = '';
@@ -231,6 +234,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_GET['simulate_success'])) 
                                 <button type="submit" class="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition flex justify-center items-center gap-2">
                                     <i class="fas fa-money-bill-wave"></i> Confirm and Record Payment
                                 </button>
+
+                                <?php if ($paystack_enabled): ?>
+                                <div class="relative my-2">
+                                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200 dark:border-gray-600"></div></div>
+                                    <div class="relative flex justify-center"><span class="bg-white dark:bg-gray-800 px-3 text-xs text-gray-400">or pay online</span></div>
+                                </div>
+                                <button type="button" onclick="collectPayWithPaystack()"
+                                        class="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition flex justify-center items-center gap-2">
+                                    <i class="fas fa-credit-card"></i> Pay with Paystack
+                                </button>
+                                <?php endif; ?>
                             </form>
                         </div>
                     </div>
@@ -358,4 +372,18 @@ if (searchInput) {
             });
     });
 }
+
+// Pay the currently selected invoice/amount via Paystack (staff desk collection).
+function collectPayWithPaystack() {
+    var form = document.getElementById('collectForm');
+    var invField = form ? form.querySelector('[name="invoice_id"]') : null;
+    var invoiceId = invField ? invField.value : '';
+    var amountField = document.getElementById('pay_amount');
+    var amount = amountField ? parseFloat(amountField.value) : 0;
+    if (!invoiceId) { alert('Please select an invoice first.'); return; }
+    if (!amount || amount <= 0) { alert('Please enter a valid payment amount.'); return; }
+    payWithPaystack({ invoiceId: invoiceId, amount: amount, label: 'Fee payment (desk)' });
+}
 </script>
+
+<?php include '../includes/paystack_inline.php'; // Paystack checkout (renders only when enabled) ?>

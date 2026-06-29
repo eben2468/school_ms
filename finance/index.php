@@ -23,6 +23,14 @@ $context = $database->getCurrentAcademicContext();
 $year_id = $context['year_id'];
 $term_id = $context['term_id'];
 
+// Pre-initialise every KPI/chart value so a missing finance table or column on
+// a tenant can never leave a variable undefined or 500 this dashboard.
+$total_revenue = 0.0; $outstanding_fees = 0.0; $students_paid = 0; $students_owing = 0;
+$payments_today = 0.0; $monthly_revenue = 0.0; $active_invoices = 0; $total_invoiced = 0.0; $collection_rate = 0;
+$trend_data = []; $cat_data = []; $method_data = []; $recent_tx = [];
+$trend_labels = '[]'; $trend_values = '[]'; $cat_labels = '[]'; $cat_values = '[]'; $method_labels = '[]'; $method_values = '[]';
+
+try {
 // Fetch KPI 1: Total Revenue (all payments)
 $total_revenue = (float)$db->query("SELECT SUM(amount) FROM finance_payments")->fetchColumn();
 
@@ -93,6 +101,10 @@ $recent_tx = $db->query("SELECT p.*, i.invoice_number, u.name as student_name, s
                          JOIN users u ON i.student_id = u.id
                          JOIN student_profiles sp ON u.id = sp.user_id
                          ORDER BY p.id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    // A missing finance table/column on this tenant — show zeros instead of a 500.
+    error_log('finance/index.php KPI load failed: ' . $e->getMessage());
+}
 ?>
 
 <?php include '../includes/header.php'; ?>

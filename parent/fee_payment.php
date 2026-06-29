@@ -7,12 +7,16 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'parent') {
 
 require_once '../config/database.php';
 require_once '../includes/settings_helper.php';
+require_once '../includes/paystack_helper.php';
 require_once '../finance/includes/finance_functions.php';
 require_once '../finance/includes/payment_functions.php';
 $database = new Database();
 $db = $database->getConnection();
 
 $user_id = $_SESSION['user_id'];
+// When Paystack is the active gateway, parents pay online instead of recording
+// a manual payment themselves.
+$paystack_enabled = isPaystackEnabled();
 
 // Get parent's children
 $children_query = "
@@ -310,10 +314,18 @@ include '../includes/sidebar.php';
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                                         <?php if ($balance > 0): ?>
-                                        <button onclick="openPaymentModal(<?php echo $fee['id']; ?>, <?php echo $balance; ?>, '<?php echo addslashes($fee['fee_type'] ?? 'General Fee'); ?>')" 
-                                                class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
-                                            Pay Now
-                                        </button>
+                                            <?php if ($paystack_enabled): ?>
+                                            <button type="button"
+                                                onclick="openPaystackPayment({invoiceId: <?php echo (int)$fee['id']; ?>, amount: <?php echo (float)$balance; ?>, label: '<?php echo addslashes($fee['fee_type'] ?? 'School Fees'); ?>'})"
+                                                class="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                                                <i class="fas fa-credit-card mr-1.5"></i> Pay with Paystack
+                                            </button>
+                                            <?php else: ?>
+                                            <button type="button" onclick="openPaymentModal(<?php echo $fee['id']; ?>, <?php echo $balance; ?>, '<?php echo addslashes($fee['fee_type'] ?? 'General Fee'); ?>')"
+                                                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
+                                                Pay Now
+                                            </button>
+                                            <?php endif; ?>
                                         <?php else: ?>
                                         <span class="text-green-600 dark:text-green-400">Paid</span>
                                         <?php endif; ?>
@@ -343,6 +355,8 @@ include '../includes/sidebar.php';
         </div>
     </div>
 </div>
+
+<?php include '../includes/paystack_inline.php'; // Paystack checkout (renders only when enabled) ?>
 
 <!-- Payment Modal -->
 <div id="paymentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
