@@ -75,14 +75,14 @@ if (in_array($role, ['super_admin', 'school_admin']) && defined('DB_HOST')) {
                 <!-- User Info -->
                 <div class="flex-1 min-w-0" x-show="!$store.sidebar.collapsed" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
                     <div class="space-y-1">
-                        <p class="font-bold text-white truncate text-lg"><?php echo htmlspecialchars($user_name); ?></p>
+                        <p class="font-bold text-white break-words leading-tight text-lg"><?php echo htmlspecialchars($user_name); ?></p>
                         <div class="flex items-center space-x-2">
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white/20 text-white backdrop-blur-sm">
                                 <i class="fas fa-user-circle mr-1"></i>
                                 <?php echo htmlspecialchars(formatRoleName($role)); ?>
                             </span>
                         </div>
-                        <p class="text-xs text-white/70 truncate"><?php echo htmlspecialchars($user_email); ?></p>
+                        <p class="text-xs text-white/70 break-all"><?php echo htmlspecialchars($user_email); ?></p>
                     </div>
                 </div>
             </div>
