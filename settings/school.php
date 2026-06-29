@@ -62,7 +62,7 @@ $default_settings = [
     'sms_emergency_alerts' => '0',
     'ai_provider' => 'builtin',
     'ai_api_key' => '',
-    'ai_model' => 'gemini-1.5-flash',
+    'ai_model' => 'gemini-2.5-flash',
     'email_notifications' => 'enabled',
     'smtp_host' => '',
     'smtp_port' => '587',
@@ -639,28 +639,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ai_api_key = filter_input(INPUT_POST, 'ai_api_key', FILTER_SANITIZE_STRING);
                 $ai_model = filter_input(INPUT_POST, 'ai_model', FILTER_SANITIZE_STRING);
 
+                // Only allow known providers (defaults to built-in for anything else).
+                require_once '../includes/ai_helper.php';
+                $allowed_providers = array_keys(aiProviderMeta());
+                if (!in_array($ai_provider, $allowed_providers, true)) {
+                    $ai_provider = 'builtin';
+                }
+
+                // Nadics AI assistant behaviour (shares the provider/key/model above).
+                $nadics_enabled = isset($_POST['nadics_enabled']) ? '1' : '0';
+                $nadics_name = trim((string)filter_input(INPUT_POST, 'nadics_name', FILTER_SANITIZE_STRING));
+                $nadics_persona = trim((string)($_POST['nadics_persona'] ?? ''));
+
                 // Self-heal: add Draft AI columns if this is the first time.
                 $check_ai = $db->query("SHOW COLUMNS FROM school_settings LIKE 'ai_provider'");
                 if ($check_ai->rowCount() == 0) {
                     $db->exec("ALTER TABLE school_settings ADD COLUMN ai_provider VARCHAR(50) DEFAULT 'builtin'");
                     $db->exec("ALTER TABLE school_settings ADD COLUMN ai_api_key VARCHAR(255) DEFAULT ''");
-                    $db->exec("ALTER TABLE school_settings ADD COLUMN ai_model VARCHAR(100) DEFAULT 'gemini-1.5-flash'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN ai_model VARCHAR(100) DEFAULT 'gemini-2.5-flash'");
+                }
+                // Self-heal: add Nadics AI columns if missing.
+                $check_nadics = $db->query("SHOW COLUMNS FROM school_settings LIKE 'nadics_enabled'");
+                if ($check_nadics->rowCount() == 0) {
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN nadics_enabled ENUM('0','1') DEFAULT '1'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN nadics_name VARCHAR(100) DEFAULT 'Nadics AI'");
+                    $db->exec("ALTER TABLE school_settings ADD COLUMN nadics_persona TEXT NULL");
                 }
 
                 $update_query = "UPDATE school_settings SET
                     ai_provider = :ai_provider,
                     ai_api_key = :ai_api_key,
                     ai_model = :ai_model,
+                    nadics_enabled = :nadics_enabled,
+                    nadics_name = :nadics_name,
+                    nadics_persona = :nadics_persona,
                     updated_at = CURRENT_TIMESTAMP";
 
                 $stmt = $db->prepare($update_query);
                 $stmt->execute([
                     ':ai_provider' => $ai_provider ?: 'builtin',
                     ':ai_api_key' => $ai_api_key ?? '',
-                    ':ai_model' => $ai_model ?: 'gemini-1.5-flash'
+                    ':ai_model' => $ai_model ?: 'gemini-2.5-flash',
+                    ':nadics_enabled' => $nadics_enabled,
+                    ':nadics_name' => $nadics_name !== '' ? $nadics_name : 'Nadics AI',
+                    ':nadics_persona' => $nadics_persona !== '' ? $nadics_persona : null,
                 ]);
 
-                $success_message = "Draft AI settings updated successfully!";
+                $success_message = "AI assistant settings updated successfully!";
                 $active_tab = 'ai';
                 break;
 
@@ -864,7 +889,7 @@ include '../includes/sidebar.php';
                             </a>
                             <a href="?tab=ai" class="tab-link <?php echo $active_tab === 'ai' ? 'active' : ''; ?> flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 whitespace-nowrap">
                                 <i class="fas fa-wand-magic-sparkles mr-2"></i>
-                                Draft AI
+                                AI &amp; Assistant
                             </a>
                         </nav>
                     </div>

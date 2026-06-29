@@ -423,5 +423,11 @@ foreach ($social_meta as $key => $meta) {
     })();
     </script>
 </footer>
+
+<?php
+// Nadics AI — floating assistant available to every signed-in user. Renders
+// nothing when no user is logged in or when disabled in Settings > AI Assistant.
+require_once __DIR__ . '/nadics_ai_widget.php';
+?>
 </body>
 </html>

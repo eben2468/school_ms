@@ -155,6 +155,45 @@ if (!function_exists('ensureChatTables')) {
     }
 }
 
+if (!function_exists('ensureNadicsAiTable')) {
+    /**
+     * Provision the Nadics AI interaction log table. Cheap fast-path: returns
+     * immediately when it already exists. Logs are kept per-tenant for quality
+     * review. No foreign key (keeps logs even if a user is removed, and avoids
+     * collation/engine mismatches across tenant DBs).
+     */
+    function ensureNadicsAiTable($db) {
+        try {
+            $chk = $db->query("SHOW TABLES LIKE 'nadics_ai_logs'");
+            if ($chk && $chk->rowCount() > 0) {
+                return; // already provisioned
+            }
+        } catch (PDOException $e) {
+            // fall through and attempt creation
+        }
+
+        $sql = "CREATE TABLE IF NOT EXISTS nadics_ai_logs (
+            id INT(11) NOT NULL AUTO_INCREMENT,
+            user_id INT(11) DEFAULT NULL,
+            user_role VARCHAR(50) DEFAULT NULL,
+            user_message TEXT NOT NULL,
+            ai_reply MEDIUMTEXT NULL,
+            source VARCHAR(30) DEFAULT NULL,
+            success TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+
+        try {
+            $db->exec($sql);
+        } catch (PDOException $e) {
+            error_log("ensureNadicsAiTable failed: " . $e->getMessage());
+        }
+    }
+}
+
 if (!function_exists('ensureFinanceTables')) {
     /**
      * Provision the finance module tables in a tenant DB that predates the
