@@ -2,6 +2,18 @@
 // System Control enforcement (maintenance mode, session timeout, scheduled
 // backups). Runs before any output so it can redirect / show 503 cleanly.
 require_once dirname(__DIR__) . '/includes/system_guard.php';
+// Web base path to the app root: '' when the app is served at the domain root
+// (production host), or '/school_ms' when it lives in that subfolder (local).
+// Lets asset URLs resolve in ANY environment without depending on a URL rewrite.
+$__asset_base = '';
+if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+    $__doc = str_replace(DIRECTORY_SEPARATOR, '/', realpath($_SERVER['DOCUMENT_ROOT']));
+    $__app = str_replace(DIRECTORY_SEPARATOR, '/', realpath(dirname(__DIR__)));
+    if ($__doc && $__app && strpos($__app, $__doc) === 0) {
+        $__asset_base = rtrim(substr($__app, strlen($__doc)), '/');
+    }
+}
+
 ?><!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -69,9 +81,9 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="/school_ms/assets/css/app.css" rel="stylesheet">
-    <link href="/school_ms/assets/css/dynamic-theme.php" rel="stylesheet">
-    <link href="/school_ms/assets/css/responsive.css" rel="stylesheet">
+    <link href="<?php echo $__asset_base; ?>/assets/css/app.css" rel="stylesheet">
+    <link href="<?php echo $__asset_base; ?>/assets/css/dynamic-theme.php" rel="stylesheet">
+    <link href="<?php echo $__asset_base; ?>/assets/css/responsive.css" rel="stylesheet">
     <!-- Layout offset fallback: guarantees content clears the fixed sidebar on
          desktop even if the layout JavaScript is slow or blocked (e.g. on some
          hosts). Harmless when the JS runs (it overrides this). -->
@@ -83,11 +95,11 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     </style>
     <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js"></script>
-    <script src="/school_ms/assets/js/image-cropper.js" defer></script>
+    <script src="<?php echo $__asset_base; ?>/assets/js/image-cropper.js" defer></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="/school_ms/assets/js/app.js" defer></script>
-    <script src="/school_ms/assets/js/export-utils.js"></script>
+    <script src="<?php echo $__asset_base; ?>/assets/js/app.js" defer></script>
+    <script src="<?php echo $__asset_base; ?>/assets/js/export-utils.js"></script>
     <style>
         <?php echo getThemeCSSVariables(); ?>
 
@@ -1187,6 +1199,6 @@ require_once dirname(__DIR__) . '/includes/system_guard.php';
     </script>
 
     <!-- Emergency Sidebar Toggle Fix -->
-    <script src="/school_ms/fix_sidebar_toggle.js"></script>
+    <script src="<?php echo $__asset_base; ?>/fix_sidebar_toggle.js"></script>
 
     <main>
