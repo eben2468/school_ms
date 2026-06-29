@@ -27,7 +27,7 @@ if (!function_exists('runDdlSafely')) {
             $db->exec($sql);
             return true;
         } catch (PDOException $e) {
-            $tolerated = [1060, 1061, 1050, 1068, 1091, 1005, 1022];
+            $tolerated = [1060, 1061, 1062, 1050, 1068, 1091, 1005, 1022];
             $code = (int)($e->errorInfo[1] ?? $e->getCode());
             if (in_array($code, $tolerated, true)) {
                 return true; // benign: definition already exists / already absent

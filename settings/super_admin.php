@@ -70,8 +70,8 @@ function executeSqlFile($pdoConn, $filePath) {
             $pdoConn->exec($statement);
         } catch (PDOException $e) {
             // Tolerate benign errors: duplicate column/index, table already exists, etc.
-            // MySQL error codes: 1060 = Duplicate column, 1061 = Duplicate key, 1050 = Table already exists
-            $toleratedCodes = [1060, 1061, 1050, 1068, 1091, 1005, 1022];
+            // MySQL error codes: 1060 = Duplicate column, 1061/1062 = Duplicate key/entry, 1050 = Table exists
+            $toleratedCodes = [1060, 1061, 1062, 1050, 1068, 1091, 1005, 1022];
             if (!in_array((int)$e->getCode(), $toleratedCodes) &&
                 !in_array((int)$e->errorInfo[1], $toleratedCodes)) {
                 throw $e; // Re-throw genuine errors
