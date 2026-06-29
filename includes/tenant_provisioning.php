@@ -41,6 +41,16 @@ if (!function_exists('listBaseTables')) {
     }
 }
 
+if (!function_exists('listViews')) {
+    function listViews(PDO $conn) {
+        $out = [];
+        foreach ($conn->query("SHOW FULL TABLES WHERE Table_type = 'VIEW'")->fetchAll(PDO::FETCH_NUM) as $r) {
+            $out[] = $r[0];
+        }
+        return $out;
+    }
+}
+
 if (!function_exists('replicateCentralSchemaToTenant')) {
     /**
      * Create any central base tables missing from the tenant.
@@ -88,6 +98,24 @@ if (!function_exists('replicateCentralSchemaToTenant')) {
                     error_log("replicateCentralSchemaToTenant: failed creating '{$table}': " . $e->getMessage());
                 }
             }
+            // Replicate VIEWs too (e.g. the `students` view). Views depend on base tables,
+            // so create them after the tables above. CREATE OR REPLACE is idempotent and
+            // DEFINER is stripped so the view works under any database account.
+            foreach (listViews($central) as $view) {
+                if (in_array($view, $exclude, true)) { continue; }
+                try {
+                    $vrow = $central->query("SHOW CREATE VIEW `" . str_replace('`', '', $view) . "`")->fetch(PDO::FETCH_ASSOC);
+                    $vddl = $vrow['Create View'] ?? null;
+                    if (!$vddl) { continue; }
+                    $vddl = preg_replace('/\sDEFINER=`[^`]+`@`[^`]+`/', '', $vddl);
+                    $vddl = preg_replace('/^CREATE /i', 'CREATE OR REPLACE ', $vddl, 1);
+                    if (!isset($tenantTables[$view])) { $created[] = $view . ' (view)'; }
+                    $tenant->exec($vddl);
+                } catch (PDOException $e) {
+                    error_log("replicateCentralSchemaToTenant: failed creating view '{$view}': " . $e->getMessage());
+                }
+            }
+
         } finally {
             $tenant->exec("SET FOREIGN_KEY_CHECKS = 1");
         }
