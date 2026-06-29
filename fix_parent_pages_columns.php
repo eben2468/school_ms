@@ -55,7 +55,7 @@ try {
         
         foreach ($columns_to_add as $column => $type) {
             try {
-                $db->exec("ALTER TABLE student_academic_records ADD COLUMN IF NOT EXISTS $column $type");
+                runDdlSafely($db, "ALTER TABLE student_academic_records ADD COLUMN IF NOT EXISTS $column $type");
                 echo "✓ Added/verified column: $column\n";
             } catch (PDOException $e) {
                 echo "⚠ Warning for column $column: " . $e->getMessage() . "\n";
@@ -73,7 +73,7 @@ try {
     
     foreach ($attendance_columns as $column => $type) {
         try {
-            $db->exec("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS $column $type");
+            runDdlSafely($db, "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS $column $type");
             echo "✓ Added/verified attendance column: $column\n";
         } catch (PDOException $e) {
             echo "⚠ Warning for attendance column $column: " . $e->getMessage() . "\n";
@@ -89,7 +89,7 @@ try {
     
     foreach ($assignment_columns as $column => $type) {
         try {
-            $db->exec("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS $column $type");
+            runDdlSafely($db, "ALTER TABLE assignments ADD COLUMN IF NOT EXISTS $column $type");
             echo "✓ Added/verified assignments column: $column\n";
         } catch (PDOException $e) {
             echo "⚠ Warning for assignments column $column: " . $e->getMessage() . "\n";
@@ -106,7 +106,7 @@ try {
     
     foreach ($student_assignment_columns as $column => $type) {
         try {
-            $db->exec("ALTER TABLE student_assignments ADD COLUMN IF NOT EXISTS $column $type");
+            runDdlSafely($db, "ALTER TABLE student_assignments ADD COLUMN IF NOT EXISTS $column $type");
             echo "✓ Added/verified student_assignments column: $column\n";
         } catch (PDOException $e) {
             echo "⚠ Warning for student_assignments column $column: " . $e->getMessage() . "\n";

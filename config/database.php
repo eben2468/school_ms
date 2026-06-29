@@ -350,5 +350,6 @@ try {
 // System-wide automatic activity capture for admin/logs.php.
 // Registers a shutdown hook that records every state-changing request by a
 // logged-in user into the active (tenant-aware) audit_logs table. Fail-safe.
-require_once __DIR__ . '/../includes/activity_logger.php';
+require_once __DIR__ . '/../includes/schema_helpers.php';
+
 ?>

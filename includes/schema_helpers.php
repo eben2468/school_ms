@@ -9,6 +9,35 @@
  * ADD COLUMN IF NOT EXISTS.
  */
 
+if (!function_exists('runDdlSafely')) {
+    /**
+     * Execute a single DDL statement portably across MySQL and MariaDB.
+     *  - Strips MariaDB-only IF [NOT] EXISTS modifiers on ADD / CREATE INDEX /
+     *    DROP COLUMN|INDEX|KEY (MySQL rejects these with syntax error 1064).
+     *    CREATE TABLE / CREATE DATABASE IF NOT EXISTS are valid on both and kept.
+     *  - Tolerates "already exists / doesn't exist" errors so it stays idempotent
+     *    (safe to run repeatedly).
+     * @return bool true on success or a tolerated no-op, false on a real failure.
+     */
+    function runDdlSafely($db, $sql) {
+        $sql = preg_replace('/\bADD\s+(COLUMN\s+|INDEX\s+|KEY\s+|UNIQUE\s+KEY\s+|UNIQUE\s+INDEX\s+)?IF\s+NOT\s+EXISTS\s+/i', 'ADD ${1}', $sql);
+        $sql = preg_replace('/\bCREATE\s+(UNIQUE\s+|FULLTEXT\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+/i', 'CREATE ${1}INDEX ', $sql);
+        $sql = preg_replace('/\bDROP\s+(COLUMN\s+|INDEX\s+|KEY\s+)?IF\s+EXISTS\s+/i', 'DROP ${1}', $sql);
+        try {
+            $db->exec($sql);
+            return true;
+        } catch (PDOException $e) {
+            $tolerated = [1060, 1061, 1050, 1068, 1091, 1005, 1022];
+            $code = (int)($e->errorInfo[1] ?? $e->getCode());
+            if (in_array($code, $tolerated, true)) {
+                return true; // benign: definition already exists / already absent
+            }
+            error_log('runDdlSafely failed: ' . $e->getMessage() . ' | SQL: ' . $sql);
+            return false;
+        }
+    }
+}
+
 if (!function_exists('ensureColumns')) {
     /**
      * Add any missing columns to a table. $columns maps name => SQL definition.

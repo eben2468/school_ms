@@ -37,8 +37,8 @@ try {
         // Check if exams table exists
         $result = $db->query("SHOW TABLES LIKE 'exams'");
         if ($result->rowCount() > 0) {
-            $db->exec("ALTER TABLE exams ADD COLUMN IF NOT EXISTS academic_year_id INT");
-            $db->exec("ALTER TABLE exams ADD COLUMN IF NOT EXISTS academic_term_id INT");
+            runDdlSafely($db, "ALTER TABLE exams ADD COLUMN IF NOT EXISTS academic_year_id INT");
+            runDdlSafely($db, "ALTER TABLE exams ADD COLUMN IF NOT EXISTS academic_term_id INT");
             echo "✓ Exams table structure updated\n";
         } else {
             echo "⚠ Exams table not found, skipping\n";
@@ -52,8 +52,8 @@ try {
     try {
         $result = $db->query("SHOW TABLES LIKE 'attendance'");
         if ($result->rowCount() > 0) {
-            $db->exec("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS academic_year_id INT");
-            $db->exec("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS academic_term_id INT");
+            runDdlSafely($db, "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS academic_year_id INT");
+            runDdlSafely($db, "ALTER TABLE attendance ADD COLUMN IF NOT EXISTS academic_term_id INT");
             echo "✓ Attendance table structure updated\n";
         } else {
             echo "⚠ Attendance table not found, skipping\n";
@@ -67,8 +67,8 @@ try {
     try {
         $result = $db->query("SHOW TABLES LIKE 'assignments'");
         if ($result->rowCount() > 0) {
-            $db->exec("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS academic_year_id INT");
-            $db->exec("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS academic_term_id INT");
+            runDdlSafely($db, "ALTER TABLE assignments ADD COLUMN IF NOT EXISTS academic_year_id INT");
+            runDdlSafely($db, "ALTER TABLE assignments ADD COLUMN IF NOT EXISTS academic_term_id INT");
             echo "✓ Assignments table structure updated\n";
         } else {
             echo "⚠ Assignments table not found, skipping\n";
@@ -82,8 +82,8 @@ try {
     try {
         $result = $db->query("SHOW TABLES LIKE 'grades'");
         if ($result->rowCount() > 0) {
-            $db->exec("ALTER TABLE grades ADD COLUMN IF NOT EXISTS academic_year_id INT");
-            $db->exec("ALTER TABLE grades ADD COLUMN IF NOT EXISTS academic_term_id INT");
+            runDdlSafely($db, "ALTER TABLE grades ADD COLUMN IF NOT EXISTS academic_year_id INT");
+            runDdlSafely($db, "ALTER TABLE grades ADD COLUMN IF NOT EXISTS academic_term_id INT");
             echo "✓ Grades table structure updated\n";
         } else {
             echo "⚠ Grades table not found, skipping\n";
@@ -97,7 +97,7 @@ try {
     try {
         $result = $db->query("SHOW TABLES LIKE 'classes'");
         if ($result->rowCount() > 0) {
-            $db->exec("ALTER TABLE classes ADD COLUMN IF NOT EXISTS academic_year_id INT");
+            runDdlSafely($db, "ALTER TABLE classes ADD COLUMN IF NOT EXISTS academic_year_id INT");
             echo "✓ Classes table structure updated\n";
         } else {
             echo "⚠ Classes table not found, skipping\n";

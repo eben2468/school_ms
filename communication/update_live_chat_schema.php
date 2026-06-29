@@ -46,7 +46,7 @@ try {
     
     foreach ($alterQueries as $query) {
         try {
-            $db->exec($query);
+            runDdlSafely($db, $query);
             echo "<p style='color: green;'>✓ " . htmlspecialchars($query) . "</p>";
         } catch (PDOException $e) {
             // Check if it's just a "column already exists" or "index already exists" error

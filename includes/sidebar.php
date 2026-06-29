@@ -1643,14 +1643,6 @@ function updateScrollProgress() {
     const scrollHeight = sidebarNav.scrollHeight - sidebarNav.clientHeight;
     const scrollPercentage = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
 
-    // Debug logging
-    console.log('Scroll Debug:', {
-        scrollTop,
-        scrollHeight: sidebarNav.scrollHeight,
-        clientHeight: sidebarNav.clientHeight,
-        maxScroll: scrollHeight,
-        percentage: scrollPercentage
-    });
 
     // Update progress bar
     scrollProgressBar.style.height = scrollPercentage + '%';
@@ -1771,7 +1763,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebarNav = document.getElementById('sidebar-nav');
     if (sidebarNav) {
         // Add scroll event listener
-        sidebarNav.addEventListener('scroll', updateScrollProgress);
+        // Passive + rAF-throttled so iOS Safari scrolls smoothly: a non-passive scroll
+        // handler blocks native momentum scrolling, and throttling avoids layout thrash.
+        let __sidebarScrollTick = false;
+        sidebarNav.addEventListener('scroll', function() {
+            if (__sidebarScrollTick) return;
+            __sidebarScrollTick = true;
+            requestAnimationFrame(function() { __sidebarScrollTick = false; updateScrollProgress(); });
+        }, { passive: true });
 
         // Force initial layout calculation
         setTimeout(() => {
@@ -1846,24 +1845,10 @@ document.addEventListener('DOMContentLoaded', function() {
             updateScrollProgress();
         }, { passive: true });
 
-        // Add touch scrolling support for mobile
-        let touchStartY = 0;
-        sidebarNav.addEventListener('touchstart', function(e) {
-            touchStartY = e.touches[0].clientY;
-        }, { passive: true });
-
-        sidebarNav.addEventListener('touchmove', function(e) {
-            const touchY = e.touches[0].clientY;
-            const deltaY = touchStartY - touchY;
-
-            sidebarNav.scrollBy({
-                top: deltaY * 0.5,
-                behavior: 'auto'
-            });
-
-            touchStartY = touchY;
-            updateScrollProgress();
-        }, { passive: true });
+        // Touch scrolling is handled NATIVELY by the browser (overflow-y: auto +
+        // -webkit-overflow-scrolling: touch). A previous custom touchmove handler called
+        // scrollBy(deltaY * 0.5) on top of the native momentum scroll, which fought it and
+        // made iOS scrolling slow or unresponsive. Removed — native scrolling is smooth.
     }
 });
 </script>

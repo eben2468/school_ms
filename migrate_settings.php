@@ -117,7 +117,7 @@ try {
         if (empty($statement)) continue;
         
         try {
-            $db->exec($statement);
+            runDdlSafely($db, $statement);
             $success_count++;
             
             // Extract column name for display

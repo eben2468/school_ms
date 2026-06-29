@@ -58,6 +58,14 @@ function executeSqlFile($pdoConn, $filePath) {
             continue;
         }
 
+        // MySQL rejects MariaDB-only IF [NOT] EXISTS on column/index DDL (syntax error
+        // 1064). Strip it so the statement parses on MySQL; duplicate columns/indexes are
+        // then absorbed by the tolerated-error handling below. CREATE TABLE/DATABASE
+        // IF NOT EXISTS (valid on both engines) are intentionally left untouched.
+        $statement = preg_replace('/\bADD\s+(COLUMN\s+|INDEX\s+|KEY\s+|UNIQUE\s+KEY\s+|UNIQUE\s+INDEX\s+)?IF\s+NOT\s+EXISTS\s+/i', 'ADD ${1}', $statement);
+        $statement = preg_replace('/\bCREATE\s+(UNIQUE\s+|FULLTEXT\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+/i', 'CREATE ${1}INDEX ', $statement);
+        $statement = preg_replace('/\bDROP\s+(COLUMN\s+|INDEX\s+|KEY\s+)?IF\s+EXISTS\s+/i', 'DROP ${1}', $statement);
+
         try {
             $pdoConn->exec($statement);
         } catch (PDOException $e) {

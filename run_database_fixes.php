@@ -217,7 +217,7 @@ try {
 
     foreach ($sql_commands as $index => $sql) {
         try {
-            $db->exec($sql);
+            runDdlSafely($db, $sql);
             $success_count++;
             echo "✓ Command " . ($index + 1) . " executed successfully\n";
         } catch (PDOException $e) {

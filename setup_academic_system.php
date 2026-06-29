@@ -126,7 +126,7 @@ try {
 
     foreach ($tables as $index => $sql) {
         try {
-            $db->exec($sql);
+            runDdlSafely($db, $sql);
             echo "✓ Created table " . ($index + 1) . "\n";
         } catch (PDOException $e) {
             echo "⚠ Warning creating table " . ($index + 1) . ": " . $e->getMessage() . "\n";
@@ -157,7 +157,7 @@ try {
 
     foreach ($indexes as $index => $sql) {
         try {
-            $db->exec($sql);
+            runDdlSafely($db, $sql);
             echo "✓ Created index " . ($index + 1) . "\n";
         } catch (PDOException $e) {
             echo "⚠ Warning creating index " . ($index + 1) . ": " . $e->getMessage() . "\n";

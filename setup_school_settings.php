@@ -24,7 +24,7 @@ try {
             echo "Executing: " . substr($statement, 0, 50) . "...\n";
             
             if (isset($pdo)) {
-                $pdo->exec($statement);
+                runDdlSafely($pdo, $statement);
             } elseif (isset($conn)) {
                 $conn->query($statement);
             } else {

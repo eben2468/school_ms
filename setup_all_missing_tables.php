@@ -361,9 +361,9 @@ try {
         
         // Add indexes if they don't exist
         try {
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_user_dismissed ON notifications(user_id, is_dismissed)");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_expires_at ON notifications(expires_at)");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_priority ON notifications(priority)");
+            runDdlSafely($db, "CREATE INDEX IF NOT EXISTS idx_user_dismissed ON notifications(user_id, is_dismissed)");
+            runDdlSafely($db, "CREATE INDEX IF NOT EXISTS idx_expires_at ON notifications(expires_at)");
+            runDdlSafely($db, "CREATE INDEX IF NOT EXISTS idx_priority ON notifications(priority)");
         } catch (PDOException $e) {
             // Indexes might already exist
         }
