@@ -648,8 +648,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Nadics AI assistant behaviour (shares the provider/key/model above).
                 $nadics_enabled = isset($_POST['nadics_enabled']) ? '1' : '0';
-                $nadics_name = trim((string)filter_input(INPUT_POST, 'nadics_name', FILTER_SANITIZE_STRING));
                 $nadics_persona = trim((string)($_POST['nadics_persona'] ?? ''));
+                // Only super admins may rename the assistant; for everyone else keep
+                // the existing name so a posted/empty value can never overwrite it.
+                if ($is_super) {
+                    $nadics_name = trim((string)filter_input(INPUT_POST, 'nadics_name', FILTER_SANITIZE_STRING));
+                } else {
+                    $nadics_name = trim((string)($settings['nadics_name'] ?? 'Nadics AI'));
+                }
 
                 // Self-heal: add Draft AI columns if this is the first time.
                 $check_ai = $db->query("SHOW COLUMNS FROM school_settings LIKE 'ai_provider'");

@@ -210,11 +210,26 @@ include '../includes/sidebar.php';
                     <div class="p-6">
                         <div class="flex justify-between items-start mb-4">
                             <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden border border-gray-200">
-                                    <?php if (!empty($student['profile_picture'])): ?>
-                                        <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo htmlspecialchars($student['profile_picture']); ?>" alt="Profile" class="w-full h-full object-cover">
-                                    <?php else: ?>
-                                        <i class="fas fa-user text-blue-600 text-lg"></i>
+                                <?php
+                                // Show the real photo only when the file actually exists on disk
+                                // (most imported students have none). Otherwise show a clean
+                                // initials avatar so nothing ever renders as a broken image.
+                                $pp = trim((string)($student['profile_picture'] ?? ''));
+                                $pp_exists = $pp !== ''
+                                    && preg_match('/\.(jpg|jpeg|png|gif)$/i', $pp)
+                                    && is_file(__DIR__ . '/../uploads/profile_pictures/' . $pp);
+                                $initial = strtoupper(mb_substr(trim((string)($student['name'] ?? '')) ?: '?', 0, 1));
+                                ?>
+                                <div class="w-12 h-12 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-200 bg-blue-100 text-blue-700 font-bold text-lg flex items-center justify-center">
+                                    <!-- Initial always rendered (centred); the photo, when present,
+                                         is positioned absolutely so it fully covers the circle on
+                                         every browser (a flex child <img> shrinks on mobile). -->
+                                    <?php echo htmlspecialchars($initial); ?>
+                                    <?php if ($pp_exists): ?>
+                                        <img src="/school_ms/serve_image.php?path=profile_pictures/<?php echo urlencode($pp); ?>"
+                                             alt="<?php echo htmlspecialchars($student['name'] ?? 'Student'); ?>"
+                                             class="absolute inset-0 w-full h-full object-cover"
+                                             onerror="this.remove();">
                                     <?php endif; ?>
                                 </div>
                                 <div>

@@ -14,11 +14,20 @@
         <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">School Logo</h3>
             <div class="flex items-center space-x-6">
-                <?php if (!empty($settings['school_logo']) && file_exists('../uploads/logos/' . $settings['school_logo'])): ?>
+                <?php
+                // Resolve the logo with the same base-path-aware helper the header
+                // uses (a bare "../uploads/logos/…" relative URL breaks depending on
+                // where the app is served). file_exists is checked from __DIR__ so it
+                // is independent of the current working directory.
+                $has_custom_logo = !empty($settings['school_logo'])
+                    && file_exists(__DIR__ . '/../../uploads/logos/' . $settings['school_logo']);
+                $logo_url = function_exists('getSchoolLogo') ? getSchoolLogo() : '';
+                ?>
+                <?php if ($has_custom_logo && $logo_url): ?>
                     <div class="flex flex-col items-center">
                         <span class="text-xs text-gray-500 dark:text-gray-400 mb-2">Current Logo</span>
-                        <img src="../uploads/logos/<?php echo htmlspecialchars($settings['school_logo']); ?>" 
-                             alt="School Logo" 
+                        <img src="<?php echo htmlspecialchars($logo_url); ?>"
+                             alt="School Logo"
                              class="w-32 h-32 object-contain rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white p-2">
                     </div>
                 <?php else: ?>

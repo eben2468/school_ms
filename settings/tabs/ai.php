@@ -150,14 +150,18 @@ $__currentProvider = $settings['ai_provider'] ?? 'builtin';
                     </label>
                 </div>
 
-                <!-- Assistant name -->
+                <!-- Assistant name (only super admins may change it) -->
+                <?php $can_edit_name = !empty($is_super); ?>
                 <div>
                     <label for="nadics_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assistant Name</label>
                     <input type="text" id="nadics_name" name="nadics_name"
                         value="<?php echo htmlspecialchars($settings['nadics_name'] ?? 'Nadics AI'); ?>"
                         placeholder="Nadics AI"
-                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shown in the chat header and greeting.</p>
+                        <?php echo $can_edit_name ? '' : 'disabled'; ?>
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white <?php echo $can_edit_name ? '' : 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-900'; ?>">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Shown in the chat header and greeting.<?php echo $can_edit_name ? '' : ' Only a super admin can change the assistant name.'; ?>
+                    </p>
                 </div>
 
                 <!-- Persona / extra instructions -->

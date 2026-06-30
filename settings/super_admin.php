@@ -1411,7 +1411,7 @@ include '../includes/sidebar.php';
                                     <span class="text-3xl font-extrabold text-gray-900 dark:text-white">
                                         <?php if ($p['price_monthly'] == 0): ?>Free<?php else: ?>₵<?php echo number_format($p['price_monthly'], 0); ?><?php endif; ?>
                                     </span>
-                                    <span class="text-sm text-gray-500 font-semibold">/ month</span>
+                                    <span class="text-sm text-gray-500 font-semibold">/ term</span>
                                     <p class="text-xs text-gray-400 mt-1"><?php echo $p['trial_days']; ?>-day trial period</p>
                                 </div>
 
@@ -1808,7 +1808,7 @@ include '../includes/sidebar.php';
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">Monthly Price (₵)</label>
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">Price per Term/Semester (₵)</label>
                         <input type="number" name="price_monthly" :value="activePlan.price_monthly" required
                                class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white">
                     </div>
