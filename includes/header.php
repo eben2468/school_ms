@@ -27,6 +27,10 @@ if (!empty($_SERVER['DOCUMENT_ROOT'])) {
     require_once dirname(__DIR__) . '/includes/csrf.php';
     ?>
     <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES); ?>">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="<?php echo $__asset_base; ?>/assets/images/nadics-logo.png">
+    <link rel="shortcut icon" type="image/png" href="<?php echo $__asset_base; ?>/assets/images/nadics-logo.png">
+    <link rel="apple-touch-icon" href="<?php echo $__asset_base; ?>/assets/images/nadics-logo.png">
     <?php
     // Include settings helper
     require_once dirname(__DIR__) . '/includes/settings_helper.php';

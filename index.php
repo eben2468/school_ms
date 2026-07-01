@@ -22,6 +22,10 @@ $theme_gradient = getThemeGradient();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?php echo htmlspecialchars($school_name); ?></title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="assets/images/nadics-logo.png">
+    <link rel="shortcut icon" type="image/png" href="assets/images/nadics-logo.png">
+    <link rel="apple-touch-icon" href="assets/images/nadics-logo.png">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="assets/css/dynamic-theme.php" rel="stylesheet">
